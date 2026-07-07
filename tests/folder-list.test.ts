@@ -22,32 +22,47 @@ function keys(f: ListFolder[], i: { id: number; folderId: number | null }[]): st
   return buildDisplayRows(f, i).map(rowKey)
 }
 
-describe('폴더 리스트 이동 로직', () => {
-  it('정규 순서: 미분류 → 폴더1(아이템) → 폴더2(아이템)', () => {
-    expect(keys(folders, items)).toEqual(['i-10', 'f-1', 'i-11', 'i-12', 'f-2', 'i-13'])
+describe('폴더 리스트 이동 로직 (폴더 섹션 상단 + 미분류 구분선)', () => {
+  it('정규 순서: 폴더1(아이템) → 폴더2(아이템) → 구분선 → 미분류', () => {
+    expect(keys(folders, items)).toEqual([
+      'f-1', 'i-11', 'i-12', 'f-2', 'i-13', 'divider', 'i-10'
+    ])
+  })
+
+  it('폴더가 없으면 구분선도 없다', () => {
+    expect(keys([], [{ id: 10, folderId: null }])).toEqual(['i-10'])
   })
 
   it('아이템을 다른 폴더로 이동하면 소속이 바뀐다', () => {
     const r = moveRow(folders, items, 'i-11', 'i-13')
     expect(r.items.find((i) => i.id === 11)?.folderId).toBe(2)
     expect(keys(r.folders, canonicalize(r.folders, r.items))).toEqual([
-      'i-10', 'f-1', 'i-12', 'f-2', 'i-13', 'i-11'
+      'f-1', 'i-12', 'f-2', 'i-13', 'i-11', 'divider', 'i-10'
     ])
   })
 
-  it('아이템을 첫 폴더 위로 올리면 미분류가 된다', () => {
-    const r = moveRow(folders, items, 'i-12', 'i-10')
+  it('아이템을 구분선 위치로 내리면 미분류가 된다', () => {
+    const r = moveRow(folders, items, 'i-12', 'divider')
+    expect(r.items.find((i) => i.id === 12)?.folderId).toBeNull()
+  })
+
+  it('아이템을 첫 폴더 위(맨 위)로 올리면 미분류가 된다', () => {
+    const r = moveRow(folders, items, 'i-12', 'f-1')
     expect(r.items.find((i) => i.id === 12)?.folderId).toBeNull()
   })
 
   it('폴더 이동 시 소속 아이템이 블록째 따라간다', () => {
     const r = moveRow(folders, items, 'f-1', 'f-2')
-    expect(keys(r.folders, r.items)).toEqual(['i-10', 'f-2', 'i-13', 'f-1', 'i-11', 'i-12'])
+    expect(keys(r.folders, r.items)).toEqual([
+      'f-2', 'i-13', 'f-1', 'i-11', 'i-12', 'divider', 'i-10'
+    ])
   })
 
-  it('폴더를 미분류 아이템 위로 올리면 폴더 순서만 바뀐다 (미분류는 항상 최상단)', () => {
-    const r = moveRow(folders, items, 'f-2', 'i-10')
+  it('폴더를 미분류 아이템 위로 끌면 폴더 섹션 끝으로 스냅된다 (미분류 아래로 못 감)', () => {
+    const r = moveRow(folders, items, 'f-1', 'i-10')
     expect(r.folders.map((f) => f.id)).toEqual([2, 1])
-    expect(keys(r.folders, r.items)).toEqual(['i-10', 'f-2', 'i-13', 'f-1', 'i-11', 'i-12'])
+    expect(keys(r.folders, r.items)).toEqual([
+      'f-2', 'i-13', 'f-1', 'i-11', 'i-12', 'divider', 'i-10'
+    ])
   })
 })

@@ -19,7 +19,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useState, type CSSProperties } from 'react'
 import { FOLDER_COLORS, type ListFolder } from '@shared/types'
 import { cn } from '../lib/utils'
-import { rowKey, type DisplayRow, type FolderListItem } from '../lib/folder-list'
+import { DIVIDER_KEY, rowKey, type DisplayRow, type FolderListItem } from '../lib/folder-list'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
@@ -200,6 +200,25 @@ function FolderRow({
   )
 }
 
+/** 폴더 섹션 / 미분류 섹션 경계 — 드래그 불가, 드롭 대상(여기로 놓으면 미분류) */
+function DividerRow(): React.JSX.Element {
+  const sortable = useSortable({
+    id: DIVIDER_KEY,
+    disabled: { draggable: true, droppable: false }
+  })
+  return (
+    <div
+      ref={sortable.setNodeRef}
+      style={dndStyle(sortable, false)}
+      className="flex items-center gap-2 py-0.5"
+    >
+      <div className="h-px flex-1 bg-line" />
+      <span className="text-[10.5px] text-faint">미분류</span>
+      <div className="h-px flex-1 bg-line" />
+    </div>
+  )
+}
+
 function ItemRow({
   id,
   disabled,
@@ -263,7 +282,7 @@ export function FolderListView<T extends FolderListItem>({
   const [draggingFolderId, setDraggingFolderId] = useState<number | null>(null)
 
   const visible = rows.filter((r) => {
-    if (r.type === 'folder') return true
+    if (r.type === 'folder' || r.type === 'divider') return true
     if (r.hidden) return false
     return draggingFolderId === null || r.item.folderId !== draggingFolderId
   })
@@ -310,7 +329,12 @@ export function FolderListView<T extends FolderListItem>({
         >
           <AnimatePresence initial={false}>
           {visible.map((row) =>
-            row.type === 'folder' ? (
+            row.type === 'divider' ? (
+              // 폴더/미분류 경계 — 여기 아래로 드롭하면 폴더에서 빠짐
+              <div key={DIVIDER_KEY} style={grid ? { gridColumn: '1 / -1' } : undefined}>
+                <DividerRow />
+              </div>
+            ) : row.type === 'folder' ? (
               // 그리드에서 폴더 행은 전체 폭 차지
               <div key={rowKey(row)} style={grid ? { gridColumn: '1 / -1' } : undefined}>
                 <FolderRow

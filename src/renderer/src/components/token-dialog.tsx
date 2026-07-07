@@ -612,7 +612,7 @@ export function SettingsDialog({
                 {NAV.find((n) => n.id === section)?.label}
               </h2>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 [scrollbar-gutter:stable_both-edges]">
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 no-scrollbar">
               <TabsContent value="appearance" className="m-0">
                 <AppearanceSection />
               </TabsContent>

@@ -65,6 +65,7 @@ import {
   sceneImages,
   setImageFavorite,
   deleteImage,
+  clearAllImages,
   exportScenesJson,
   importScenesJson,
   exportZip
@@ -261,6 +262,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   handle('images:delete', ({ id }) => {
     deleteImage(id)
   })
+  handle('images:clearAll', () => ({ count: clearAllImages() }))
   handle('scenes:exportJson', async ({ presetId }) => ({ saved: await exportScenesJson(presetId) }))
   handle('scenes:importJson', async ({ presetId }) => ({ count: await importScenesJson(presetId) }))
   handle('scenes:exportZip', async ({ mode }) => ({ count: await exportZip(mode) }))

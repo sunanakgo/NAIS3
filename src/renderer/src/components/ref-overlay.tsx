@@ -162,7 +162,7 @@ export function RefOverlay({ kind }: { kind: 'vibe' | 'charref' }): React.JSX.El
         </Button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable_both-edges]">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
         <FolderListView
           rows={rows}
           searching={searching}

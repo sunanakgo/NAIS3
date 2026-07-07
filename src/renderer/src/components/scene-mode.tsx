@@ -299,7 +299,7 @@ function SceneGrid(): React.JSX.Element {
       </AnimatePresence>
 
       {/* 카드 그리드 (열 수만큼 폭에 꽉 차게). scrollbar-gutter로 스크롤바 등장 시 밀림 방지 */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-gutter:stable_both-edges]">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 no-scrollbar">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}

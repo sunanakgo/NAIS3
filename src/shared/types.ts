@@ -408,6 +408,8 @@ export interface IpcInvokeMap {
   }
   'images:setFavorite': { req: { id: number; favorite: boolean }; res: void }
   'images:delete': { req: { id: number }; res: void }
+  /** 히스토리 전체 비우기 (레코드+파일, 씬 이미지 포함) */
+  'images:clearAll': { req: void; res: { count: number } }
   /** 씬 JSON 내보내기/불러오기 (파일 다이얼로그, 활성 프리셋 기준) */
   'scenes:exportJson': { req: { presetId: number }; res: { saved: boolean } }
   'scenes:importJson': { req: { presetId: number }; res: { count: number } }

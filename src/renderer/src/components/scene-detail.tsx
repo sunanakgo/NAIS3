@@ -92,7 +92,7 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
       )}
 
       {/* 스크롤 영역: 프롬프트 + 생성 이미지. scrollbar-gutter로 스크롤바 등장/소멸 시 밀림 방지 */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-gutter:stable_both-edges]">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 no-scrollbar">
         <div className="grid gap-2">
           <PromptEditor
             value={scene.prompt}
@@ -136,7 +136,11 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
         ) : (
           <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
             {images.map((img, i) => (
-              <ImageContextMenu key={img.id} filePath={img.filePath}>
+              <ImageContextMenu
+                key={img.id}
+                filePath={img.filePath}
+                onDelete={() => void deleteImage(img.id)}
+              >
               <div
                 className="group relative overflow-hidden rounded-md bg-surface-2"
                 style={{ aspectRatio: `${scene.width} / ${scene.height}` }}

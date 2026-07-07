@@ -1,4 +1,4 @@
-import { Download, FileText, FolderOpen, ImageIcon, Layers, Wand2 } from 'lucide-react'
+import { Download, FileText, FolderOpen, ImageIcon, Layers, Trash2, Wand2 } from 'lucide-react'
 import { openInDirector } from '../stores/director-store'
 import { setI2iSource, useGenerationStore } from '../stores/generation-store'
 import { useMetadataStore } from '../stores/metadata-store'
@@ -16,9 +16,12 @@ import {
  */
 export function ImageContextMenu({
   filePath,
+  onDelete,
   children
 }: {
   filePath: string
+  /** 지정 시 메뉴에 '삭제' 표시 — 호스트가 삭제+목록 갱신을 처리 */
+  onDelete?: () => void
   children: React.ReactNode
 }): React.JSX.Element {
   const startInpaint = useGenerationStore((s) => s.startInpaintFromPath)
@@ -48,6 +51,14 @@ export function ImageContextMenu({
         >
           <FolderOpen size={13} className="text-amber-400" /> 파일 탐색기에서 보기
         </ContextMenuItem>
+        {onDelete && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem danger onSelect={onDelete}>
+              <Trash2 size={13} /> 삭제
+            </ContextMenuItem>
+          </>
+        )}
       </ContextMenuContent>
     </ContextMenu>
   )

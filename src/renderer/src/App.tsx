@@ -20,6 +20,7 @@ import { bindGenerationEvents, useGenerationStore } from './stores/generation-st
 import { bindSceneEvents } from './stores/scenes-store'
 import { bindShortcuts, useShortcutsStore } from './stores/shortcuts-store'
 import { bindUpdateEvents } from './stores/update-store'
+import { bindNavMouse } from './lib/nav-history'
 import { useLayoutStore } from './stores/layout-store'
 import { useThemeStore } from './stores/theme-store'
 
@@ -51,11 +52,13 @@ export default function App(): React.JSX.Element {
     const unbindScene = bindSceneEvents()
     const unbindKeys = bindShortcuts()
     const unbindUpdate = bindUpdateEvents()
+    const unbindNav = bindNavMouse() // 마우스 4/5번 버튼 뒤로/앞으로
     return () => {
       unbindGen()
       unbindScene()
       unbindKeys()
       unbindUpdate()
+      unbindNav()
     }
   }, [])
 

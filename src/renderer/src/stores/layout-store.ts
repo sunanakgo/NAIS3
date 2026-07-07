@@ -1,6 +1,7 @@
 import { create } from 'zustand'
+import { recordNav } from '../lib/nav-history'
 
-type CenterMode = 'main' | 'scene' | 'director'
+export type CenterMode = 'main' | 'scene' | 'director'
 
 interface LayoutState {
   leftOpen: boolean
@@ -23,7 +24,10 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   rightOpen: true,
   settingsOpen: false,
   centerMode: 'main',
-  setCenterMode: (centerMode) => set({ centerMode }),
+  setCenterMode: (centerMode) => {
+    if (centerMode !== get().centerMode) recordNav() // 마우스 뒤로/앞으로용 히스토리
+    set({ centerMode })
+  },
   toggleLeft: () => {
     const leftOpen = !get().leftOpen
     set({ leftOpen })

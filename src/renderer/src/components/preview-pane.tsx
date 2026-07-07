@@ -17,11 +17,15 @@ export function PreviewPane(): React.JSX.Element {
   const generating = queue?.items.some((i) => i.state === 'generating') ?? false
   const preparing = generating && !progress // 스텝 진행 전 = 준비 중(인코딩 등)
 
-  const src = viewingFilePath
-    ? imageUrl(viewingFilePath)
-    : previewPng
+  // 생성 중엔 스트리밍 프레임 우선 — 배치 2장째부터 직전 완성작(viewingFilePath)에 가려지던 문제
+  const src =
+    generating && previewPng
       ? `data:image/png;base64,${previewPng}`
-      : null
+      : viewingFilePath
+        ? imageUrl(viewingFilePath)
+        : previewPng
+          ? `data:image/png;base64,${previewPng}`
+          : null
 
   const showMeta = useMetadataStore((s) => s.show)
   const seedLocked = useGenerationStore((s) => s.seedLocked)

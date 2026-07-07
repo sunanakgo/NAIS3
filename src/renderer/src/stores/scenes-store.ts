@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { recordNav } from '../lib/nav-history'
 import type { GenerationRequest, Scene, SceneImage, ScenePreset } from '@shared/types'
 import { enabledCharacters } from './characters-store'
 import { randomSeed, useGenerationStore } from './generation-store'
@@ -157,6 +158,7 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
     set({ scenes: items })
   },
   select: (selectedId) => {
+    if (selectedId !== get().selectedId) recordNav() // 마우스 뒤로/앞으로용 히스토리
     set({ selectedId, images: [], imagesTotal: 0 })
     if (selectedId != null) void get().loadImages(selectedId, true)
   },

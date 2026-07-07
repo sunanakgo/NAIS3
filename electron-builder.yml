@@ -25,6 +25,9 @@ nsis:
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+  # 원클릭 대신 어시스트 설치 — 설치 경로 선택 가능
+  oneClick: false
+  allowToChangeInstallationDirectory: true
   # 차등 업데이트: .blockmap 파일 1개 추가되는 대신 업데이트 시 변경 블록만 다운로드 (훨씬 빠름)
 mac:
   # macOS 표준 여백(박스 ~80%) 버전

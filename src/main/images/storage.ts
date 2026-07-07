@@ -62,12 +62,14 @@ export async function saveGeneratedImage(input: {
   format?: 'png' | 'webp'
   /** 저장 루트 (자동 저장 OFF면 libraryRoot). 기본 imagesRoot */
   baseDir?: string
+  /** 씬 생성이면 씬 이름 — 저장폴더/씬/<이름>/ 아래에 저장 (월별 폴더 대신) */
+  sceneName?: string
 }): Promise<SavedImage> {
   const now = new Date()
-  const monthDir = join(
-    input.baseDir ?? imagesRoot(),
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  )
+  const root = input.baseDir ?? imagesRoot()
+  const monthDir = input.sceneName
+    ? join(root, '씬', input.sceneName.replace(/[/\\:*?"<>|]/g, '_').trim() || `씬-${input.sceneId}`)
+    : join(root, `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
   mkdirSync(monthDir, { recursive: true })
 
   const stamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19)

@@ -20,7 +20,7 @@ import { useState, type CSSProperties } from 'react'
 import { FOLDER_COLORS, type ListFolder } from '@shared/types'
 import { cn } from '../lib/utils'
 import { DIVIDER_KEY, rowKey, type DisplayRow, type FolderListItem } from '../lib/folder-list'
-import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from './ui/context-menu'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from './ui/context-menu'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
@@ -99,6 +99,8 @@ function FolderRow({
     : undefined
 
   return (
+    <ContextMenu>
+    <ContextMenuTrigger asChild>
     <div
       ref={sortable.setNodeRef}
       style={{ ...dndStyle(sortable, false), ...tintStyle }}
@@ -129,10 +131,10 @@ function FolderRow({
           }}
         />
       ) : (
+        // 이름 클릭 = 접기/펼치기 (이름 변경은 연필 버튼/우클릭으로만)
         <button
           className="min-w-0 flex-1 truncate text-left text-[13px] font-medium text-ink"
-          onClick={() => setEditing(true)}
-          title="눌러서 이름 수정"
+          onClick={() => actions.toggleCollapse(folder.id)}
         >
           {folder.name}
           <span className="ml-1.5 font-mono text-[10.5px] font-normal text-faint">{count}</span>
@@ -198,6 +200,25 @@ function FolderRow({
         </Button>
       </div>
     </div>
+    </ContextMenuTrigger>
+    <ContextMenuContent>
+      <ContextMenuItem onSelect={() => actions.addItem(folder.id)}>
+        <Plus size={13} /> 이 폴더에 추가
+      </ContextMenuItem>
+      <ContextMenuItem
+        onSelect={() => {
+          // 우클릭 메뉴가 닫힌 뒤 인라인 편집 시작
+          setTimeout(() => setEditing(true), 0)
+        }}
+      >
+        <Pencil size={13} /> 이름 변경
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem danger onSelect={() => actions.remove(folder.id)}>
+        <Trash2 size={13} /> 폴더 삭제 (항목은 미분류로)
+      </ContextMenuItem>
+    </ContextMenuContent>
+    </ContextMenu>
   )
 }
 

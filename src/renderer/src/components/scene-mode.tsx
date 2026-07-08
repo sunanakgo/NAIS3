@@ -82,8 +82,8 @@ function PresetDropdown(): React.JSX.Element {
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-1">
-        <div className="max-h-64 overflow-y-auto">
-          {/* 드래그(그립)로 순서 변경 */}
+        <div className="max-h-64 overflow-y-auto overflow-x-hidden no-scrollbar">
+          {/* 드래그로 순서 변경 */}
           <SortableList ids={presets.map((p) => p.id)} onReorder={(ids) => void reorderPresets(ids)}>
             {presets.map((p) => (
               <SortableRow key={p.id} id={p.id} className="group gap-1">

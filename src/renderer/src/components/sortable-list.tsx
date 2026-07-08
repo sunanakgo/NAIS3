@@ -12,7 +12,6 @@ import {
   useSortable,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable'
-import { GripVertical } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { cn } from '../lib/utils'
 
@@ -44,7 +43,7 @@ export function SortableList({
   )
 }
 
-/** 드래그 가능한 행 — 그립 핸들로만 드래그 (행 내 버튼 클릭 방해 없음) */
+/** 드래그 가능한 행 — 행 전체가 드래그 대상 (4px 이동해야 시작이라 클릭과 충돌 없음) */
 export function SortableRow({
   id,
   className,
@@ -56,24 +55,21 @@ export function SortableRow({
 }): React.JSX.Element {
   const sortable = useSortable({ id })
   const style: CSSProperties = {
-    transform: sortable.transform
-      ? `translate3d(${sortable.transform.x}px, ${sortable.transform.y}px, 0)`
-      : undefined,
+    // x는 고정 — 세로 목록에서 가로로 튀어나가 가로 스크롤이 생기는 것 방지
+    transform: sortable.transform ? `translate3d(0, ${sortable.transform.y}px, 0)` : undefined,
     transition: sortable.transition,
     opacity: sortable.isDragging ? 0.6 : undefined,
     zIndex: sortable.isDragging ? 10 : undefined,
     position: 'relative'
   }
   return (
-    <div ref={sortable.setNodeRef} style={style} className={cn('flex items-center', className)}>
-      <button
-        {...sortable.attributes}
-        {...sortable.listeners}
-        className="shrink-0 cursor-grab touch-none rounded p-0.5 text-faint/60 hover:text-muted active:cursor-grabbing"
-        tabIndex={-1}
-      >
-        <GripVertical size={12} />
-      </button>
+    <div
+      ref={sortable.setNodeRef}
+      style={style}
+      className={cn('flex touch-none items-center', className)}
+      {...sortable.attributes}
+      {...sortable.listeners}
+    >
       {children}
     </div>
   )

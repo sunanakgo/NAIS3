@@ -66,11 +66,11 @@ export function PromptPresetBar(): React.JSX.Element {
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-1">
-        <div className="max-h-72 overflow-y-auto">
+        <div className="max-h-72 overflow-y-auto overflow-x-hidden no-scrollbar">
           {presets.length === 0 ? (
             <p className="px-2 py-3 text-center text-[12px] text-faint">저장된 프리셋 없음</p>
           ) : (
-            // 드래그(그립)로 순서 변경
+            // 드래그로 순서 변경
             <SortableList ids={presets.map((p) => p.id)} onReorder={(ids) => void reorder(ids)}>
               {presets.map((p) => (
                 <SortableRow key={p.id} id={p.id} className="group gap-1">

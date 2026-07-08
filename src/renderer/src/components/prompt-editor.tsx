@@ -62,6 +62,9 @@ export function PromptEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const mirrorRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  // 검색 세대 — 이미 날아간(in-flight) 태그 검색의 스테일 결과가 뒤늦게 패널을 다시 여는 것 방지.
+  // (패널이 남으면 Enter가 줄바꿈 대신 자동완성 삽입으로 먹혀 "줄바꿈이 안 된다"로 나타남)
+  const searchSeqRef = useRef(0)
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [selected, setSelected] = useState(0)
   const [tokenStart, setTokenStart] = useState(-1)
@@ -127,7 +130,15 @@ export function PromptEditor({
 
   function refreshSuggestions(text: string, cursor: number): void {
     clearTimeout(debounceRef.current)
+    const seq = ++searchSeqRef.current // 이 시점 이전에 발사된 검색 결과는 전부 무효
     const before = text.slice(0, cursor)
+
+    // 주석 구간(# 뒤)에서는 추천 안 함 — 어차피 전송 안 되는 텍스트
+    const lineStart = before.lastIndexOf('\n') + 1
+    if (before.slice(lineStart).includes('#')) {
+      setSuggestions([])
+      return
+    }
 
     const frag = /<([^<>|]*)$/.exec(before)
     if (frag) {
@@ -156,6 +167,7 @@ export function PromptEditor({
     setTokenStart(start)
     debounceRef.current = setTimeout(() => {
       void window.nais.invoke('tags:search', { query: token.trim(), limit: 8 }).then(({ items }) => {
+        if (searchSeqRef.current !== seq) return // 스테일 — 그 사이 입력이 바뀜
         setSuggestions(items.map((t) => ({ kind: 'tag' as const, ...t })))
         setSelected(0)
         if (items.length > 0) placePopup(items.length)

@@ -12,7 +12,7 @@ import {
   UsersRound
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { estimateAnlas } from '@shared/anlas'
 import { useCharactersStore } from '../stores/characters-store'
 import { useFragmentsStore } from '../stores/fragments-store'
@@ -60,6 +60,32 @@ export function PromptPanel(): React.JSX.Element {
   // 프롬프트/네거티브 개별 접기 — 하나를 접으면 다른 하나가 넓어짐
   const [posCollapsed, setPosCollapsed] = useState(false)
   const [negCollapsed, setNegCollapsed] = useState(false)
+  // 포지티브/네거티브 세로 비율 — 사이 스플리터 드래그로 조절 (F10)
+  const promptAreaRef = useRef<HTMLDivElement>(null)
+  const [posRatio, setPosRatio] = useState(() => {
+    const v = Number(localStorage.getItem('prompt_pos_ratio'))
+    return v >= 0.15 && v <= 0.85 ? v : 0.62
+  })
+  const bothOpen = !posCollapsed && !negCollapsed
+  const startPromptResize = (e: React.MouseEvent): void => {
+    e.preventDefault()
+    const area = promptAreaRef.current
+    if (!area) return
+    const onMove = (ev: MouseEvent): void => {
+      const rect = area.getBoundingClientRect()
+      const r = Math.min(0.85, Math.max(0.15, (ev.clientY - rect.top) / rect.height))
+      setPosRatio(r)
+    }
+    const onUp = (): void => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      localStorage.setItem('prompt_pos_ratio', String(posRatioRef.current))
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+  const posRatioRef = useRef(posRatio)
+  posRatioRef.current = posRatio
 
   const subscriptionTier = useGenerationStore((s) => s.subscriptionTier)
   const queueCount =
@@ -140,7 +166,7 @@ export function PromptPanel(): React.JSX.Element {
       <div className="drag absolute inset-x-0 top-0 h-3" />
       {/* 오버레이는 프롬프트 영역만 덮는다 — 하단 버튼들은 항상 접근 가능 (NAIS2 2.0.7 교훈)
           셸 하나가 열림/닫힘만 애니메이션하고 내용은 즉시 전환 — 오버레이 간 전환 깜빡임 방지 */}
-      <div className="relative flex min-h-0 flex-1 flex-col gap-2">
+      <div ref={promptAreaRef} className="relative flex min-h-0 flex-1 flex-col gap-2">
         <AnimatePresence>
           {(charOverlayOpen || fragOverlayOpen || vibeOverlayOpen || crefOverlayOpen) && (
             <motion.div
@@ -181,10 +207,8 @@ export function PromptPanel(): React.JSX.Element {
         {/* 프롬프트 프리셋 — 포지티브 프롬프트 위 */}
         <PromptPresetBar />
         <div
-          className={
-            'flex min-h-0 flex-col gap-1 ' +
-            (posCollapsed ? 'flex-none' : negCollapsed ? 'flex-1' : 'flex-[3]')
-          }
+          className={'flex min-h-0 flex-col gap-1 ' + (posCollapsed ? 'flex-none' : 'min-h-9')}
+          style={bothOpen ? { flexGrow: posRatio, flexBasis: 0 } : !posCollapsed ? { flexGrow: 1 } : undefined}
         >
           <CollapseHeader
             label="프롬프트"
@@ -202,11 +226,18 @@ export function PromptPanel(): React.JSX.Element {
             />
           )}
         </div>
+        {/* 세로 비율 조절 스플리터 (둘 다 펼쳐졌을 때만) */}
+        {bothOpen && (
+          <div
+            className="group -my-1 flex h-2 shrink-0 cursor-row-resize items-center justify-center"
+            onMouseDown={startPromptResize}
+          >
+            <div className="h-0.5 w-8 rounded-full bg-line transition-colors group-hover:bg-accent/50" />
+          </div>
+        )}
         <div
-          className={
-            'flex min-h-0 flex-col gap-1 ' +
-            (negCollapsed ? 'flex-none' : posCollapsed ? 'flex-1' : 'flex-[1.6]')
-          }
+          className={'flex min-h-0 flex-col gap-1 ' + (negCollapsed ? 'flex-none' : 'min-h-9')}
+          style={bothOpen ? { flexGrow: 1 - posRatio, flexBasis: 0 } : !negCollapsed ? { flexGrow: 1 } : undefined}
         >
           <CollapseHeader
             label="네거티브"

@@ -42,6 +42,30 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
   const [cols, setCols] = useState(3)
   const [lightboxIdx, setLightboxIdx] = useState(-1)
 
+  // F1 튐 방지: 스트리밍 마지막 프레임을 붙들었다가 완성본이 로드되면 교체.
+  // 스트리밍 시작 시점의 최상단 이미지 id를 기록 → 그와 다른 새 이미지가 로드되면 프레임 해제.
+  const [heldFrame, setHeldFrame] = useState<string | null>(null)
+  const baselineTopId = useRef<number | null>(null)
+  useEffect(() => {
+    if (streaming) baselineTopId.current = images[0]?.id ?? null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streaming])
+  useEffect(() => {
+    if (streaming && previewPng) setHeldFrame(previewPng)
+  }, [streaming, previewPng])
+  // 안전장치: 씬이 바뀌면 프레임 리셋 / 스트리밍 끝난 뒤 새 이미지가 안 오면 6초 후 해제
+  useEffect(() => setHeldFrame(null), [scene.id])
+  useEffect(() => {
+    if (streaming || !heldFrame) return
+    const t = setTimeout(() => setHeldFrame(null), 6000)
+    return () => clearTimeout(t)
+  }, [streaming, heldFrame])
+  // 스트리밍이 끝났는데 아직 새 이미지가 안 들어왔으면 프레임 유지, 들어와 로드되면 해제
+  const newTop = !streaming && heldFrame && images[0] && images[0].id !== baselineTopId.current
+    ? images[0]
+    : null
+  const showTile = streaming || heldFrame != null
+
   // F9: 씬 에디터 토큰 수를 base(메인)+씬 합산으로 표시 — 실제 전송은 base 뒤에 씬을 붙이므로
   const [sceneTokens, setSceneTokens] = useState<{ pos: number | null; neg: number | null }>({
     pos: null,
@@ -236,29 +260,39 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
           </p>
         ) : (
           <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-            {/* F1: 생성 중이면 맨 앞에 스트리밍 타일 */}
-            {streaming && (
+            {/* F1: 스트리밍 타일 — 완성본이 로드될 때까지 마지막 프레임을 붙든다 (튐 방지) */}
+            {showTile && (
               <div
                 className="relative overflow-hidden rounded-md bg-surface-2 ring-2 ring-accent/50"
                 style={{ aspectRatio: `${scene.width} / ${scene.height}` }}
               >
-                {previewPng ? (
-                  <img
-                    src={`data:image/png;base64,${previewPng}`}
-                    className="h-full w-full object-cover"
-                    alt=""
-                  />
+                {streaming && previewPng ? (
+                  <img src={`data:image/png;base64,${previewPng}`} className="h-full w-full object-cover" alt="" />
+                ) : heldFrame ? (
+                  <img src={`data:image/png;base64,${heldFrame}`} className="h-full w-full object-cover" alt="" />
                 ) : (
                   <div className="grid h-full w-full place-items-center">
                     <Loader2 size={26} className="animate-spin text-accent" />
                   </div>
                 )}
-                <span className="absolute bottom-1 left-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                  생성 중…
-                </span>
+                {streaming && (
+                  <span className="absolute bottom-1 left-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                    생성 중…
+                  </span>
+                )}
+                {/* 완성본이 도착하면 숨겨서 미리 디코드 → 로드되는 순간 프레임 해제(끊김 없음) */}
+                {newTop && (
+                  <img
+                    src={imageUrl(newTop.filePath)}
+                    className="hidden"
+                    onLoad={() => setHeldFrame(null)}
+                    alt=""
+                  />
+                )}
               </div>
             )}
-            {images.map((img, i) => (
+            {/* 프레임을 붙들고 있는 동안엔 완성본(최상단)을 중복 표시하지 않는다 */}
+            {(newTop ? images.slice(1) : images).map((img, i) => (
               <ImageContextMenu
                 key={img.id}
                 filePath={img.filePath}
@@ -273,7 +307,7 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
                   className="h-full w-full cursor-pointer object-cover"
                   loading="lazy"
                   draggable={false}
-                  onClick={() => setLightboxIdx(i)}
+                  onClick={() => setLightboxIdx(newTop ? i + 1 : i)}
                   alt=""
                 />
                 <button

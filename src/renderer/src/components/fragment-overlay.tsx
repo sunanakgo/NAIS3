@@ -9,7 +9,8 @@ import { askText } from '../stores/dialog-store'
 import { FolderListView } from './folder-list-view'
 import { Button } from './ui/button'
 import { ContextMenuItem, ContextMenuSeparator } from './ui/context-menu'
-import { Input, Textarea } from './ui/input'
+import { Input } from './ui/input'
+import { PromptEditor } from './prompt-editor'
 
 function lineCount(content: string): number {
   // #부터 줄 끝까지 주석 (main의 contentToLines와 동일 규칙)
@@ -113,12 +114,13 @@ export function FragmentOverlay(): React.JSX.Element {
           <Trash2 size={14} />
         </Button>
       </div>
-      <Textarea
-        rows={6}
-        className="bg-surface-2 font-mono text-[12px]"
+      {/* 조각 내용도 프롬프트 — 하이라이트/자동완성 공용 컴포넌트 사용, 세로 크기 조절 (F10) */}
+      <PromptEditor
+        className="h-36 max-h-[520px] min-h-20 resize-y bg-surface-2"
         value={fragment.content}
+        tokensOverride={null}
         placeholder={'한 줄 = 한 옵션 (여러 줄이면 생성마다 랜덤 선택)\n# 부터 줄 끝까지 주석'}
-        onChange={(e) => update(fragment.id, { content: e.target.value })}
+        onValueChange={(v) => update(fragment.id, { content: v })}
       />
       <p className="text-[10.5px] text-faint">
         {'<'}
@@ -207,6 +209,7 @@ export function FragmentOverlay(): React.JSX.Element {
             addItem: (folderId) => void create(folderId).then((id) => setExpandedId(id))
           }}
           onMove={move}
+          itemClassName={() => 'transition-colors hover:border-muted/60'}
           renderHeader={renderHeader}
           renderExpanded={renderExpanded}
           itemContextMenu={(fragment) => (

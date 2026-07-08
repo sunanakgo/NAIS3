@@ -177,6 +177,12 @@ export function RefOverlay({ kind }: { kind: 'vibe' | 'charref' }): React.JSX.El
             addItem: (folderId) => void add(folderId)
           }}
           onMove={move}
+          itemClassName={(row) =>
+            cn(
+              'transition-colors hover:border-muted/60', // F2
+              byId.get(row.id)?.enabled && 'border-accent/60 bg-accent-soft' // F3
+            )
+          }
           renderHeader={renderHeader}
           renderExpanded={renderExpanded}
           itemContextMenu={(row) => (

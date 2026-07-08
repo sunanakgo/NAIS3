@@ -1,6 +1,7 @@
 import { getDb } from '../db'
 import { getSetting, setSetting } from '../db/settings'
 import { createPromptPreset } from '../prompts/repo'
+import type { PresetParams } from '../../shared/types'
 
 export interface Nais2ImportResult {
   characters: number
@@ -35,6 +36,31 @@ function mergePrompt(base: unknown, add: unknown, detail: unknown): string {
     .map((x) => removeComments(String(x ?? '')).trim())
     .filter(Boolean)
     .join(', ')
+}
+
+/** NAIS2 프리셋의 생성 파라미터 → NAIS3 PresetParams (해당 필드가 있을 때만) (F5) */
+function nais2PresetParams(p: Obj): PresetParams | undefined {
+  const num = (v: unknown): number | undefined =>
+    typeof v === 'number' && Number.isFinite(v) ? v : undefined
+  const str = (v: unknown): string | undefined =>
+    typeof v === 'string' && v ? v : undefined
+  const res = p.selectedResolution as { width?: unknown; height?: unknown } | undefined
+  const params: PresetParams = {
+    model: str(p.model),
+    width: num(res?.width),
+    height: num(res?.height),
+    steps: num(p.steps),
+    cfgScale: num(p.cfgScale),
+    cfgRescale: num(p.cfgRescale),
+    sampler: str(p.sampler),
+    noiseSchedule: str(p.scheduler), // NAIS2는 scheduler
+    variety: typeof p.variety === 'boolean' ? p.variety : undefined,
+    qualityToggle: typeof p.qualityToggle === 'boolean' ? p.qualityToggle : undefined,
+    ucPreset: num(p.ucPreset) as PresetParams['ucPreset']
+  }
+  // 정의된 값이 하나도 없으면 undefined
+  const hasAny = Object.values(params).some((v) => v !== undefined)
+  return hasAny ? params : undefined
 }
 
 export function importNais2(data: Obj): Nais2ImportResult {
@@ -87,18 +113,20 @@ export function importNais2(data: Obj): Nais2ImportResult {
     }
 
     // 2. 프롬프트 프리셋 — '기본'(default) 포함(내용 있는 경우 많음). 빈 것만 제외.
+    //    NAIS2 프리셋의 생성 파라미터(모델·해상도·스텝·CFG 등)도 함께 가져온다 (F5).
     const ps = state(data, 'nais2-presets')
     const presets = (Array.isArray(ps.presets) ? (ps.presets as Obj[]) : [])
       .map((p) => ({
         name: String(p.name ?? '가져온 프리셋'),
         prompt: mergePrompt(p.basePrompt, p.additionalPrompt, p.detailPrompt),
-        negative: removeComments(String(p.negativePrompt ?? '')).trim()
+        negative: removeComments(String(p.negativePrompt ?? '')).trim(),
+        params: nais2PresetParams(p)
       }))
       .filter((p) => p.prompt || p.negative)
     if (presets.length) {
       db.prepare('DELETE FROM prompt_presets').run()
       for (const p of presets) {
-        createPromptPreset(p.name, p.prompt, p.negative)
+        createPromptPreset(p.name, p.prompt, p.negative, p.params)
         res.presets++
       }
     }

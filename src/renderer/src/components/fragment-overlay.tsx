@@ -78,14 +78,22 @@ export function FragmentOverlay(): React.JSX.Element {
   }
 
   const renderExpanded = (fragment: Fragment): React.ReactNode => (
+    // 이름은 헤더에만 표시하고 여기선 편집만(중복 제거, F8). 이름 변경은 헤더 연필/우클릭과
+    // 동일한 dialog 방식 — 매 키 입력마다 저장하던 인라인 Input을 없애 한글 조합 깨짐도 회피.
     <div className="flex flex-col gap-1.5 px-2.5 pb-2">
-      <div className="flex gap-1.5">
-        <Input
-          className="h-8 flex-1 bg-surface-2 text-[12.5px]"
-          value={fragment.name}
-          placeholder="이름"
-          onChange={(e) => update(fragment.id, { name: e.target.value })}
-        />
+      <div className="flex items-center justify-end gap-1.5">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-8 w-8 p-0"
+          title="이름 변경"
+          onClick={async () => {
+            const name = await askText('이름 변경', fragment.name)
+            if (name != null) update(fragment.id, { name })
+          }}
+        >
+          <Pencil size={14} />
+        </Button>
         <Button
           size="sm"
           variant="ghost"

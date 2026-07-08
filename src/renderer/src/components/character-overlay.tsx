@@ -286,6 +286,12 @@ export function CharacterOverlay(): React.JSX.Element {
             addItem: (folderId) => void createCard(folderId)
           }}
           onMove={move}
+          itemClassName={(char) =>
+            cn(
+              'transition-colors hover:border-muted/60', // F2: 호버 강조
+              char.enabled && 'border-accent/60 bg-accent-soft' // F3: 활성 강조
+            )
+          }
           renderHeader={renderHeader}
           renderExpanded={renderExpanded}
           itemContextMenu={(char) => (

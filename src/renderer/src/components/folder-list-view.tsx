@@ -283,6 +283,7 @@ export function FolderListView<T extends FolderListItem>({
   renderHeader,
   renderExpanded,
   itemContextMenu,
+  itemClassName,
   renderTile,
   columns,
   emptyText
@@ -296,6 +297,8 @@ export function FolderListView<T extends FolderListItem>({
   renderExpanded?: (item: T) => React.ReactNode
   /** 카드 우클릭 메뉴 내용 (ContextMenuItem들) — 지정 시 카드 전체가 트리거 */
   itemContextMenu?: (item: T) => React.ReactNode
+  /** 카드 컨테이너에 얹을 클래스 (활성/호버 강조 등) */
+  itemClassName?: (item: T) => string
   /** 그리드 모드 — 지정 시 columns 그리드로 타일 렌더 (이미지 중심 레퍼런스용) */
   renderTile?: (item: T) => React.ReactNode
   columns?: number
@@ -383,7 +386,12 @@ export function FolderListView<T extends FolderListItem>({
                 {(() => {
                   {/* 카드 = paper, 내부 박스는 surface-2로 한 단계 대비 */}
                   const card = (
-                    <div className="rounded-lg border border-line bg-paper">
+                    <div
+                      className={cn(
+                        'rounded-lg border border-line bg-paper',
+                        itemClassName?.(row.item)
+                      )}
+                    >
                       {renderHeader?.(row.item)}
                       <AnimatePresence initial={false}>
                         {expandedId === row.item.id && (

@@ -2,6 +2,7 @@ import {
   ChevronDown,
   ChevronUp,
   ImageUp,
+  Info,
   Layers,
   Minus,
   Plus,
@@ -27,6 +28,7 @@ import { ParamsDialog } from './params-dialog'
 import { RefOverlay } from './ref-overlay'
 import { SOURCE_BANNER_HEIGHT, SourceBanner } from './source-banner'
 import { Button } from './ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 
 export function PromptPanel(): React.JSX.Element {
   const request = useGenerationStore((s) => s.request)
@@ -188,6 +190,7 @@ export function PromptPanel(): React.JSX.Element {
             label="프롬프트"
             collapsed={posCollapsed}
             onToggle={() => setPosCollapsed((v) => !v)}
+            action={<SyntaxHelp />}
           />
           {!posCollapsed && (
             <PromptEditor
@@ -344,21 +347,62 @@ export function PromptPanel(): React.JSX.Element {
 function CollapseHeader({
   label,
   collapsed,
-  onToggle
+  onToggle,
+  action
 }: {
   label: string
   collapsed: boolean
   onToggle: () => void
+  action?: React.ReactNode
 }): React.JSX.Element {
   return (
-    <button
-      onClick={onToggle}
-      className="flex shrink-0 items-center justify-between text-[12px] font-medium text-muted transition-colors hover:text-ink"
-      title={collapsed ? `${label} 펼치기` : `${label} 접기`}
-    >
-      <span>{label}</span>
-      {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-    </button>
+    <div className="flex shrink-0 items-center justify-between text-[12px] font-medium text-muted">
+      <button
+        onClick={onToggle}
+        className="flex items-center gap-1 transition-colors hover:text-ink"
+        title={collapsed ? `${label} 펼치기` : `${label} 접기`}
+      >
+        <span>{label}</span>
+        {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+      </button>
+      {action}
+    </div>
+  )
+}
+
+/** 프롬프트 문법 도움말 — ⓘ 팝오버 (주석·조각·순차·랜덤·가중치) */
+function SyntaxHelp(): React.JSX.Element {
+  const rows: { syntax: string; desc: string }[] = [
+    { syntax: '# 메모', desc: '# 부터 줄 끝까지 주석 (전송 제외)' },
+    { syntax: '<이름>', desc: '조각 삽입 — 여러 줄이면 매 생성 랜덤 1줄' },
+    { syntax: '<*이름>', desc: '순차 선택 — 생성마다 다음 줄 (헤더 ↺로 리셋)' },
+    { syntax: '<a|b|c>', desc: '인라인 랜덤 — 셋 중 하나' },
+    { syntax: '1.3::태그::', desc: '강조 (1보다 크면 강함, 작으면 약함/음수 가능)' }
+  ]
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className="grid size-5 place-items-center rounded text-faint transition-colors hover:text-ink"
+          title="프롬프트 문법 도움말"
+        >
+          <Info size={13} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 p-2.5">
+        <p className="mb-1.5 text-[12px] font-semibold text-ink">프롬프트 문법</p>
+        <div className="flex flex-col gap-1.5">
+          {rows.map((r) => (
+            <div key={r.syntax} className="flex flex-col gap-0.5">
+              <code className="w-fit rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-accent">
+                {r.syntax}
+              </code>
+              <span className="text-[11px] leading-snug text-muted">{r.desc}</span>
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 

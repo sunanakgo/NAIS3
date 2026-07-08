@@ -81,7 +81,7 @@ interface ScenesState {
 }
 
 /** 씬 프롬프트를 기본 프롬프트 뒤에 이어붙임 (콤마 정리) */
-function appendPrompt(base: string, add: string): string {
+export function appendPrompt(base: string, add: string): string {
   const b = base.trim().replace(/,\s*$/, '')
   const a = add.trim().replace(/^,\s*/, '')
   if (!b) return a

@@ -1,10 +1,11 @@
-import { ArrowLeft, Minus, Play, Plus, Star, Trash2 } from 'lucide-react'
+import { ArrowLeft, Loader2, Minus, Play, Plus, Star, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Scene } from '@shared/types'
 import { imageUrl } from '../lib/constants'
 import { ResolutionPicker } from './resolution-picker'
 import { useGenerationStore } from '../stores/generation-store'
-import { useScenesStore } from '../stores/scenes-store'
+import { useScenesStore, appendPrompt } from '../stores/scenes-store'
+import { useCharactersStore } from '../stores/characters-store'
 import { askConfirm } from '../stores/dialog-store'
 import { toast } from '../stores/toast-store'
 import { cn } from '../lib/utils'
@@ -29,9 +30,49 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
   const deleteNonFavorites = useScenesStore((s) => s.deleteNonFavorites)
 
   const source = useGenerationStore((s) => s.source)
+  const basePrompt = useGenerationStore((s) => s.request.prompt)
+  const baseNegative = useGenerationStore((s) => s.request.negativePrompt)
+  const charItems = useCharactersStore((s) => s.items)
+  const previewPng = useGenerationStore((s) => s.previewPng)
+  const generatingSceneId = useGenerationStore(
+    (s) => s.queue?.items.find((i) => i.state === 'generating')?.request.sceneId ?? null
+  )
+  const streaming = generatingSceneId === scene.id
   const sentinelRef = useRef<HTMLDivElement>(null)
   const [cols, setCols] = useState(3)
   const [lightboxIdx, setLightboxIdx] = useState(-1)
+
+  // F9: 씬 에디터 토큰 수를 base(메인)+씬 합산으로 표시 — 실제 전송은 base 뒤에 씬을 붙이므로
+  const [sceneTokens, setSceneTokens] = useState<{ pos: number | null; neg: number | null }>({
+    pos: null,
+    neg: null
+  })
+  useEffect(() => {
+    const enabled = charItems.filter((c) => c.enabled && c.prompt.trim())
+    const posTexts = [
+      appendPrompt(basePrompt, scene.prompt),
+      ...enabled.map((c) => c.prompt)
+    ].filter((t) => t.trim())
+    const negText = appendPrompt(baseNegative, scene.negativePrompt)
+    const negTexts = negText.trim() ? [negText] : []
+    if (posTexts.length === 0 && negTexts.length === 0) {
+      setSceneTokens({ pos: null, neg: null })
+      return
+    }
+    const timer = setTimeout(() => {
+      void window.nais
+        .invoke('tokens:count', { texts: [...posTexts, ...negTexts] })
+        .then(({ counts }) => {
+          const sum = (a: number[]): number | null =>
+            a.length === 0 ? null : a.reduce((x, y) => x + y, 0)
+          setSceneTokens({
+            pos: sum(counts.slice(0, posTexts.length)),
+            neg: sum(counts.slice(posTexts.length))
+          })
+        })
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [basePrompt, baseNegative, scene.prompt, scene.negativePrompt, charItems])
 
   // ESC로 씬 목록으로 (라이트박스가 열려 있으면 라이트박스만 닫힘)
   useEffect(() => {
@@ -121,18 +162,21 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
       {/* 스크롤 영역: 프롬프트 + 생성 이미지. scrollbar-gutter로 스크롤바 등장/소멸 시 밀림 방지 */}
       <div className="min-h-0 flex-1 overflow-y-auto p-3 no-scrollbar">
         <div className="grid gap-2">
+          {/* resize-y: 우하단 핸들로 세로 크기 조절 (F10) */}
           <PromptEditor
             value={scene.prompt}
             onValueChange={(v) => void update(scene.id, { prompt: v })}
             placeholder="씬 프롬프트"
-            className="min-h-[96px]"
+            tokensOverride={sceneTokens.pos}
+            className="h-32 max-h-[520px] min-h-24 resize-y"
           />
           <PromptEditor
             value={scene.negativePrompt}
             onValueChange={(v) => void update(scene.id, { negativePrompt: v })}
             placeholder="씬 네거티브 프롬프트"
             negative
-            className="min-h-[64px]"
+            tokensOverride={sceneTokens.neg}
+            className="h-20 max-h-96 min-h-16 resize-y"
           />
         </div>
 
@@ -184,7 +228,7 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
           </div>
         </div>
 
-        {images.length === 0 && !imagesLoading ? (
+        {images.length === 0 && !imagesLoading && !streaming ? (
           <p className="py-10 text-center text-[13px] text-faint">
             {favoritesOnly
               ? '즐겨찾기한 이미지가 없습니다.'
@@ -192,6 +236,28 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
           </p>
         ) : (
           <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+            {/* F1: 생성 중이면 맨 앞에 스트리밍 타일 */}
+            {streaming && (
+              <div
+                className="relative overflow-hidden rounded-md bg-surface-2 ring-2 ring-accent/50"
+                style={{ aspectRatio: `${scene.width} / ${scene.height}` }}
+              >
+                {previewPng ? (
+                  <img
+                    src={`data:image/png;base64,${previewPng}`}
+                    className="h-full w-full object-cover"
+                    alt=""
+                  />
+                ) : (
+                  <div className="grid h-full w-full place-items-center">
+                    <Loader2 size={26} className="animate-spin text-accent" />
+                  </div>
+                )}
+                <span className="absolute bottom-1 left-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                  생성 중…
+                </span>
+              </div>
+            )}
             {images.map((img, i) => (
               <ImageContextMenu
                 key={img.id}

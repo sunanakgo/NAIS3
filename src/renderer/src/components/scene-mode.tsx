@@ -76,6 +76,13 @@ function PresetDropdown(): React.JSX.Element {
 
   const active = presets.find((p) => p.id === activePresetId)
 
+  // 프리셋 선택 + 닫기. 닫기를 한 틱 미뤄 dnd/Radix가 같은 포인터 이벤트를
+  // 처리하며 상태를 덮어쓰는 것을 피한다 (B9).
+  const choose = (id: number): void => {
+    void setActivePreset(id)
+    setTimeout(() => setOpen(false), 0)
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -89,16 +96,9 @@ function PresetDropdown(): React.JSX.Element {
           {/* 드래그로 순서 변경 */}
           <SortableList ids={presets.map((p) => p.id)} onReorder={(ids) => void reorderPresets(ids)}>
             {presets.map((p) => (
-              <SortableRow
-                key={p.id}
-                id={p.id}
-                className="group gap-1"
-                onTap={() => {
-                  void setActivePreset(p.id)
-                  setOpen(false) // 선택했으면 닫기 (B9)
-                }}
-              >
+              <SortableRow key={p.id} id={p.id} className="group gap-1" onTap={() => choose(p.id)}>
                 <div
+                  onClick={() => choose(p.id)}
                   className={cn(
                     'flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px]',
                     p.id === activePresetId && 'font-semibold text-accent'

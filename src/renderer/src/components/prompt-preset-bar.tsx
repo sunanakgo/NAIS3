@@ -61,7 +61,8 @@ export function PromptPresetBar(): React.JSX.Element {
     // 파라미터도 함께 복원 (구버전 프리셋은 params 없음 — 프롬프트만)
     patch({ prompt: p.prompt, negativePrompt: p.negativePrompt, ...(p.params ?? {}) })
     setActive(id)
-    setOpen(false)
+    // 닫기를 한 틱 미뤄 dnd/Radix의 같은 이벤트 처리에 덮이지 않게 (B9)
+    setTimeout(() => setOpen(false), 0)
   }
 
   return (
@@ -84,6 +85,7 @@ export function PromptPresetBar(): React.JSX.Element {
               {presets.map((p) => (
                 <SortableRow key={p.id} id={p.id} className="group gap-1" onTap={() => apply(p.id)}>
                   <div
+                    onClick={() => apply(p.id)}
                     className={cn(
                       'flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px]',
                       p.id === activeId && 'font-semibold text-accent'

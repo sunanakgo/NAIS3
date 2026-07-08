@@ -151,16 +151,21 @@ export function moveRow<T extends FolderListItem>(
   return { folders: nextFolders, items: nextItems }
 }
 
-/** DB 반영용 전체 순서 */
+/**
+ * DB 반영용 전체 순서 — ⚠️ 반드시 미분류가 먼저.
+ * 메인 repo(reorderCharacters/Fragments/Refs)는 이 시퀀스에서 "직전 폴더"로 소속을 파생하므로,
+ * 미분류가 폴더들 뒤에 오면 전부 마지막 폴더 소속으로 저장돼 버린다 (v1.0.2~1.0.5 데이터 오염 버그).
+ * 화면 표시 순서(buildDisplayRows: 폴더 먼저)와는 독립된 "전송 규약"이다.
+ */
 export function toOrderEntries<T extends FolderListItem>(
   folders: ListFolder[],
   items: T[]
 ): CharacterOrderEntry[] {
   const order: CharacterOrderEntry[] = []
+  for (const c of items.filter((c) => c.folderId == null)) order.push({ type: 'char', id: c.id })
   for (const f of folders) {
     order.push({ type: 'folder', id: f.id })
     for (const c of items.filter((c) => c.folderId === f.id)) order.push({ type: 'char', id: c.id })
   }
-  for (const c of items.filter((c) => c.folderId == null)) order.push({ type: 'char', id: c.id })
   return order
 }

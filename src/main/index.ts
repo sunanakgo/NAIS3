@@ -8,6 +8,7 @@ import { closeDb, initDb } from './db'
 import { getNaiToken } from './db/settings'
 import { getSetting } from './db/settings'
 import { processWildcards } from './fragments/processor'
+import { removeComments } from '../shared/nai-presets'
 import { fragmentSource } from './fragments/repo'
 import { isUnderImagesRoot, libraryRoot, saveGeneratedImage } from './images/storage'
 import { broadcast, registerIpcHandlers } from './ipc'
@@ -103,9 +104,11 @@ app.whenReady().then(() => {
     const token = getNaiToken()
     if (!token) throw new Error('NAI 토큰이 설정되지 않았습니다')
 
-    // 배치 항목마다 여기서 치환 — 매 장 다른 와일드카드 결과가 나온다
+    // 배치 항목마다 여기서 치환 — 매 장 다른 와일드카드 결과가 나온다.
+    // 주석 제거가 반드시 먼저 — 주석 줄이 조각을 소모하거나(순차 카운터),
+    // 와일드카드 처리의 재조립이 개행을 지워 주석 범위가 전체로 번지는 것 방지 (NAIS2와 동일 순서)
     const fragSource = fragmentSource()
-    const sub = (text: string): string => processWildcards(text, fragSource)
+    const sub = (text: string): string => processWildcards(removeComments(text), fragSource)
     let request = {
       ...rawRequest,
       prompt: sub(rawRequest.prompt),

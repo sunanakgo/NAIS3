@@ -84,27 +84,34 @@ function processParenthesisWildcards(prompt: string, rng: () => number): string 
   })
 }
 
-/** 쉼표 구분 태그 안의 a/b/c (공백 없음, URL 아님) */
+/** 쉼표 구분 태그 안의 a/b/c (공백 없음, URL 아님). 줄 단위로 처리해 개행을 보존한다 */
 function processSimpleWildcards(prompt: string, rng: () => number): string {
+  // ⚠️ 전체를 split(',')→join(', ')하면 trim이 개행을 삼켜 프롬프트가 한 줄로 붕괴한다
+  //    (주석(#) 범위가 전체로 번져 빈 프롬프트가 전송되던 버그의 원인)
   return prompt
-    .split(',')
-    .map((tag) => {
-      const trimmed = tag.trim()
-      if (
-        trimmed.includes('/') &&
-        !trimmed.startsWith('http') &&
-        !trimmed.includes('://') &&
-        !trimmed.includes(' ')
-      ) {
-        const options = trimmed
-          .split('/')
-          .map((o) => o.trim())
-          .filter((o) => o.length > 0)
-        if (options.length > 1) return options[Math.floor(rng() * options.length)]
-      }
-      return trimmed
-    })
-    .join(', ')
+    .split('\n')
+    .map((line) =>
+      line
+        .split(',')
+        .map((tag) => {
+          const trimmed = tag.trim()
+          if (
+            trimmed.includes('/') &&
+            !trimmed.startsWith('http') &&
+            !trimmed.includes('://') &&
+            !trimmed.includes(' ')
+          ) {
+            const options = trimmed
+              .split('/')
+              .map((o) => o.trim())
+              .filter((o) => o.length > 0)
+            if (options.length > 1) return options[Math.floor(rng() * options.length)]
+          }
+          return trimmed
+        })
+        .join(', ')
+    )
+    .join('\n')
 }
 
 export function processWildcards(

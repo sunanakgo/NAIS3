@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import { mkdirSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs'
 import { isAbsolute, join, relative } from 'path'
 import sharp from 'sharp'
 import type { DirectorMethod } from '../../shared/types'
@@ -98,8 +98,23 @@ export async function saveGeneratedImage(input: {
   }
   mkdirSync(monthDir, { recursive: true })
 
-  const stamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19)
-  const filePath = join(monthDir, `NAIS3_${stamp}_${input.seed}.${input.format ?? 'png'}`)
+  const ext = input.format ?? 'png'
+  let filePath: string
+  if (input.sceneName) {
+    // 씬 이미지는 씬 이름_N (폴더 내 기존 연번에 이어서 — ZIP 내보내기와 동일 형식)
+    const safeName =
+      input.sceneName.replace(/[/\\:*?"<>|]/g, '_').trim() || `씬-${input.sceneId}`
+    let max = 0
+    for (const f of readdirSync(monthDir)) {
+      const m = new RegExp(`^${safeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}_(\\d+)\\.`).exec(f)
+      if (m) max = Math.max(max, Number(m[1]))
+    }
+    filePath = join(monthDir, `${safeName}_${max + 1}.${ext}`)
+    while (existsSync(filePath)) filePath = join(monthDir, `${safeName}_${++max + 1}.${ext}`)
+  } else {
+    const stamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    filePath = join(monthDir, `NAIS3_${stamp}_${input.seed}.${ext}`)
+  }
   writeFileSync(filePath, input.png)
 
   // 썸네일: 카드가 커질 수 있어 640px로 (화질 열화 방지). webp q90

@@ -76,11 +76,10 @@ function PresetDropdown(): React.JSX.Element {
 
   const active = presets.find((p) => p.id === activePresetId)
 
-  // 프리셋 선택 + 닫기. 닫기를 한 틱 미뤄 dnd/Radix가 같은 포인터 이벤트를
-  // 처리하며 상태를 덮어쓰는 것을 피한다 (B9).
+  // 프리셋 선택 + 닫기 — 닫기를 먼저 (선택의 store 재렌더가 끼어들기 전에 확정) (B9)
   const choose = (id: number): void => {
+    setOpen(false)
     void setActivePreset(id)
-    setTimeout(() => setOpen(false), 0)
   }
 
   return (

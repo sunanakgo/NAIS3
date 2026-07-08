@@ -58,11 +58,10 @@ export function PromptPresetBar(): React.JSX.Element {
   const apply = (id: number): void => {
     const p = presets.find((x) => x.id === id)
     if (!p) return
+    setOpen(false) // 먼저 닫기 (B9)
     // 파라미터도 함께 복원 (구버전 프리셋은 params 없음 — 프롬프트만)
     patch({ prompt: p.prompt, negativePrompt: p.negativePrompt, ...(p.params ?? {}) })
     setActive(id)
-    // 닫기를 한 틱 미뤄 dnd/Radix의 같은 이벤트 처리에 덮이지 않게 (B9)
-    setTimeout(() => setOpen(false), 0)
   }
 
   return (

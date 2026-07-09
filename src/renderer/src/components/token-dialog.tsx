@@ -19,6 +19,7 @@ import nais3Logo from '../assets/nais3-logo.svg'
 import { cn } from '../lib/utils'
 import { THEME_PRESETS } from '../lib/theme-presets'
 import { useGenerationStore } from '../stores/generation-store'
+import { useLayoutStore, type CenterMode } from '../stores/layout-store'
 import { useThemeStore } from '../stores/theme-store'
 import { useCharactersStore } from '../stores/characters-store'
 import { useFragmentsStore } from '../stores/fragments-store'
@@ -132,6 +133,42 @@ function AppearanceSection(): React.JSX.Element {
           onValueChange={([v]) => setPromptSize(v)}
         />
       </Row>
+      <Row label="표시할 탭" hint="끈 탭은 상단에서 숨김 (메인은 항상 표시)">
+        <PageToggles />
+      </Row>
+    </div>
+  )
+}
+
+const TOGGLABLE_PAGES: { id: CenterMode; label: string }[] = [
+  { id: 'scene', label: '씬' },
+  { id: 'director', label: '디렉터' },
+  { id: 'library', label: '라이브러리' },
+  { id: 'websearch', label: '웹' }
+]
+
+function PageToggles(): React.JSX.Element {
+  const hiddenPages = useLayoutStore((s) => s.hiddenPages)
+  const setPageHidden = useLayoutStore((s) => s.setPageHidden)
+  return (
+    <div className="flex gap-1">
+      {TOGGLABLE_PAGES.map((p) => {
+        const on = !hiddenPages.includes(p.id)
+        return (
+          <button
+            key={p.id}
+            onClick={() => setPageHidden(p.id, on)}
+            className={cn(
+              'rounded-full border px-2.5 py-1 text-[12px] transition-colors',
+              on
+                ? 'border-accent bg-accent/10 text-accent'
+                : 'border-line text-faint hover:text-ink'
+            )}
+          >
+            {p.label}
+          </button>
+        )
+      })}
     </div>
   )
 }

@@ -20,10 +20,12 @@ const PAGES: { id: Page; label: string; icon: LucideIcon }[] = [
 export function PageNav(): React.JSX.Element {
   const centerMode = useLayoutStore((s) => s.centerMode)
   const setCenterMode = useLayoutStore((s) => s.setCenterMode)
+  const hiddenPages = useLayoutStore((s) => s.hiddenPages)
+  const visible = PAGES.filter((p) => p.id === 'main' || !hiddenPages.includes(p.id))
 
   return (
     <nav className="no-drag pointer-events-auto flex items-center gap-1 rounded-full border border-line/70 bg-surface/95 p-1 shadow-md backdrop-blur">
-      {PAGES.map((page) => {
+      {visible.map((page) => {
         const active = centerMode === page.id
         return (
           <button

@@ -15,6 +15,8 @@ interface DirectorState {
   setSource: (base64: string | null) => void
   run: (method: DirectorMethod, opts?: { prompt?: string; defry?: number }) => Promise<void>
   upscale: (scale: number) => Promise<void>
+  /** API 없는 로컬 편집(모자이크 등) 결과를 스택에 push + 히스토리 저장 */
+  applyLocal: (base64: string, kind: 'mosaic') => Promise<void>
   undo: () => void
   clear: () => void
 }
@@ -62,6 +64,17 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
       return
     }
     set({ loading: false, stack: [...get().stack, res.base64] })
+    void useGenerationStore.getState().refreshHistory()
+  },
+
+  applyLocal: async (base64, kind) => {
+    // 로컬 연산이라 loading 없이 즉시 push — undo/결과 뱃지는 스택 기반이라 그대로 동작
+    set({ stack: [...get().stack, base64], error: null })
+    const res = await window.nais.invoke('images:saveLocal', { base64, kind })
+    if ('error' in res) {
+      toast(res.error, 'error')
+      return
+    }
     void useGenerationStore.getState().refreshHistory()
   },
 

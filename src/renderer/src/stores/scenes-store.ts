@@ -101,6 +101,8 @@ export function appendPrompt(base: string, add: string): string {
 function buildSceneRequest(scene: Scene): GenerationRequest {
   const base = useGenerationStore.getState().request
   const src = useGenerationStore.getState().source
+  // 3분할 꺼진 상태면 promptParts를 요청/메타데이터에 싣지 않는다
+  const splitEnabled = useGenerationStore.getState().promptSplitEnabled
   const characterPrompts = enabledCharacters().map((c) => ({
     prompt: c.prompt,
     negativePrompt: c.negativePrompt,
@@ -110,9 +112,10 @@ function buildSceneRequest(scene: Scene): GenerationRequest {
   return {
     ...base,
     prompt: appendPrompt(base.prompt, scene.prompt),
-    promptParts: base.promptParts
-      ? { ...base.promptParts, detail: appendPrompt(base.promptParts.detail, scene.prompt) }
-      : undefined,
+    promptParts:
+      splitEnabled && base.promptParts
+        ? { ...base.promptParts, detail: appendPrompt(base.promptParts.detail, scene.prompt) }
+        : undefined,
     negativePrompt: appendPrompt(base.negativePrompt, scene.negativePrompt),
     width: src ? src.width : scene.width,
     height: src ? src.height : scene.height,

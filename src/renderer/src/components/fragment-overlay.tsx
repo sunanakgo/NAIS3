@@ -64,7 +64,7 @@ export function FragmentOverlay(): React.JSX.Element {
         <button
           className="min-w-0 flex-1 truncate text-left text-[13px] text-ink"
           title="눌러서 수정"
-          onClick={() => setExpandedId(expandedId === fragment.id ? null : fragment.id)}
+          onClick={() => setExpandedId((prev) => (prev === fragment.id ? null : fragment.id))}
         >
           {fragment.name}
         </button>
@@ -201,6 +201,7 @@ export function FragmentOverlay(): React.JSX.Element {
           rows={rows}
           searching={searching}
           expandedId={expandedId}
+          renderKey={folders} // 펼침 카드의 <폴더/이름> 힌트가 폴더 이름에 의존
           folderActions={{
             rename: renameFolder,
             toggleCollapse,

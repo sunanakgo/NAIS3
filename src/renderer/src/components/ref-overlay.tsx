@@ -80,7 +80,7 @@ export function RefOverlay({ kind }: { kind: 'vibe' | 'charref' }): React.JSX.El
         )}
         <button
           className="min-w-0 flex-1 truncate text-left text-[13px] text-ink"
-          onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
+          onClick={() => setExpandedId((prev) => (prev === item.id ? null : item.id))}
         >
           {item.name || <span className="text-faint">이름 없음</span>}
         </button>

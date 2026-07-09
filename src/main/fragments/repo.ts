@@ -169,9 +169,10 @@ export function fragmentSource(): FragmentSource {
   const byPath = new Map<string, string[]>()
   for (const f of items) {
     const lines = contentToLines(f.content)
-    byPath.set(f.name.toLowerCase(), lines)
+    // 참조 측(normalizePath)과 동일하게 trim — 이름/폴더에 공백이 섞여도 <이름>과 매칭되게
+    byPath.set(f.name.trim().toLowerCase(), lines)
     const folder = f.folderId != null ? folderName.get(f.folderId) : null
-    if (folder) byPath.set(`${folder}/${f.name}`.toLowerCase(), lines)
+    if (folder) byPath.set(`${folder.trim()}/${f.name.trim()}`.toLowerCase(), lines)
   }
   return { getLines: (path) => byPath.get(path) ?? null }
 }

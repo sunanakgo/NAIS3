@@ -16,7 +16,7 @@ import {
 } from '@dnd-kit/sortable'
 import { ChevronDown, ChevronRight, Palette, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useState, type CSSProperties } from 'react'
+import { memo, useState, type CSSProperties } from 'react'
 import { FOLDER_COLORS, type ListFolder } from '@shared/types'
 import { cn } from '../lib/utils'
 import { DIVIDER_KEY, rowKey, type DisplayRow, type FolderListItem } from '../lib/folder-list'
@@ -79,7 +79,13 @@ function GridItem({
   )
 }
 
-function FolderRow({
+const FolderRow = memo(
+  FolderRowInner,
+  // actions는 부모가 매 렌더 새로 만들지만 동작만 담으므로 비교에서 제외
+  (a, b) => a.folder === b.folder && a.count === b.count && a.searching === b.searching
+) as typeof FolderRowInner
+
+function FolderRowInner({
   folder,
   actions,
   count,
@@ -274,6 +280,107 @@ function ItemRow({
   )
 }
 
+/**
+ * 행 카드 — memo로 "자기 item이 바뀔 때만" 리렌더. 스토어가 items 배열을 통째로 갈아도
+ * 안 바뀐 카드(같은 item 참조)는 건너뛰어, 슬라이더 드래그/타이핑 시 전량 리렌더를 막는다.
+ * render 콜백은 비교에서 제외 — 콜백 출력이 item·expanded 외의 외부 상태에 의존하면
+ * 부모가 그 값을 renderKey로 넘겨야 한다 (예: 캐릭터 오버레이의 useCoords).
+ */
+const ItemCardRow = memo(
+  ItemCardRowInner,
+  (a, b) =>
+    a.item === b.item &&
+    a.rowId === b.rowId &&
+    a.disabled === b.disabled &&
+    a.indent === b.indent &&
+    a.expanded === b.expanded &&
+    Object.is(a.renderKey, b.renderKey)
+) as typeof ItemCardRowInner
+
+function ItemCardRowInner<T extends FolderListItem>({
+  rowId,
+  item,
+  disabled,
+  indent,
+  expanded,
+  renderHeader,
+  renderExpanded,
+  itemContextMenu,
+  itemClassName
+}: {
+  rowId: string
+  item: T
+  disabled: boolean
+  indent: boolean
+  expanded: boolean
+  renderKey?: unknown
+  renderHeader?: (item: T) => React.ReactNode
+  renderExpanded?: (item: T) => React.ReactNode
+  itemContextMenu?: (item: T) => React.ReactNode
+  itemClassName?: (item: T) => string
+}): React.JSX.Element {
+  // 카드 = paper, 내부 박스는 surface-2로 한 단계 대비
+  const card = (
+    <div className={cn('rounded-lg border border-line bg-paper', itemClassName?.(item))}>
+      {renderHeader?.(item)}
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: EASE }}
+            className="overflow-hidden"
+          >
+            {renderExpanded?.(item)}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+  return (
+    <ItemRow id={rowId} disabled={disabled} indent={indent}>
+      {itemContextMenu ? (
+        <ContextMenu>
+          <ContextMenuTrigger asChild>{card}</ContextMenuTrigger>
+          <ContextMenuContent>{itemContextMenu(item)}</ContextMenuContent>
+        </ContextMenu>
+      ) : (
+        card
+      )}
+    </ItemRow>
+  )
+}
+
+/** 그리드 타일 — ItemCardRow와 같은 이유로 memo */
+const GridTile = memo(
+  GridTileInner,
+  (a, b) =>
+    a.item === b.item &&
+    a.rowId === b.rowId &&
+    a.disabled === b.disabled &&
+    Object.is(a.renderKey, b.renderKey)
+) as typeof GridTileInner
+
+function GridTileInner<T extends FolderListItem>({
+  rowId,
+  item,
+  disabled,
+  renderTile
+}: {
+  rowId: string
+  item: T
+  disabled: boolean
+  renderKey?: unknown
+  renderTile: (item: T) => React.ReactNode
+}): React.JSX.Element {
+  return (
+    <GridItem id={rowId} disabled={disabled}>
+      {renderTile(item)}
+    </GridItem>
+  )
+}
+
 export function FolderListView<T extends FolderListItem>({
   rows,
   searching,
@@ -286,7 +393,8 @@ export function FolderListView<T extends FolderListItem>({
   itemClassName,
   renderTile,
   columns,
-  emptyText
+  emptyText,
+  renderKey
 }: {
   rows: DisplayRow<T>[]
   searching: boolean
@@ -303,6 +411,8 @@ export function FolderListView<T extends FolderListItem>({
   renderTile?: (item: T) => React.ReactNode
   columns?: number
   emptyText: string
+  /** render 콜백이 item·expanded 외에 의존하는 외부 상태 — 바뀌면 memo된 카드 전체를 리렌더 */
+  renderKey?: unknown
 }): React.JSX.Element {
   const grid = renderTile != null && columns != null
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
@@ -373,50 +483,28 @@ export function FolderListView<T extends FolderListItem>({
                 />
               </div>
             ) : grid ? (
-              <GridItem key={rowKey(row)} id={rowKey(row)} disabled={searching}>
-                {renderTile!(row.item)}
-              </GridItem>
-            ) : (
-              <ItemRow
+              <GridTile
                 key={rowKey(row)}
-                id={rowKey(row)}
+                rowId={rowKey(row)}
+                item={row.item}
+                disabled={searching}
+                renderKey={renderKey}
+                renderTile={renderTile!}
+              />
+            ) : (
+              <ItemCardRow
+                key={rowKey(row)}
+                rowId={rowKey(row)}
+                item={row.item}
                 disabled={searching || expandedId === row.item.id}
                 indent={!searching && row.item.folderId != null}
-              >
-                {(() => {
-                  {/* 카드 = paper, 내부 박스는 surface-2로 한 단계 대비 */}
-                  const card = (
-                    <div
-                      className={cn(
-                        'rounded-lg border border-line bg-paper',
-                        itemClassName?.(row.item)
-                      )}
-                    >
-                      {renderHeader?.(row.item)}
-                      <AnimatePresence initial={false}>
-                        {expandedId === row.item.id && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.18, ease: EASE }}
-                            className="overflow-hidden"
-                          >
-                            {renderExpanded?.(row.item)}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  )
-                  if (!itemContextMenu) return card
-                  return (
-                    <ContextMenu>
-                      <ContextMenuTrigger asChild>{card}</ContextMenuTrigger>
-                      <ContextMenuContent>{itemContextMenu(row.item)}</ContextMenuContent>
-                    </ContextMenu>
-                  )
-                })()}
-              </ItemRow>
+                expanded={expandedId === row.item.id}
+                renderKey={renderKey}
+                renderHeader={renderHeader}
+                renderExpanded={renderExpanded}
+                itemContextMenu={itemContextMenu}
+                itemClassName={itemClassName}
+              />
             )
           )}
           </AnimatePresence>

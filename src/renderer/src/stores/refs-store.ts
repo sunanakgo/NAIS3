@@ -41,6 +41,17 @@ function makeRefsStore<T extends { id: number; folderId: number | null }>(ns: st
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any
 
+  // 슬라이더 드래그가 포인터 이동마다 update를 부르므로 IPC(DB 쓰기)만 디바운스 —
+  // 화면 반영(set)은 즉시, 저장은 항목별로 마지막 값만 보낸다
+  const pendingPatch = new Map<number, Record<string, unknown>>()
+  const patchTimers = new Map<number, ReturnType<typeof setTimeout>>()
+  const flushPatch = (id: number): void => {
+    const patch = pendingPatch.get(id)
+    pendingPatch.delete(id)
+    patchTimers.delete(id)
+    if (patch) void window.nais.invoke(ch.update, { id, patch })
+  }
+
   return create<RefsState<T>>((set, get) => ({
     folders: [],
     items: [],
@@ -59,9 +70,13 @@ function makeRefsStore<T extends { id: number; folderId: number | null }>(ns: st
     },
     update: (id, patch) => {
       set({ items: get().items.map((c) => (c.id === id ? { ...c, ...patch } : c)) })
-      void window.nais.invoke(ch.update, { id, patch })
+      pendingPatch.set(id, { ...(pendingPatch.get(id) ?? {}), ...patch })
+      clearTimeout(patchTimers.get(id))
+      patchTimers.set(id, setTimeout(() => flushPatch(id), 250))
     },
     remove: (id) => {
+      clearTimeout(patchTimers.get(id))
+      pendingPatch.delete(id)
       set({ items: get().items.filter((c) => c.id !== id) })
       void window.nais.invoke(ch.delete, { id })
     },

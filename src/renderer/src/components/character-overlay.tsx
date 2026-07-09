@@ -158,7 +158,7 @@ export function CharacterOverlay(): React.JSX.Element {
       <button
         className="min-w-0 flex-1 truncate text-left text-[13px] text-ink"
         title="눌러서 수정"
-        onClick={() => setExpandedId(expandedId === char.id ? null : char.id)}
+        onClick={() => setExpandedId((prev) => (prev === char.id ? null : char.id))}
       >
         {char.name || char.prompt.slice(0, 40) || <span className="text-faint">빈 캐릭터</span>}
       </button>
@@ -324,6 +324,7 @@ export function CharacterOverlay(): React.JSX.Element {
           rows={rows}
           searching={searching}
           expandedId={expandedId}
+          renderKey={useCoords} // 헤더 좌표 버튼이 item 밖 상태에 의존 — 바뀌면 카드 리렌더
           folderActions={{
             rename: renameFolder,
             toggleCollapse,

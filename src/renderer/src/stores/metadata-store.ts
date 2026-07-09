@@ -8,6 +8,12 @@ import { useLayoutStore } from './layout-store'
 import { usePromptPresetsStore } from './prompt-presets-store'
 import { toast } from './toast-store'
 
+/** 실질적으로 3분할인지 — base만 있고 가변/디테일이 비었으면 단일 프롬프트로 취급 */
+export function isSplitMeta(meta: ImageMetadata): boolean {
+  const p = meta.promptParts
+  return !!p && !!(p.additional?.trim() || p.detail?.trim())
+}
+
 /** 병합된 프롬프트/네거티브에서 프리셋을 벗겨 원본(raw)만 남긴다 → 재병합으로 동일 재현 */
 function stripQuality(prompt: string): string {
   return prompt.endsWith(QUALITY_TAGS_SUFFIX)
@@ -68,7 +74,8 @@ export const useMetadataStore = create<MetadataState>((set, get) => ({
     // 퀄리티 태그: 체크 시 원본 프롬프트+토글로(재병합), 미체크 시 병합본 그대로+토글 off
     const q = sel.quality ? !!m.qualityToggle : false
     if (sel.prompt) {
-      if (m.promptParts) {
+      // 실질 분할일 때만 parts 경로 — 다이얼로그 표시(isSplitMeta)와 동일 판정
+      if (m.promptParts && isSplitMeta(m)) {
         const promptParts = {
           base: m.promptParts.base,
           additional: m.promptParts.additional,

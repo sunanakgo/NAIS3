@@ -493,6 +493,21 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     }
   })
 
+  handle('images:saveLocal', async ({ base64, kind }) => {
+    try {
+      const png = Buffer.from(base64.replace(/^data:[^,]+,/, ''), 'base64')
+      const saved = await saveGeneratedImage({
+        png,
+        sentPayload: JSON.stringify({ local: kind }),
+        seed: 0,
+        kind
+      })
+      return { filePath: saved.filePath }
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) }
+    }
+  })
+
   handle('director:run', async ({ method, imageBase64, prompt, defry }) => {
     const token = getNaiToken()
     if (!token) return { error: 'NAI 토큰이 설정되지 않았습니다' }

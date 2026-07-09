@@ -2,6 +2,7 @@ import {
   ChevronRight,
   Droplets,
   Eraser,
+  Grid3x3,
   ImageIcon,
   Layers,
   Loader2,
@@ -20,12 +21,14 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { directorToolCost } from '@shared/anlas'
 import { EMOTIONS, type DirectorMethod } from '@shared/types'
-import { useDirectorStore } from '../stores/director-store'
+import { openInDirector, useDirectorStore } from '../stores/director-store'
 import { useGenerationStore } from '../stores/generation-store'
 import { useLayoutStore } from '../stores/layout-store'
 import { cn } from '../lib/utils'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
+import { DropOverlay } from './drop-overlay'
+import { MosaicEditor } from './mosaic-editor'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Slider } from './ui/slider'
 
@@ -58,8 +61,13 @@ export function DirectorMode(): React.JSX.Element {
   const loading = useDirectorStore((s) => s.loading)
   const error = useDirectorStore((s) => s.error)
   const setSource = useDirectorStore((s) => s.setSource)
+  const applyLocal = useDirectorStore((s) => s.applyLocal)
   const undo = useDirectorStore((s) => s.undo)
   const clear = useDirectorStore((s) => s.clear)
+  // 모자이크 편집기 — 열 때의 이미지·해상도 고정 (편집 중 스택 변화와 무관)
+  const [mosaic, setMosaic] = useState<{ base64: string; width: number; height: number } | null>(
+    null
+  )
 
   const source = stack.length > 0 ? stack[stack.length - 1] : null
   const isResult = stack.length > 1 // 툴이 한 번 이상 적용된 상태
@@ -115,13 +123,26 @@ export function DirectorMode(): React.JSX.Element {
           dragOver ? 'border-accent' : 'border-line'
         )}
         onDragOver={(e) => {
-          e.preventDefault()
-          if (e.dataTransfer.types.includes('Files')) setDragOver(true)
+          // 외부 파일 또는 히스토리 썸네일(내부 드래그) 둘 다 허용
+          if (
+            e.dataTransfer.types.includes('Files') ||
+            e.dataTransfer.types.includes('nais/file-path')
+          ) {
+            e.preventDefault()
+            setDragOver(true)
+          }
         }}
-        onDragLeave={() => setDragOver(false)}
+        onDragLeave={(e) => {
+          if (e.currentTarget === e.target) setDragOver(false)
+        }}
         onDrop={(e) => {
           e.preventDefault()
           setDragOver(false)
+          const internalPath = e.dataTransfer.getData('nais/file-path')
+          if (internalPath) {
+            void openInDirector(internalPath)
+            return
+          }
           const file = e.dataTransfer.files?.[0]
           if (file?.type.startsWith('image/')) loadFile(file)
         }}
@@ -183,6 +204,14 @@ export function DirectorMode(): React.JSX.Element {
           </div>
         )}
 
+        {/* 이미지가 이미 있을 때의 드롭 안내 (없을 땐 점선 박스가 하이라이트됨) */}
+        <DropOverlay
+          show={dragOver && !!shown}
+          icon={Wand2}
+          label="여기 놓으면 이 이미지로 교체합니다"
+          sub="디렉터 툴로 새 이미지 열기"
+        />
+
         <input
           ref={fileRef}
           type="file"
@@ -230,8 +259,34 @@ export function DirectorMode(): React.JSX.Element {
           {TOOLS.map((tool) => (
             <ToolCard key={tool.method} tool={tool} disabled={!source || loading} cost={toolCost} />
           ))}
+          <div className="!my-3 h-px bg-line" />
+          {/* 로컬 툴 — API/Anlas 안 씀 */}
+          <SendToMainCard
+            icon={Grid3x3}
+            color="text-orange-400"
+            label="모자이크"
+            desc="브러시로 칠해 픽셀화 (로컬·무료)"
+            disabled={!source || loading}
+            onRun={() => {
+              if (!source) return
+              void imageDims(source).then((dims) => setMosaic({ base64: source, ...dims }))
+            }}
+          />
         </div>
       </div>
+
+      {mosaic && (
+        <MosaicEditor
+          imageBase64={mosaic.base64}
+          width={mosaic.width}
+          height={mosaic.height}
+          onConfirm={(b64) => {
+            setMosaic(null)
+            void applyLocal(b64, 'mosaic')
+          }}
+          onCancel={() => setMosaic(null)}
+        />
+      )}
     </div>
   )
 }

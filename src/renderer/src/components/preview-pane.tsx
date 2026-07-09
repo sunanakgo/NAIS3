@@ -4,6 +4,7 @@ import { imageUrl } from '../lib/constants'
 import { useGenerationStore } from '../stores/generation-store'
 import { useMetadataStore } from '../stores/metadata-store'
 import { cn } from '../lib/utils'
+import { DropOverlay } from './drop-overlay'
 import { ImageContextMenu } from './image-context-menu'
 
 export function PreviewPane(): React.JSX.Element {
@@ -177,12 +178,12 @@ export function PreviewPane(): React.JSX.Element {
         </div>
       )}
 
-      {dragOver && (
-        <div className="pointer-events-none absolute inset-2 z-20 flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-accent bg-paper/80 text-accent backdrop-blur-sm">
-          <ImageIcon size={34} strokeWidth={1.4} />
-          <span className="text-[13px] font-medium">여기 놓으면 메타데이터를 불러옵니다</span>
-        </div>
-      )}
+      <DropOverlay
+        show={dragOver}
+        icon={ImageIcon}
+        label="여기 놓으면 메타데이터를 불러옵니다"
+        sub="프롬프트·설정을 확인하고 선택 적용"
+      />
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { Check, Copy, ImageOff, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ImageMetadata } from '@shared/types'
-import { useMetadataStore } from '../stores/metadata-store'
+import { isSplitMeta, useMetadataStore } from '../stores/metadata-store'
 import { cn } from '../lib/utils'
 import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
@@ -139,7 +139,7 @@ export function MetadataDialog(): React.JSX.Element {
 
             {/* 우: 프롬프트 */}
             <div className="flex min-w-0 flex-1 flex-col gap-3 self-stretch">
-              {meta.promptParts ? (
+              {isSplitMeta(meta) ? (
                 <SplitPreview meta={meta} sel={sel} toggle={toggle} />
               ) : (
                 <Field

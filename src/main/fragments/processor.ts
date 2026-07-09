@@ -24,7 +24,8 @@ export function resetSequentialCounters(): void {
 }
 
 function normalizePath(path: string): string {
-  return path.trim().toLowerCase()
+  // 슬래시 주변 공백 허용: <폴더 / 이름> → 폴더/이름
+  return path.trim().toLowerCase().replace(/\s*\/\s*/g, '/')
 }
 
 function processFileWildcards(

@@ -2,6 +2,7 @@ import {
   Droplets,
   Eraser,
   Film,
+  Grid3x3,
   ImageIcon,
   Layers,
   Maximize2,
@@ -29,7 +30,12 @@ const KIND_MAP: Record<string, { Icon: LucideIcon; className: string; label: str
   colorize: { Icon: Droplets, className: 'text-emerald-400', label: '색칠' },
   emotion: { Icon: Smile, className: 'text-fuchsia-400', label: '표정' },
   declutter: { Icon: Sparkles, className: 'text-violet-400', label: '정리' },
-  'declutter-keep-bubbles': { Icon: MessageSquareText, className: 'text-violet-300', label: '정리+' }
+  'declutter-keep-bubbles': {
+    Icon: MessageSquareText,
+    className: 'text-violet-300',
+    label: '정리+'
+  },
+  mosaic: { Icon: Grid3x3, className: 'text-orange-400', label: '모자이크' }
 }
 
 export function kindMeta(kind: string): { Icon: LucideIcon; className: string; label: string } {

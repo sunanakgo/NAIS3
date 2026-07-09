@@ -57,7 +57,9 @@ function createWindow(): void {
     ...(process.platform !== 'darwin' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      // 웹 검색(인앱 브라우저) — <webview> 태그 사용
+      webviewTag: true
     }
   })
 
@@ -68,6 +70,20 @@ function createWindow(): void {
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
+  })
+
+  // <webview> 보안: 외부 사이트에 preload/node 접근 차단 + 팝업은 기본 브라우저로
+  mainWindow.webContents.on('will-attach-webview', (_event, webPreferences) => {
+    delete webPreferences.preload
+    webPreferences.nodeIntegration = false
+    webPreferences.contextIsolation = true
+  })
+  mainWindow.webContents.on('did-attach-webview', (_event, webContents) => {
+    webContents.setWindowOpenHandler(({ url }) => {
+      // 같은 뷰에서 열 수 있는 링크는 그대로, window.open류는 현재 뷰에서 로드
+      if (url.startsWith('http')) void webContents.loadURL(url)
+      return { action: 'deny' }
+    })
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {

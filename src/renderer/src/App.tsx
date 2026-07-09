@@ -13,6 +13,7 @@ import { SceneMode } from './components/scene-mode'
 import { Titlebar } from './components/titlebar'
 import { SettingsDialog } from './components/token-dialog'
 import { TextPromptHost } from './components/text-prompt-host'
+import { WebSearchMode } from './components/web-search-mode'
 import { TooltipProvider } from './components/ui/tooltip'
 import { useCharactersStore } from './stores/characters-store'
 import { useFragmentsStore } from './stores/fragments-store'
@@ -126,6 +127,8 @@ export default function App(): React.JSX.Element {
             <DirectorMode />
           ) : centerMode === 'library' ? (
             <LibraryMode />
+          ) : centerMode === 'websearch' ? (
+            <WebSearchMode />
           ) : (
             <PreviewPane />
           )}

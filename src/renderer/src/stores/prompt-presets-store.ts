@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { GenerationRequest, PresetParams, PromptPreset } from '@shared/types'
+import type { GenerationRequest, PresetParams, PromptParts, PromptPreset } from '@shared/types'
 import { useGenerationStore } from './generation-store'
 
 /** 프리셋에 함께 저장/복원되는 파라미터 (시드·캐릭터 제외) */
@@ -17,6 +17,30 @@ export function pickPresetParams(req: GenerationRequest): PresetParams {
     qualityToggle: req.qualityToggle,
     ucPreset: req.ucPreset
   }
+}
+
+export type PromptPresetSyncSnapshot = Pick<PromptPreset, 'prompt' | 'negativePrompt' | 'params'>
+
+/**
+ * v10 이전/NAIS2 이관 프리셋은 params=null이다.
+ * 프리셋 적용 직후 자동 저장이 돌면 현재 기본 생성값(28/6/0.56/euler/Heavy 등)을
+ * 모든 레거시 프리셋에 역으로 채워 넣을 수 있으므로, 텍스트가 그대로인 상태의
+ * "params만 다름"은 사용자 편집으로 보지 않는다.
+ */
+export function shouldSyncPromptPreset(
+  preset: PromptPresetSyncSnapshot,
+  next: PromptPresetSyncSnapshot
+): boolean {
+  const promptChanged =
+    preset.prompt !== next.prompt || preset.negativePrompt !== next.negativePrompt
+  const paramsChanged = JSON.stringify(preset.params) !== JSON.stringify(next.params)
+  if (!promptChanged && preset.params == null) return false
+  return promptChanged || paramsChanged
+}
+
+/** 분할 프롬프트는 프리셋별 저장값이 없으므로 프리셋 적용 시 현재 prompt를 base로 재시드한다. */
+export function splitPromptForPreset(prompt: string): PromptParts {
+  return { base: prompt, additional: '', detail: '' }
 }
 
 interface PromptPresetsState {
@@ -88,14 +112,19 @@ export const usePromptPresetsStore = create<PromptPresetsState>((set, get) => ({
       // 1) 이전 프리셋(없으면 첫 번째)으로 자동 전환 + 적용
       const next = rest[Math.max(0, idx - 1)]
       get().setActive(next.id)
-      useGenerationStore
-        .getState()
-        .patchRequest({ prompt: next.prompt, negativePrompt: next.negativePrompt })
+      useGenerationStore.getState().patchRequest({
+        prompt: next.prompt,
+        promptParts: splitPromptForPreset(next.prompt),
+        negativePrompt: next.negativePrompt,
+        ...(next.params ?? {})
+      })
     } else {
       // 2) 전부 삭제됐으면 기본 프리셋을 새로 만들어 활성화 (빈 프롬프트)
       const newId = await get().create('기본', '', '')
       get().setActive(newId)
-      useGenerationStore.getState().patchRequest({ prompt: '', negativePrompt: '' })
+      useGenerationStore
+        .getState()
+        .patchRequest({ prompt: '', promptParts: splitPromptForPreset(''), negativePrompt: '' })
     }
   }
 }))

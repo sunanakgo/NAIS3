@@ -7,6 +7,7 @@ import { randomSeed, useGenerationStore } from './generation-store'
 const PAGE = 80 // 씬 상세 이미지 페이지 크기 (수만 장 대비: 한 번에 전부 로드 금지)
 let loadSeq = 0 // load() 비동기 응답 순서 보장용
 let imagesSeq = 0 // loadImages() 비동기 응답 순서 보장용
+let selectionAnchor: number | null = null // 쉬프트 범위 선택 기준점 (마지막 일반 클릭 씬)
 
 interface ScenesState {
   presets: ScenePreset[]
@@ -16,7 +17,7 @@ interface ScenesState {
   editMode: boolean
   selection: Set<number> // 편집 모드 체크된 씬들
   columns: number // 2~5
-  cardOrientation: 'portrait' | 'landscape' // 카드 비율 고정 (해상도 무관)
+  cardOrientation: 'portrait' | 'landscape' | 'square' // 카드 비율 고정 (해상도 무관)
 
   // 상세 이미지 (페이지네이션)
   images: SceneImage[]
@@ -38,8 +39,10 @@ interface ScenesState {
   select: (id: number | null) => void
   setEditMode: (v: boolean) => void
   setColumns: (n: number) => void
-  setCardOrientation: (o: 'portrait' | 'landscape') => void
+  setCardOrientation: (o: 'portrait' | 'landscape' | 'square') => void
   toggleSelected: (id: number) => void
+  /** 쉬프트 클릭 — 마지막 클릭 씬과 이 씬 사이(양끝 포함)를 모두 선택 */
+  rangeSelect: (id: number) => void
   selectAll: () => void
   clearSelection: () => void
 
@@ -135,7 +138,8 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
   selection: new Set(),
   columns: Number(localStorage.getItem('scene_columns')) || 3,
   cardOrientation:
-    (localStorage.getItem('scene_orientation') as 'portrait' | 'landscape') || 'portrait',
+    (localStorage.getItem('scene_orientation') as 'portrait' | 'landscape' | 'square') ||
+    'portrait',
   images: [],
   imagesTotal: 0,
   imagesLoading: false,
@@ -150,6 +154,7 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
     await get().load()
   },
   setActivePreset: async (id) => {
+    selectionAnchor = null
     set({ activePresetId: id, selectedId: null, selection: new Set() })
     await get().load()
   },
@@ -193,7 +198,10 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
     set({ selectedId, images: [], imagesTotal: 0, favoritesOnly: false })
     if (selectedId != null) void get().loadImages(selectedId, true)
   },
-  setEditMode: (editMode) => set({ editMode, selection: new Set() }),
+  setEditMode: (editMode) => {
+    selectionAnchor = null
+    set({ editMode, selection: new Set() })
+  },
   setColumns: (columns) => {
     set({ columns })
     localStorage.setItem('scene_columns', String(columns))
@@ -205,6 +213,20 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
   toggleSelected: (id) => {
     const next = new Set(get().selection)
     next.has(id) ? next.delete(id) : next.add(id)
+    selectionAnchor = id
+    set({ selection: next })
+  },
+  rangeSelect: (id) => {
+    const { scenes } = get()
+    const from = scenes.findIndex((s) => s.id === selectionAnchor)
+    const to = scenes.findIndex((s) => s.id === id)
+    if (from === -1 || to === -1) {
+      get().toggleSelected(id)
+      return
+    }
+    const next = new Set(get().selection)
+    for (let i = Math.min(from, to); i <= Math.max(from, to); i++) next.add(scenes[i].id)
+    // 앵커는 유지 — 파일탐색기처럼 연속 쉬프트 클릭이 같은 기준점에서 범위를 다시 잡는다
     set({ selection: next })
   },
   selectAll: () => set({ selection: new Set(get().scenes.map((s) => s.id)) }),

@@ -23,7 +23,7 @@ export function MaskEditor({
   onCancel: () => void
 }): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [brush, setBrush] = useState(40)
+  const [brush, setBrush] = useState(28)
   const [erasing, setErasing] = useState(false)
   const drawing = useRef(false)
   const last = useRef<{ x: number; y: number } | null>(null)
@@ -53,8 +53,9 @@ export function MaskEditor({
     // 붓 크기는 원본 해상도 기준으로 스케일 (화면에서 보이는 크기 유지)
     const r = (brush / dispW) * width
     ctx.globalCompositeOperation = erasing ? 'destination-out' : 'source-over'
-    ctx.strokeStyle = 'rgba(233, 94, 80, 0.7)'
-    ctx.fillStyle = 'rgba(233, 94, 80, 0.7)'
+    // 스트로크는 불투명으로 그리고 캔버스 자체를 CSS opacity로 반투명 표시 — 겹쳐 칠해도 진해지지 않는다.
+    ctx.strokeStyle = 'rgb(233, 94, 80)'
+    ctx.fillStyle = 'rgb(233, 94, 80)'
     ctx.lineWidth = r * 2
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
@@ -112,13 +113,13 @@ export function MaskEditor({
               draggable={false}
               alt=""
             />
-            {/* 캔버스는 원본 해상도, CSS로만 축소 표시 */}
+            {/* 캔버스는 원본 해상도, CSS로만 축소 표시. opacity는 오버레이 표시용 — 픽셀 데이터(exportMask)에는 영향 없음 */}
             <canvas
               ref={canvasRef}
               width={width}
               height={height}
               className="absolute inset-0 h-full w-full cursor-crosshair"
-              style={{ touchAction: 'none' }}
+              style={{ touchAction: 'none', opacity: 0.4 }}
               onPointerDown={(e) => {
                 e.currentTarget.setPointerCapture(e.pointerId)
                 drawing.current = true
@@ -138,14 +139,31 @@ export function MaskEditor({
           </div>
 
           <div className="flex w-full items-center gap-2">
-            <Button size="sm" variant={erasing ? 'ghost' : 'default'} className="gap-1" onClick={() => setErasing(false)}>
+            <Button
+              size="sm"
+              variant={erasing ? 'ghost' : 'default'}
+              className="gap-1"
+              onClick={() => setErasing(false)}
+            >
               <Paintbrush size={14} /> 칠하기
             </Button>
-            <Button size="sm" variant={erasing ? 'default' : 'ghost'} className="gap-1" onClick={() => setErasing(true)}>
+            <Button
+              size="sm"
+              variant={erasing ? 'default' : 'ghost'}
+              className="gap-1"
+              onClick={() => setErasing(true)}
+            >
               <Eraser size={14} /> 지우기
             </Button>
             <span className="ml-1 text-[12px] text-muted">붓 {brush}</span>
-            <Slider className="w-36" min={8} max={120} step={2} value={[brush]} onValueChange={([v]) => setBrush(v)} />
+            <Slider
+              className="w-36"
+              min={8}
+              max={120}
+              step={2}
+              value={[brush]}
+              onValueChange={([v]) => setBrush(v)}
+            />
             <Button size="sm" variant="ghost" className="gap-1" onClick={clear}>
               <RotateCcw size={13} /> 초기화
             </Button>

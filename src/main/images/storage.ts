@@ -107,15 +107,22 @@ export async function saveGeneratedImage(input: {
   const ext = input.format ?? 'png'
   let filePath: string
   if (input.sceneName) {
-    // 씬 이미지는 씬 이름_N (폴더 내 기존 연번에 이어서 — ZIP 내보내기와 동일 형식)
+    // 씬 이미지는 첫 장은 씬 이름 그대로, 중복부터 씬 이름_2, _3 ...
     const safeName = input.sceneName.replace(/[/\\:*?"<>|]/g, '_').trim() || `씬-${input.sceneId}`
     let max = 0
+    const escaped = safeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const firstRe = new RegExp(`^${escaped}\\.`)
+    const numberedRe = new RegExp(`^${escaped}_(\\d+)\\.`)
     for (const f of readdirSync(monthDir)) {
-      const m = new RegExp(`^${safeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}_(\\d+)\\.`).exec(f)
+      if (firstRe.test(f)) max = Math.max(max, 1)
+      const m = numberedRe.exec(f)
       if (m) max = Math.max(max, Number(m[1]))
     }
-    filePath = join(monthDir, `${safeName}_${max + 1}.${ext}`)
-    while (existsSync(filePath)) filePath = join(monthDir, `${safeName}_${++max + 1}.${ext}`)
+    filePath = join(monthDir, max === 0 ? `${safeName}.${ext}` : `${safeName}_${max + 1}.${ext}`)
+    while (existsSync(filePath)) {
+      max++
+      filePath = join(monthDir, `${safeName}_${max + 1}.${ext}`)
+    }
   } else {
     const stamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19)
     filePath = join(monthDir, `NAIS3_${stamp}_${input.seed}.${ext}`)

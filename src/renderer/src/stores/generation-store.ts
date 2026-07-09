@@ -139,9 +139,11 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   },
   setPromptSplitEnabled: (promptSplitEnabled) => {
     const request = get().request
+    const existingParts = request.promptParts
     const promptParts =
-      request.promptParts ??
-      ({ base: request.prompt, additional: '', detail: '' } satisfies PromptParts)
+      existingParts && mergePromptParts(existingParts) === request.prompt
+        ? existingParts
+        : ({ base: request.prompt, additional: '', detail: '' } satisfies PromptParts)
     set({ promptSplitEnabled, request: { ...request, promptParts } })
     void window.nais.invoke('settings:set', {
       key: 'prompt_split_enabled',

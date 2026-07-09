@@ -32,7 +32,8 @@ function processFileWildcards(
   prompt: string,
   source: FragmentSource,
   rng: () => number,
-  depth: number
+  depth: number,
+  peek: boolean
 ): string {
   if (depth > MAX_DEPTH) return prompt
   const filePattern = /<([^<>]+)>/g
@@ -62,13 +63,14 @@ function processFileWildcards(
     if (isSequential) {
       const index = sequentialCounters.get(path) ?? 0
       line = lines[index % lines.length]
-      sequentialCounters.set(path, index + 1)
+      // peek(토큰 카운트 등 미리보기)일 땐 순차 카운터를 소모하지 않는다
+      if (!peek) sequentialCounters.set(path, index + 1)
     } else {
       line = lines[Math.floor(rng() * lines.length)]
     }
 
     // 선택된 줄 안의 중첩 조각 재귀 치환
-    return processFileWildcards(line, source, rng, depth + 1)
+    return processFileWildcards(line, source, rng, depth + 1, peek)
   })
 }
 
@@ -118,10 +120,12 @@ function processSimpleWildcards(prompt: string, rng: () => number): string {
 export function processWildcards(
   prompt: string,
   source: FragmentSource,
-  rng: () => number = Math.random
+  rng: () => number = Math.random,
+  /** true면 순차 카운터를 소모하지 않는 미리보기 치환 (토큰 카운트용) */
+  peek = false
 ): string {
   if (!prompt) return prompt
-  let result = processFileWildcards(prompt, source, rng, 0)
+  let result = processFileWildcards(prompt, source, rng, 0, peek)
   result = processParenthesisWildcards(result, rng)
   result = processSimpleWildcards(result, rng)
   return result

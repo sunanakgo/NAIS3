@@ -267,5 +267,37 @@ export const migrations: ((db: Database.Database) => void)[] = [
       ALTER TABLE scene_presets ADD COLUMN default_width INTEGER;
       ALTER TABLE scene_presets ADD COLUMN default_height INTEGER;
     `)
+  },
+
+  // v12: 라이브러리 — 사용자가 직접 모아두는 큐레이션 컬렉션 (NAIS2 라이브러리 이식).
+  // 원본 파일은 userData/library/curated/ 에 복사본으로 저장, DB엔 경로·썸네일·스택만.
+  (db) => {
+    db.exec(`
+      CREATE TABLE library_stacks (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE library_images (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL DEFAULT '',
+        file_path TEXT NOT NULL,
+        thumbnail BLOB,
+        width INTEGER,
+        height INTEGER,
+        stack_id INTEGER,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX idx_library_images_stack ON library_images(stack_id, id DESC);
+    `)
+  },
+
+  // v13: 라이브러리 드래그 정렬 — sort_order (기존 행은 id로 백필해 최신순 유지)
+  (db) => {
+    db.exec(`
+      ALTER TABLE library_images ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+      UPDATE library_images SET sort_order = id;
+      CREATE INDEX idx_library_images_order ON library_images(sort_order DESC, id DESC);
+    `)
   }
 ]

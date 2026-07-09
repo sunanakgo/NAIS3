@@ -25,6 +25,7 @@ import {
   deleteFragmentFolder,
   exportTxtFragment,
   exportAllFragmentsZip,
+  fragmentSource,
   importTxtFragments,
   listFragments,
   renameFragmentFolder,
@@ -33,7 +34,8 @@ import {
   setFragmentFolderColor,
   updateFragment
 } from './fragments/repo'
-import { resetSequentialCounters } from './fragments/processor'
+import { processWildcards, resetSequentialCounters } from './fragments/processor'
+import { removeComments } from '../shared/nai-presets'
 import {
   deleteNaiToken,
   getNaiToken,
@@ -85,6 +87,18 @@ import {
   deletePromptPreset,
   reorderPromptPresets
 } from './prompts/repo'
+import {
+  createStack,
+  deleteImages as deleteLibraryImages,
+  deleteStack,
+  importBase64 as importLibraryBase64,
+  importPaths as importLibraryPaths,
+  importViaDialog,
+  listLibrary,
+  renameStack,
+  reorderImages as reorderLibraryImages,
+  setStack
+} from './library/repo'
 import { exportAll, importAll } from './backup/repo'
 import { importNais2 } from './backup/nais2'
 import { startUpdateDownload } from './updater'
@@ -298,6 +312,35 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     deleteImage(id, deleteFile === true)
   })
   handle('images:clearAll', () => ({ count: clearAllImages() }))
+
+  // 라이브러리 — 큐레이션 컬렉션
+  handle('library:list', ({ stackId, limit, offset }) => listLibrary(stackId, limit, offset))
+  handle('library:import', async ({ stackId }) => ({
+    count: await importViaDialog(stackId ?? null)
+  }))
+  handle('library:importPaths', async ({ filePaths, stackId }) => ({
+    count: await importLibraryPaths(filePaths, stackId ?? null)
+  }))
+  handle('library:importImages', async ({ images, stackId }) => ({
+    count: await importLibraryBase64(images, stackId ?? null)
+  }))
+  handle('library:delete', ({ ids }) => {
+    deleteLibraryImages(ids)
+  })
+  handle('library:reorder', ({ ids }) => {
+    reorderLibraryImages(ids)
+  })
+  handle('library:stackCreate', ({ name, imageIds }) => ({ id: createStack(name, imageIds) }))
+  handle('library:stackRename', ({ id, name }) => {
+    renameStack(id, name)
+  })
+  handle('library:stackDelete', ({ id }) => {
+    deleteStack(id)
+  })
+  handle('library:stackSet', ({ imageIds, stackId }) => {
+    setStack(imageIds, stackId)
+  })
+
   handle('scenes:exportJson', async ({ presetId }) => ({ saved: await exportScenesJson(presetId) }))
   handle('scenes:importJson', async ({ presetId }) => ({ count: await importScenesJson(presetId) }))
   handle('scenes:exportZip', async ({ mode }) => ({ count: await exportZip(mode) }))
@@ -370,7 +413,14 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   })
 
   handle('tags:search', ({ query, limit }) => ({ items: searchTags(query, limit) }))
-  handle('tokens:count', ({ texts }) => ({ counts: texts.map(countTokens) }))
+  handle('tokens:count', ({ texts }) => {
+    // 토큰 수는 실제 전송본 기준 — 조각(<이름>)·주석을 치환/제거한 결과로 센다.
+    // rng 고정(항상 첫 줄)이라 결정적이고, peek이라 <*이름> 순차 카운터를 소모하지 않는다.
+    const src = fragmentSource()
+    return {
+      counts: texts.map((t) => countTokens(processWildcards(removeComments(t), src, () => 0, true)))
+    }
+  })
 
   handle('images:showInFolder', ({ filePath }) => {
     if (isUnderImagesRoot(filePath)) shell.showItemInFolder(filePath)

@@ -6,6 +6,7 @@ import { Toaster } from './components/toaster'
 import { PreviewPane } from './components/preview-pane'
 import { DirectorMode } from './components/director-mode'
 import { InpaintHost } from './components/inpaint-host'
+import { LibraryMode } from './components/library-mode'
 import { MetadataDialog } from './components/metadata-dialog'
 import { PromptPanel } from './components/prompt-panel'
 import { SceneMode } from './components/scene-mode'
@@ -104,7 +105,9 @@ export default function App(): React.JSX.Element {
                 animate={{ width: sidebarWidth, opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
                 // 드래그 중엔 즉시 반영 (애니메이션이 따라오면 답답함)
-                transition={resizing ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                transition={
+                  resizing ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }
+                }
               >
                 <div style={{ width: sidebarWidth }} className="h-full">
                   <PromptPanel />
@@ -121,6 +124,8 @@ export default function App(): React.JSX.Element {
             <SceneMode />
           ) : centerMode === 'director' ? (
             <DirectorMode />
+          ) : centerMode === 'library' ? (
+            <LibraryMode />
           ) : (
             <PreviewPane />
           )}

@@ -291,6 +291,27 @@ export interface SceneImage {
   favorite: boolean
 }
 
+/** 라이브러리 — 사용자가 직접 모아두는 큐레이션 이미지 (원본은 앱 내부 복사본) */
+export interface LibraryImage {
+  id: number
+  name: string
+  filePath: string
+  /** webp 썸네일 base64 (없으면 '') */
+  thumbnail: string
+  width: number | null
+  height: number | null
+  stackId: number | null
+}
+
+/** 라이브러리 스택(그룹) — 카드 여러 장을 묶어 보관 */
+export interface LibraryStack {
+  id: number
+  name: string
+  count: number
+  /** 스택 대표(최신) 이미지 썸네일 base64 (없으면 '') */
+  coverThumbnail: string
+}
+
 /** IPC invoke 채널 계약: 채널명 → (요청, 응답) */
 export interface IpcInvokeMap {
   'db:status': { req: void; res: { version: number; path: string } }
@@ -517,6 +538,34 @@ export interface IpcInvokeMap {
   'crefs:folderCollapse': { req: { id: number; collapsed: boolean }; res: void }
   'crefs:folderColor': { req: { id: number; color: string | null }; res: void }
   'crefs:folderDelete': { req: { id: number }; res: void }
+
+  /** 라이브러리 — stackId 미지정=루트(스택 목록 + 미분류 이미지), 지정=해당 스택 내부 */
+  'library:list': {
+    req: { stackId?: number | null; limit: number; offset: number }
+    res: { items: LibraryImage[]; stacks: LibraryStack[]; total: number }
+  }
+  /** 파일 다이얼로그(다중)로 가져오기 — 라이브러리 폴더에 복사 + 썸네일 생성 */
+  'library:import': { req: { stackId?: number | null }; res: { count: number } }
+  /** 앱 내부 이미지 경로(히스토리 드래그 등)로 가져오기 */
+  'library:importPaths': {
+    req: { filePaths: string[]; stackId?: number | null }
+    res: { count: number }
+  }
+  /** 외부 드롭(base64)으로 가져오기 */
+  'library:importImages': {
+    req: { images: { name: string; base64: string }[]; stackId?: number | null }
+    res: { count: number }
+  }
+  /** 삭제 — DB 행 + 복사본 파일 모두 */
+  'library:delete': { req: { ids: number[] }; res: void }
+  /** 드래그 정렬 — 로드된 이미지 id들의 새 순서 (기존 슬롯 재배분) */
+  'library:reorder': { req: { ids: number[] }; res: void }
+  'library:stackCreate': { req: { name: string; imageIds: number[] }; res: { id: number } }
+  'library:stackRename': { req: { id: number; name: string }; res: void }
+  /** 스택 삭제 — 소속 이미지는 미분류로 (이미지 삭제 아님) */
+  'library:stackDelete': { req: { id: number }; res: void }
+  /** 이미지들을 스택에 넣기/빼기 (stackId null = 해제) */
+  'library:stackSet': { req: { imageIds: number[]; stackId: number | null }; res: void }
 }
 
 /** 메인 → 렌더러 이벤트 채널 */

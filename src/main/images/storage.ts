@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { app } from 'electron'
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs'
 import { isAbsolute, join, relative } from 'path'
@@ -68,6 +69,84 @@ export function isUnderImagesRoot(filePath: string): boolean {
   )
 }
 
+// ── 자동저장 OFF 임시 이미지 (NAIS2 방식) ──────────────────────
+// 원본은 디스크에 안 쓰고 메모리 링버퍼(최근 N장)에만 보관. DB에는 썸네일 행만 남아
+// 히스토리에 보이고, 경로는 memory:// 마커. 재시작하면 원본은 사라지고 썸네일로 폴백.
+
+export const MEMORY_PREFIX = 'memory://'
+const EPHEMERAL_KEEP = 20
+const memoryImages = new Map<string, Buffer>()
+
+export function isMemoryPath(filePath: string): boolean {
+  return filePath.startsWith(MEMORY_PREFIX)
+}
+
+export function getMemoryImage(filePath: string): Buffer | null {
+  return memoryImages.get(filePath) ?? null
+}
+
+export function dropMemoryImage(filePath: string): void {
+  memoryImages.delete(filePath)
+}
+
+/** 원본이 만료됐을 때의 표시 폴백 — DB 썸네일(webp) */
+export function thumbnailByPath(filePath: string): Buffer | null {
+  const row = getDb().prepare('SELECT thumbnail FROM images WHERE file_path = ?').get(filePath) as
+    | { thumbnail: Buffer | null }
+    | undefined
+  return row?.thumbnail ?? null
+}
+
+/** 자동저장 OFF 메인 생성 저장 — 파일 없이 메모리 + 썸네일 행. 최근 N장 초과분은 행·버퍼 정리 */
+export async function saveEphemeralImage(input: {
+  png: Buffer
+  sentPayload: string
+  seed: number
+  kind: 't2i' | 'i2i' | 'inpaint'
+  format?: 'png' | 'webp'
+  localMetadata?: Pick<ImageMetadata, 'promptParts'>
+}): Promise<SavedImage> {
+  const ext = input.format ?? 'png'
+  const filePath = `${MEMORY_PREFIX}${randomUUID()}.${ext}`
+  // 메타데이터 주입본을 캐시에 — "다른 이름으로 저장" 구제 시 파일 저장본과 동일해지게
+  const buffer =
+    ext === 'png' && input.localMetadata
+      ? injectNais3Params(input.png, input.localMetadata)
+      : input.png
+  memoryImages.set(filePath, buffer)
+
+  const thumbnail = await sharp(input.png)
+    .resize(640, 640, { fit: 'inside' })
+    .webp({ quality: 90 })
+    .toBuffer()
+  const db = getDb()
+  const result = db
+    .prepare(
+      'INSERT INTO images (file_path, thumbnail, kind, seed, payload_json, scene_id) VALUES (?, ?, ?, ?, ?, NULL)'
+    )
+    .run(
+      filePath,
+      thumbnail,
+      input.kind,
+      input.seed,
+      payloadWithLocalMetadata(input.sentPayload, input.localMetadata)
+    )
+
+  const stale = db
+    .prepare(
+      `SELECT id, file_path FROM images WHERE file_path LIKE '${MEMORY_PREFIX}%'
+       ORDER BY id DESC LIMIT -1 OFFSET ?`
+    )
+    .all(EPHEMERAL_KEEP) as { id: number; file_path: string }[]
+  if (stale.length > 0) {
+    for (const s of stale) memoryImages.delete(s.file_path)
+    db.prepare(`DELETE FROM images WHERE id IN (${stale.map(() => '?').join(',')})`).run(
+      ...stale.map((s) => s.id)
+    )
+  }
+  return { id: Number(result.lastInsertRowid), filePath }
+}
+
 export async function saveGeneratedImage(input: {
   png: Buffer
   sentPayload: string
@@ -85,18 +164,15 @@ export async function saveGeneratedImage(input: {
   localMetadata?: Pick<ImageMetadata, 'promptParts'>
 }): Promise<SavedImage> {
   const now = new Date()
-  // 자동 저장 OFF면 저장 폴더 대신 앱 내부 라이브러리에 보관 (히스토리엔 남지만
-  // 유저가 지정한 저장 폴더/NAIS3_output에는 안 감). 씬·일반·디렉터·업스케일 모두 여기서 판정.
-  const autoSave = getSetting('auto_save') !== '0'
+  // 여기 오면 항상 실제 폴더에 저장한다. 자동저장 OFF의 "저장 안 함" 판정은
+  // 생성 큐 콜백(index.ts)에서 메인 생성만 걸러서 처리 — 씬·디렉터 툴은 항상 저장.
   // 구조: 메인 = 메인폴더/[YYYY-MM/] (날짜 폴더는 설정으로 on/off),
   //       씬 = 씬루트/<프리셋>/<씬 이름>/
   let monthDir: string
   if (input.sceneName) {
-    monthDir = autoSave
-      ? sceneDir(input.scenePresetName ?? null, input.sceneName, input.sceneId)
-      : join(libraryRoot(), 'scene')
+    monthDir = sceneDir(input.scenePresetName ?? null, input.sceneName, input.sceneId)
   } else {
-    const out = autoSave ? imagesRoot() : libraryRoot()
+    const out = imagesRoot()
     monthDir =
       getSetting('date_folders') !== '0'
         ? join(out, `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)

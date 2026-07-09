@@ -259,7 +259,10 @@ function StorageSection(): React.JSX.Element {
   return (
     <div className="flex flex-col gap-3">
       <div className="-mb-1 divide-y divide-line">
-        <Row label="자동 저장" hint="끄면 저장 폴더 대신 앱 내부에 보관">
+        <Row
+          label="자동 저장"
+          hint="끄면 메인 생성을 파일로 저장하지 않음 (히스토리에 최근 20장만 임시 보관) · 씬 모드는 항상 저장"
+        >
           <Switch
             checked={autoSave}
             onCheckedChange={(v) => {

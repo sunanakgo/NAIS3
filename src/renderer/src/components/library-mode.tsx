@@ -28,6 +28,7 @@ import { imageUrl } from '../lib/constants'
 import { cn } from '../lib/utils'
 import { askConfirm, askText } from '../stores/dialog-store'
 import { useLibraryStore } from '../stores/library-store'
+import { isLeavingDropZone, useDragEndCleanup } from '../lib/drop-zone'
 import { DropOverlay } from './drop-overlay'
 import { ImageContextMenu } from './image-context-menu'
 import { Lightbox } from './lightbox'
@@ -90,6 +91,7 @@ export function LibraryMode(): React.JSX.Element {
   const renameStack = useLibraryStore((s) => s.renameStack)
 
   const [dragOver, setDragOver] = useState(false)
+  useDragEndCleanup(() => setDragOver(false))
   const [lightboxIdx, setLightboxIdx] = useState(-1)
   const sentinelRef = useRef<HTMLDivElement>(null)
 
@@ -189,7 +191,7 @@ export function LibraryMode(): React.JSX.Element {
         }
       }}
       onDragLeave={(e) => {
-        if (e.currentTarget === e.target) setDragOver(false)
+        if (isLeavingDropZone(e)) setDragOver(false)
       }}
       onDrop={(e) => void onDrop(e)}
     >

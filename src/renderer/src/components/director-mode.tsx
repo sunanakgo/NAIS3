@@ -27,6 +27,7 @@ import { useLayoutStore } from '../stores/layout-store'
 import { cn } from '../lib/utils'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
+import { isLeavingDropZone, useDragEndCleanup } from '../lib/drop-zone'
 import { DropOverlay } from './drop-overlay'
 import { MosaicEditor } from './mosaic-editor'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
@@ -73,6 +74,7 @@ export function DirectorMode(): React.JSX.Element {
   const isResult = stack.length > 1 // 툴이 한 번 이상 적용된 상태
   const fileRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
+  useDragEndCleanup(() => setDragOver(false))
 
   // 예상 Anlas — 현재 이미지 해상도의 픽셀 버킷 요금 (Opus는 409600px 이하 무료)
   const tier = useGenerationStore((s) => s.subscriptionTier)
@@ -133,7 +135,7 @@ export function DirectorMode(): React.JSX.Element {
           }
         }}
         onDragLeave={(e) => {
-          if (e.currentTarget === e.target) setDragOver(false)
+          if (isLeavingDropZone(e)) setDragOver(false)
         }}
         onDrop={(e) => {
           e.preventDefault()

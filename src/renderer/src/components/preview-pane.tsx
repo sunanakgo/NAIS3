@@ -4,6 +4,7 @@ import { imageUrl } from '../lib/constants'
 import { useGenerationStore } from '../stores/generation-store'
 import { useMetadataStore } from '../stores/metadata-store'
 import { cn } from '../lib/utils'
+import { isLeavingDropZone, useDragEndCleanup } from '../lib/drop-zone'
 import { DropOverlay } from './drop-overlay'
 import { ImageContextMenu } from './image-context-menu'
 
@@ -36,6 +37,7 @@ export function PreviewPane(): React.JSX.Element {
   const patchRequest = useGenerationStore((s) => s.patchRequest)
   const view = useGenerationStore((s) => s.view)
   const [dragOver, setDragOver] = useState(false)
+  useDragEndCleanup(() => setDragOver(false))
 
   // 보고 있는 완성작의 해상도·시드 (하단 반투명 칩) — 파일이 바뀌면 메타데이터 로드
   const [info, setInfo] = useState<{ width?: number; height?: number; seed?: number } | null>(null)
@@ -75,7 +77,7 @@ export function PreviewPane(): React.JSX.Element {
         }
       }}
       onDragLeave={(e) => {
-        if (e.currentTarget === e.target) setDragOver(false)
+        if (isLeavingDropZone(e)) setDragOver(false)
       }}
       onDrop={(e) => {
         e.preventDefault()

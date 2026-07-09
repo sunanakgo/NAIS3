@@ -4,7 +4,7 @@ import { basename, extname, isAbsolute, relative } from 'path'
 import JSZip from 'jszip'
 import type { Scene, SceneImage, ScenePreset } from '../../shared/types'
 import { getDb } from '../db'
-import { libraryRoot } from '../images/storage'
+import { dropMemoryImage, isMemoryPath, libraryRoot } from '../images/storage'
 
 interface Row {
   id: number
@@ -347,6 +347,10 @@ export function deleteImage(id: number, deleteFile: boolean): void {
     | undefined
   db.prepare('DELETE FROM images WHERE id = ?').run(id)
   if (!r) return
+  if (isMemoryPath(r.file_path)) {
+    dropMemoryImage(r.file_path)
+    return
+  }
   if (deleteFile) {
     try {
       unlinkSync(r.file_path)

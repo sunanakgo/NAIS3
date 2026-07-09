@@ -117,7 +117,14 @@ import {
   updateRefImage
 } from './refs/repo'
 import { searchTags } from './tags'
-import { imagesRoot, isUnderImagesRoot, sceneDir, scenesRoot } from './images/storage'
+import {
+  getMemoryImage,
+  imagesRoot,
+  isMemoryPath,
+  isUnderImagesRoot,
+  sceneDir,
+  scenesRoot
+} from './images/storage'
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'fs'
 import { basename } from 'path'
 import sharp from 'sharp'
@@ -427,19 +434,29 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   })
 
   handle('images:saveAs', async ({ filePath }) => {
-    if (!isUnderImagesRoot(filePath)) return { saved: false }
+    const memory = isMemoryPath(filePath)
+    if (!memory && !isUnderImagesRoot(filePath)) return { saved: false }
+    const memBuf = memory ? getMemoryImage(filePath) : null
+    if (memory && !memBuf) return { saved: false } // 원본 만료 (자동저장 꺼짐 생성분)
     const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
     const result = await dialog.showSaveDialog(win, {
       title: '다른 이름으로 저장',
-      defaultPath: basename(filePath),
+      defaultPath: memory ? `NAIS3_${Date.now()}.png` : basename(filePath),
       filters: [{ name: 'PNG', extensions: ['png'] }]
     })
     if (result.canceled || !result.filePath) return { saved: false }
-    copyFileSync(filePath, result.filePath)
+    if (memBuf) writeFileSync(result.filePath, memBuf)
+    else copyFileSync(filePath, result.filePath)
     return { saved: true }
   })
 
   handle('images:copy', ({ filePath }) => {
+    if (isMemoryPath(filePath)) {
+      const buf = getMemoryImage(filePath)
+      if (!buf) return { copied: false }
+      clipboard.writeImage(nativeImage.createFromBuffer(buf))
+      return { copied: true }
+    }
     if (!isUnderImagesRoot(filePath)) return { copied: false }
     const img = nativeImage.createFromPath(filePath)
     if (img.isEmpty()) return { copied: false }
@@ -486,14 +503,20 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
         return meta ? { meta } : { error: '이 이미지에서 NAI 메타데이터를 찾지 못했습니다' }
       }
       if (filePath) {
-        if (!isUnderImagesRoot(filePath)) return { error: '허용되지 않은 경로' }
+        if (!isMemoryPath(filePath) && !isUnderImagesRoot(filePath))
+          return { error: '허용되지 않은 경로' }
         const row = getDb()
           .prepare('SELECT payload_json FROM images WHERE file_path = ?')
           .get(filePath) as { payload_json: string } | undefined
         const fromDb = row?.payload_json ? metadataFromPayloadJson(row.payload_json) : null
         // 1) PNG tEXt 우선. 단, 예전 저장본/포맷 변환본처럼 nais3-params 청크가 빠진 경우
         // DB payload_json의 NAIS3 로컬 메타데이터(promptParts)를 합쳐서 3분할을 복원한다.
-        const buf = readFileSync(filePath)
+        // 자동저장 꺼짐 생성분(memory://)은 메모리 원본에서 읽고, 만료됐으면 DB payload로 폴백.
+        const buf = isMemoryPath(filePath) ? getMemoryImage(filePath) : readFileSync(filePath)
+        if (!buf) {
+          if (fromDb) return { meta: fromDb }
+          return { error: '원본이 만료되었습니다 (자동저장 꺼짐 상태로 생성된 이미지)' }
+        }
         const fromPng = await metadataFromPng(buf)
         if (fromPng) {
           return {
@@ -592,9 +615,11 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   })
 
   handle('images:readForSource', async ({ filePath }) => {
-    if (!isUnderImagesRoot(filePath)) return { error: '허용되지 않은 경로' }
+    if (!isMemoryPath(filePath) && !isUnderImagesRoot(filePath))
+      return { error: '허용되지 않은 경로' }
     try {
-      const buf = readFileSync(filePath)
+      const buf = isMemoryPath(filePath) ? getMemoryImage(filePath) : readFileSync(filePath)
+      if (!buf) return { error: '원본이 만료되었습니다 (자동저장 꺼짐 상태로 생성된 이미지)' }
       const meta = await sharp(buf).metadata()
       return { base64: buf.toString('base64'), width: meta.width ?? 0, height: meta.height ?? 0 }
     } catch (e) {

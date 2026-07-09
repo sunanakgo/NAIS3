@@ -10,7 +10,14 @@ import { getSetting } from './db/settings'
 import { processWildcards } from './fragments/processor'
 import { removeComments } from '../shared/nai-presets'
 import { fragmentSource } from './fragments/repo'
-import { isUnderImagesRoot, saveGeneratedImage } from './images/storage'
+import {
+  getMemoryImage,
+  isMemoryPath,
+  isUnderImagesRoot,
+  saveEphemeralImage,
+  saveGeneratedImage,
+  thumbnailByPath
+} from './images/storage'
 import { broadcast, registerIpcHandlers } from './ipc'
 import { setupUpdater } from './updater'
 import { logBalance } from './nai/anlas-log'
@@ -99,6 +106,15 @@ app.whenReady().then(() => {
   protocol.handle('nais-image', (request) => {
     const url = new URL(request.url)
     const filePath = decodeURIComponent(url.searchParams.get('path') ?? '')
+    // 자동저장 OFF 임시 이미지 — 메모리 원본, 만료됐으면 DB 썸네일로 폴백
+    if (isMemoryPath(filePath)) {
+      const buf = getMemoryImage(filePath)
+      if (buf) return new Response(new Uint8Array(buf), { headers: { 'content-type': 'image/png' } })
+      const thumb = thumbnailByPath(filePath)
+      if (thumb)
+        return new Response(new Uint8Array(thumb), { headers: { 'content-type': 'image/webp' } })
+      return new Response('gone', { status: 410 })
+    }
     if (!isUnderImagesRoot(filePath)) {
       return new Response('forbidden', { status: 403 })
     }
@@ -216,28 +232,40 @@ app.whenReady().then(() => {
           signal
         )
 
-    // 자동 저장 off여도 히스토리엔 남긴다 — 저장 폴더 대신 앱 내부 라이브러리로 가는 판정은
-    // saveGeneratedImage가 auto_save 설정을 읽어 처리한다 (씬 포함).
-    // 씬 생성은 씬루트/<프리셋>/<씬 이름>/에 모아 저장 (NAIS2와 동일 계층)
     const scene = request.sceneId ? getScene(request.sceneId) : null
-    const saved = await saveGeneratedImage({
-      png,
-      sentPayload,
-      seed: request.seed,
-      kind: request.sceneId ? 'scene' : source ? (source.maskBase64 ? 'inpaint' : 'i2i') : 't2i',
-      sceneId: request.sceneId,
-      format: imageFormat,
-      sceneName: scene?.name,
-      scenePresetName: scene ? (getPresetName(scene.presetId) ?? undefined) : undefined,
-      localMetadata: request.promptParts
-        ? {
-            promptParts: {
-              ...request.promptParts,
-              negative: request.negativePrompt
-            }
+    const localMetadata = request.promptParts
+      ? {
+          promptParts: {
+            ...request.promptParts,
+            negative: request.negativePrompt
           }
-        : undefined
-    })
+        }
+      : undefined
+
+    // 자동저장 OFF: 메인 생성은 파일로 저장하지 않는다 — 원본은 메모리(최근 20장)에만,
+    // 히스토리에는 썸네일 행으로 남는다 (NAIS2 방식). 씬 생성은 항상 씬 폴더에 저장.
+    const ephemeral = !scene && getSetting('auto_save') === '0'
+    const saved = ephemeral
+      ? await saveEphemeralImage({
+          png,
+          sentPayload,
+          seed: request.seed,
+          kind: source ? (source.maskBase64 ? 'inpaint' : 'i2i') : 't2i',
+          format: imageFormat,
+          localMetadata
+        })
+      : // 씬 생성은 씬루트/<프리셋>/<씬 이름>/에 모아 저장 (NAIS2와 동일 계층)
+        await saveGeneratedImage({
+          png,
+          sentPayload,
+          seed: request.seed,
+          kind: request.sceneId ? 'scene' : source ? (source.maskBase64 ? 'inpaint' : 'i2i') : 't2i',
+          sceneId: request.sceneId,
+          format: imageFormat,
+          sceneName: scene?.name,
+          scenePresetName: scene ? (getPresetName(scene.presetId) ?? undefined) : undefined,
+          localMetadata
+        })
 
     // 씬 생성이면 해당 씬 갱신 알림 (목록 썸네일/개수, 상세 이미지 갱신용)
     if (request.sceneId)

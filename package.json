@@ -1,6 +1,6 @@
 {
   "name": "nais3",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "NAIS3 - NovelAI Image Studio 3",
   "main": "./out/main/index.js",
   "author": "sunanakgo",

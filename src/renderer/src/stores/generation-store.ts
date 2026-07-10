@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { GenerationRequest, HistoryItem, PromptParts, QueueStatus } from '@shared/types'
+import { queueDoneAlert } from '../lib/completion-alert'
 import { enabledCharacters } from './characters-store'
 import { useVibesStore } from './refs-store'
 import { toast } from './toast-store'
@@ -309,6 +310,9 @@ function persistParams(request: GenerationRequest): void {
 export function bindGenerationEvents(): () => void {
   // 생성 소요 시간 추적 (id별 시작 시각 → 완료 시 평균 갱신)
   const startTimes = new Map<string, number>()
+  // 완료 알림용 — 배치 시작 시점의 누적 done/failed 스냅샷
+  let batchBaseDone = 0
+  let batchBaseFailed = 0
 
   const offQueue = window.nais.on('queue:changed', (queue) => {
     const prev = useGenerationStore.getState().queue
@@ -364,6 +368,17 @@ export function bindGenerationEvents(): () => void {
     const stillActive = queue.items.some((i) => i.state === 'pending' || i.state === 'generating')
     if (!stillActive && useGenerationStore.getState().viewPinned) {
       useGenerationStore.setState({ viewPinned: false })
+    }
+    // 배치(활성→소진) 단위 완료 알림 — 큐 items는 세션 내내 누적되므로 배치 시작 시점 기준 델타로 계산
+    const prevActive =
+      prev?.items.some((i) => i.state === 'pending' || i.state === 'generating') ?? false
+    if (!prevActive && stillActive) {
+      batchBaseDone = queue.items.filter((i) => i.state === 'done').length
+      batchBaseFailed = queue.items.filter((i) => i.state === 'failed').length
+    } else if (prevActive && !stillActive) {
+      const done = queue.items.filter((i) => i.state === 'done').length - batchBaseDone
+      const failed = queue.items.filter((i) => i.state === 'failed').length - batchBaseFailed
+      if (done + failed > 0) void queueDoneAlert(done, failed)
     }
   })
   const offProgress = window.nais.on('generation:progress', (e) => {

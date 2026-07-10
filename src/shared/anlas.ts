@@ -1,3 +1,5 @@
+import type { DirectorMethod } from './types'
+
 /**
  * Anlas 비용 추정 — NAI 웹 번들의 실제 비용 함수를 이식 (2026-07-05 _app 번들에서 추출).
  *
@@ -63,6 +65,51 @@ export function directorToolCost(width: number, height: number, isOpus: boolean)
   if (px <= 524288) return 3
   if (px <= 786432) return 5
   return 7
+}
+
+/**
+ * augment-image 디렉터 툴 비용.
+ *
+ * NAI 웹은 입력을 1MP 이상(최대 3MP)으로 정규화한 뒤 28-step 이미지 비용을 계산한다.
+ * 일반 툴은 Opus 무료 조건이 적용되지만 배경 제거는 예외이며 `기본 비용 × 3 + 5`다.
+ * 832×1216 실측: 일반 툴 0, 배경 제거 65 Anlas.
+ */
+export function directorAugmentCost(
+  method: DirectorMethod,
+  width: number,
+  height: number,
+  isOpus: boolean
+): number {
+  const normalized = normalizeDirectorDimensions(width, height)
+  const estimate = estimateAnlas({
+    width: normalized.width,
+    height: normalized.height,
+    steps: 28,
+    isOpus: method === 'bg-removal' ? false : isOpus,
+    batchCount: 1
+  })
+  return method === 'bg-removal' ? estimate.perImage * 3 + 5 : estimate.generation
+}
+
+function normalizeDirectorDimensions(width: number, height: number): { width: number; height: number } {
+  if (width <= 0 || height <= 0) return { width: 0, height: 0 }
+
+  let w = width
+  let h = height
+  const maxPixels = 3_145_728
+  const minPixels = 1_048_576
+
+  if (w * h > maxPixels) {
+    const ratio = Math.sqrt(maxPixels / (w * h))
+    w = Math.floor(w * ratio)
+    h = Math.floor(h * ratio)
+  }
+  if (w * h < minPixels) {
+    const ratio = Math.sqrt(minPixels / (w * h))
+    w = Math.floor(w * ratio)
+    h = Math.floor(h * ratio)
+  }
+  return { width: w, height: h }
 }
 
 export function estimateAnlas(input: AnlasEstimateInput): AnlasEstimate {

@@ -16,6 +16,7 @@ import {
 import { useEffect, useState } from 'react'
 import discordSvg from '../assets/discord.svg'
 import nais3Logo from '../assets/nais3-logo.svg'
+import { playChime } from '../lib/completion-alert'
 import { cn } from '../lib/utils'
 import { THEME_PRESETS } from '../lib/theme-presets'
 import { useGenerationStore } from '../stores/generation-store'
@@ -176,6 +177,8 @@ function PageToggles(): React.JSX.Element {
 function GenerationSection(): React.JSX.Element {
   const [streaming, setStreaming] = useState(true)
   const [delay, setDelay] = useState(600)
+  const [alertSound, setAlertSound] = useState(false)
+  const [alertNative, setAlertNative] = useState(false)
   const promptSplitEnabled = useGenerationStore((s) => s.promptSplitEnabled)
   const setPromptSplitEnabled = useGenerationStore((s) => s.setPromptSplitEnabled)
 
@@ -185,6 +188,12 @@ function GenerationSection(): React.JSX.Element {
     })
     void window.nais.invoke('settings:get', { key: 'gen_delay_ms' }).then(({ value }) => {
       if (value != null && value !== '') setDelay(Number(value))
+    })
+    void window.nais.invoke('settings:get', { key: 'alert_sound' }).then(({ value }) => {
+      setAlertSound(value === '1')
+    })
+    void window.nais.invoke('settings:get', { key: 'alert_native' }).then(({ value }) => {
+      setAlertNative(value === '1')
     })
   }, [])
 
@@ -211,6 +220,25 @@ function GenerationSection(): React.JSX.Element {
           value={[delay]}
           onValueChange={([v]) => setDelay(v)}
           onValueCommit={([v]) => void window.nais.invoke('gen:setDelay', { ms: v })}
+        />
+      </Row>
+      <Row label="완료 알림음" hint="큐가 다 끝나면 알림음 재생">
+        <Switch
+          checked={alertSound}
+          onCheckedChange={(v) => {
+            setAlertSound(v)
+            void window.nais.invoke('settings:set', { key: 'alert_sound', value: v ? '1' : '0' })
+            if (v) playChime() // 미리 듣기
+          }}
+        />
+      </Row>
+      <Row label="완료 알림 (시스템)" hint="다른 창을 보고 있을 때 macOS/Windows 알림 표시">
+        <Switch
+          checked={alertNative}
+          onCheckedChange={(v) => {
+            setAlertNative(v)
+            void window.nais.invoke('settings:set', { key: 'alert_native', value: v ? '1' : '0' })
+          }}
         />
       </Row>
     </div>
@@ -280,6 +308,7 @@ function StorageSection(): React.JSX.Element {
   const [autoSave, setAutoSave] = useState(true)
   const [format, setFormat] = useState('png')
   const [dateFolders, setDateFolders] = useState(true)
+  const [historyDeleteFile, setHistoryDeleteFile] = useState(false)
 
   useEffect(() => {
     void window.nais
@@ -291,6 +320,9 @@ function StorageSection(): React.JSX.Element {
     void window.nais
       .invoke('settings:get', { key: 'date_folders' })
       .then(({ value }) => setDateFolders(value !== '0'))
+    void window.nais
+      .invoke('settings:get', { key: 'history_delete_file' })
+      .then(({ value }) => setHistoryDeleteFile(value === '1'))
   }, [])
 
   return (
@@ -314,6 +346,18 @@ function StorageSection(): React.JSX.Element {
             onCheckedChange={(v) => {
               setDateFolders(v)
               void window.nais.invoke('settings:set', { key: 'date_folders', value: v ? '1' : '0' })
+            }}
+          />
+        </Row>
+        <Row label="히스토리 삭제 시 파일도 삭제" hint="끄면 기록만 지우고 저장된 파일은 보존">
+          <Switch
+            checked={historyDeleteFile}
+            onCheckedChange={(v) => {
+              setHistoryDeleteFile(v)
+              void window.nais.invoke('settings:set', {
+                key: 'history_delete_file',
+                value: v ? '1' : '0'
+              })
             }}
           />
         </Row>

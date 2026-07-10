@@ -16,7 +16,6 @@ import {
   RectangleHorizontal,
   RectangleVertical,
   Square,
-  Star,
   Trash2
 } from 'lucide-react'
 import {
@@ -269,8 +268,8 @@ function SceneGrid(): React.JSX.Element {
       toast('가져올 씬이 없습니다', 'info')
     }
   }
-  async function exportZip(mode: 'favorites' | 'sceneTop'): Promise<void> {
-    await window.nais.invoke('scenes:exportZip', { mode })
+  async function exportZip(): Promise<void> {
+    await window.nais.invoke('scenes:exportZip', { presetId: activePresetId })
   }
 
   return (
@@ -281,30 +280,11 @@ function SceneGrid(): React.JSX.Element {
         <div className="mx-1 h-5 w-px bg-line" />
         <IconBtn icon={<FileDown size={16} />} tip="JSON 내보내기" onClick={exportJson} />
         <IconBtn icon={<FileUp size={16} />} tip="JSON 불러오기" onClick={importJson} />
-        <Popover>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <PopoverTrigger asChild>
-                <button className="grid size-8 place-items-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-fg">
-                  <FolderArchive size={16} />
-                </button>
-              </PopoverTrigger>
-            </TooltipTrigger>
-            <TooltipContent>ZIP 내보내기</TooltipContent>
-          </Tooltip>
-          <PopoverContent align="start" className="w-52 p-1">
-            <MenuItem
-              icon={<Star size={13} />}
-              label="즐겨찾기 이미지"
-              onClick={() => void exportZip('favorites')}
-            />
-            <MenuItem
-              icon={<ImageOff size={13} />}
-              label="각 씬 최상단 이미지"
-              onClick={() => void exportZip('sceneTop')}
-            />
-          </PopoverContent>
-        </Popover>
+        <IconBtn
+          icon={<FolderArchive size={16} />}
+          tip="ZIP 내보내기 — 씬별 즐겨찾기 전부, 없으면 최상단 1장 (이름=씬 이름)"
+          onClick={() => void exportZip()}
+        />
         <IconBtn
           icon={<Pencil size={16} />}
           tip="편집 모드"

@@ -261,6 +261,8 @@ export interface PromptPreset {
   negativePrompt: string
   /** 스텝·CFG 등 — 프리셋 전환 시 함께 복원 (구버전 프리셋은 null) */
   params: PresetParams | null
+  /** 3분할 조각 — 실질 분할일 때만 저장 (null = 병합 프롬프트만) */
+  promptParts: PromptParts | null
 }
 
 /** 씬 (미리 저장한 프롬프트+해상도. 예약 수만큼 생성) */
@@ -274,12 +276,14 @@ export interface Scene {
   height: number
   /** 예약 수 (예약→생성 워크플로. +/-로 조정) */
   reserveCount: number
-  /** 목록 카드용: 최신 생성 이미지 썸네일 (없으면 '') */
+  /** 목록 카드용 썸네일 — 즐겨찾기가 있으면 최상단 즐겨찾기, 없으면 최신 이미지 (없으면 '') */
   thumbnail: string
-  /** 최신 생성 이미지의 원본 파일 경로 (카드에 풀해상도로 선명하게 표시. 없으면 '') */
+  /** 썸네일 원본 파일 경로 (카드에 풀해상도로 선명하게 표시. 없으면 '') */
   thumbnailPath: string
   /** 이 씬으로 생성된 이미지 수 */
   imageCount: number
+  /** 즐겨찾기 보유 여부 — 카드 낙관적 썸네일 교체 억제용 (즐겨찾기가 썸네일 고정) */
+  hasFavorite: boolean
 }
 
 /** 씬 상세의 생성 이미지 (페이지네이션 단위) */
@@ -406,6 +410,8 @@ export interface IpcInvokeMap {
   'settings:resetSaveDir': { req: { target?: 'main' | 'scene' } | void; res: { dir: string } }
   /** 생성 지연 시간(ms) 설정 — 큐에 즉시 반영 + 영속 */
   'gen:setDelay': { req: { ms: number }; res: void }
+  /** 큐 완료 네이티브 알림 (창이 포커스 없을 때만 표시) */
+  'notify:done': { req: { done: number; failed: number }; res: void }
   /** 디렉터 툴 실행 — 결과를 히스토리에 저장하고 파일 경로 + 결과 base64 반환 */
   'director:run': {
     req: { method: DirectorMethod; imageBase64: string; prompt?: string; defry?: number }
@@ -445,7 +451,9 @@ export interface IpcInvokeMap {
   'promptPresets:update': {
     req: {
       id: number
-      patch: Partial<Pick<PromptPreset, 'name' | 'prompt' | 'negativePrompt' | 'params'>>
+      patch: Partial<
+        Pick<PromptPreset, 'name' | 'prompt' | 'negativePrompt' | 'params' | 'promptParts'>
+      >
     }
     res: void
   }
@@ -504,7 +512,8 @@ export interface IpcInvokeMap {
   'scenes:exportJson': { req: { presetId: number }; res: { saved: boolean } }
   'scenes:importJson': { req: { presetId: number }; res: { count: number } }
   /** 즐겨찾기 이미지 또는 각 씬 최상단 이미지를 ZIP으로 (파일 다이얼로그) */
-  'scenes:exportZip': { req: { mode: 'favorites' | 'sceneTop' }; res: { count: number } }
+  /** 활성 프리셋 ZIP 내보내기 (NAIS2 방식 — 씬별 즐겨찾기 전부, 없으면 최상단 1장) */
+  'scenes:exportZip': { req: { presetId: number }; res: { count: number } }
   'vibes:list': { req: void; res: { folders: ListFolder[]; items: VibeItem[] } }
   /** 파일 다이얼로그(다중)로 추가 */
   'vibes:add': { req: { folderId: number | null }; res: { count: number } }

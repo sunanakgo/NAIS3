@@ -565,6 +565,10 @@ function SplitPromptFields({
     return index >= 0 ? openKeys[index + 1] : undefined
   }
 
+  // flex-grow 합이 1 미만이면 남는 공간을 다 안 채운다 (CSS 스펙) —
+  // 칸을 접으면 열린 칸들의 비율 합이 1이 되도록 정규화해서 나머지가 자동으로 커지게 한다
+  const openTotal = openKeys.reduce((sum, key) => sum + sizes[key], 0)
+
   return (
     <div ref={containerRef} className="flex min-h-0 flex-1 flex-col gap-1">
       {SPLIT_PARTS.map((part) => {
@@ -577,7 +581,7 @@ function SplitPromptFields({
               collapsed={isCollapsed}
               value={parts[part.key]}
               placeholder={part.placeholder}
-              grow={sizes[part.key]}
+              grow={sizes[part.key] / (openTotal || 1)}
               onToggle={() => togglePart(part.key)}
               onChange={(value) => onChange({ [part.key]: value })}
             />
@@ -635,7 +639,7 @@ function SplitField({
 /** 프롬프트 문법 도움말 — ⓘ 팝오버 (주석·조각·순차·랜덤·가중치) */
 function SyntaxHelp(): React.JSX.Element {
   const rows: { syntax: string; desc: string }[] = [
-    { syntax: '# 메모', desc: '# 부터 줄 끝까지 주석 (전송 제외)' },
+    { syntax: '# 메모', desc: '#로 시작하는 줄은 주석 (전송 제외)' },
     { syntax: '<이름>', desc: '조각 삽입 — 여러 줄이면 매 생성 랜덤 1줄' },
     { syntax: '<*이름>', desc: '순차 선택 — 생성마다 다음 줄 (헤더 ↺로 리셋)' },
     { syntax: '<a|b|c>', desc: '인라인 랜덤 — 셋 중 하나' },

@@ -21,19 +21,15 @@ export const UC_PRESETS_V45_FULL: Record<UcPresetIndex, string> = {
   4: ''
 }
 
-/** 주석 제거 — #부터 그 줄 끝(줄바꿈 전)까지. # 앞 내용은 유지, 줄 전체가 주석이면 줄 삭제 */
+/**
+ * 주석 제거 — NAIS2와 동일: #로 "시작하는 줄"만 통째로 주석.
+ * 줄 중간의 #는 태그의 일부로 유지 (예: sours#OOO 같은 아티스트 태그)
+ */
 export function removeComments(prompt: string): string {
-  const out: string[] = []
-  for (const line of prompt.split('\n')) {
-    const i = line.indexOf('#')
-    if (i === -1) {
-      out.push(line)
-      continue
-    }
-    const before = line.slice(0, i)
-    if (before.trim()) out.push(before)
-  }
-  return out.join('\n')
+  return prompt
+    .split('\n')
+    .filter((line) => !line.trimStart().startsWith('#'))
+    .join('\n')
 }
 
 export function mergeQualityTags(prompt: string, qualityToggle: boolean): string {

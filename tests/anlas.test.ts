@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { estimateAnlas } from '../src/shared/anlas'
+import { directorAugmentCost, directorToolCost, estimateAnlas } from '../src/shared/anlas'
 
 const base = {
   width: 832,
@@ -58,5 +58,29 @@ describe('Anlas 추정 (NAI 웹 공식 이식)', () => {
 
   it('배치는 장당 비용 × 개수', () => {
     expect(estimateAnlas({ ...base, isOpus: false, batchCount: 3 }).generation).toBe(60)
+  })
+
+  it('Opus의 1MP 이하 일반 디렉터 툴은 무료', () => {
+    for (const method of [
+      'lineart',
+      'sketch',
+      'colorize',
+      'emotion',
+      'declutter',
+      'declutter-keep-bubbles'
+    ] as const) {
+      expect(directorAugmentCost(method, 832, 1216, true)).toBe(0)
+    }
+  })
+
+  it('배경 제거는 기본 디렉터 비용 × 3 + 5로 계산', () => {
+    expect(directorAugmentCost('bg-removal', 832, 1216, true)).toBe(65)
+    // 작은 입력도 공식 웹처럼 약 1MP로 정규화한 뒤 계산한다.
+    expect(directorAugmentCost('bg-removal', 512, 512, true)).toBe(65)
+  })
+
+  it('업스케일은 기존 픽셀 버킷 요금을 유지', () => {
+    expect(directorToolCost(832, 1216, true)).toBe(7)
+    expect(directorToolCost(768, 1024, true)).toBe(5)
   })
 })

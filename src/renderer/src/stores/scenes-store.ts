@@ -322,10 +322,13 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
 
   setSceneThumb: (sceneId, filePath) =>
     set({
-      // thumbnail(base64) 비우고 thumbnailPath로 → 카드가 새 원본을 즉시 표시
+      // thumbnail(base64) 비우고 thumbnailPath로 → 카드가 새 원본을 즉시 표시.
+      // 즐겨찾기가 있는 씬은 즐겨찾기가 썸네일 고정이라 교체하지 않는다 (개수만 갱신)
       scenes: get().scenes.map((s) =>
         s.id === sceneId
-          ? { ...s, thumbnail: '', thumbnailPath: filePath, imageCount: s.imageCount + 1 }
+          ? s.hasFavorite
+            ? { ...s, imageCount: s.imageCount + 1 }
+            : { ...s, thumbnail: '', thumbnailPath: filePath, imageCount: s.imageCount + 1 }
           : s
       )
     }),
@@ -354,6 +357,8 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
     const favorite = !img.favorite
     set({ images: get().images.map((i) => (i.id === imageId ? { ...i, favorite } : i)) })
     await window.nais.invoke('images:setFavorite', { id: imageId, favorite })
+    // 카드 썸네일이 즐겨찾기 우선이라 목록도 갱신
+    await get().load()
   },
   deleteImage: async (imageId) => {
     const target = get().images.find((i) => i.id === imageId)

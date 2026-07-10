@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { GenerationRequest, PresetParams, PromptParts, PromptPreset } from '@shared/types'
-import { useGenerationStore } from './generation-store'
+import { mergePromptParts, useGenerationStore } from './generation-store'
 
 /** 프리셋에 함께 저장/복원되는 파라미터 (시드·캐릭터 제외) */
 export function pickPresetParams(req: GenerationRequest): PresetParams {
@@ -19,7 +19,16 @@ export function pickPresetParams(req: GenerationRequest): PresetParams {
   }
 }
 
-export type PromptPresetSyncSnapshot = Pick<PromptPreset, 'prompt' | 'negativePrompt' | 'params'>
+export type PromptPresetSyncSnapshot = Pick<PromptPreset, 'prompt' | 'negativePrompt' | 'params'> & {
+  /** undefined = 조각 비교/저장 제외 (3분할 꺼짐 등 — 저장된 조각을 건드리지 않음) */
+  promptParts?: PromptParts | null
+}
+
+/** 실질 분할일 때만 저장 — 가변/디테일이 비었으면 null (병합 프롬프트만으로 충분) */
+export function normalizePresetParts(parts: PromptParts | null | undefined): PromptParts | null {
+  if (!parts) return null
+  return parts.additional.trim() || parts.detail.trim() ? parts : null
+}
 
 /**
  * v10 이전/NAIS2 이관 프리셋은 params=null이다.
@@ -33,14 +42,27 @@ export function shouldSyncPromptPreset(
 ): boolean {
   const promptChanged =
     preset.prompt !== next.prompt || preset.negativePrompt !== next.negativePrompt
+  const partsChanged =
+    next.promptParts !== undefined &&
+    JSON.stringify(normalizePresetParts(preset.promptParts)) !==
+      JSON.stringify(normalizePresetParts(next.promptParts))
   const paramsChanged = JSON.stringify(preset.params) !== JSON.stringify(next.params)
-  if (!promptChanged && preset.params == null) return false
-  return promptChanged || paramsChanged
+  if (!promptChanged && !partsChanged && preset.params == null) return false
+  return promptChanged || partsChanged || paramsChanged
 }
 
-/** 분할 프롬프트는 프리셋별 저장값이 없으므로 프리셋 적용 시 현재 prompt를 base로 재시드한다. */
+/** 분할 프롬프트를 prompt 전체를 base로 재시드 (저장된 조각이 없거나 못 쓸 때) */
 export function splitPromptForPreset(prompt: string): PromptParts {
   return { base: prompt, additional: '', detail: '' }
+}
+
+/**
+ * 프리셋 적용 시 복원할 3분할 조각 — 저장된 조각의 병합이 프리셋 prompt와 일치할 때만 사용.
+ * (3분할 꺼진 상태에서 prompt만 고친 경우 조각이 낡아있을 수 있어 재시드로 폴백)
+ */
+export function partsForApply(p: Pick<PromptPreset, 'prompt' | 'promptParts'>): PromptParts {
+  if (p.promptParts && mergePromptParts(p.promptParts) === p.prompt) return p.promptParts
+  return splitPromptForPreset(p.prompt)
 }
 
 interface PromptPresetsState {
@@ -58,7 +80,9 @@ interface PromptPresetsState {
   ) => Promise<number>
   update: (
     id: number,
-    patch: Partial<Pick<PromptPreset, 'name' | 'prompt' | 'negativePrompt' | 'params'>>
+    patch: Partial<
+      Pick<PromptPreset, 'name' | 'prompt' | 'negativePrompt' | 'params' | 'promptParts'>
+    >
   ) => Promise<void>
   /** 드래그 정렬 — 새 id 순서 반영 */
   reorder: (ids: number[]) => Promise<void>
@@ -114,7 +138,7 @@ export const usePromptPresetsStore = create<PromptPresetsState>((set, get) => ({
       get().setActive(next.id)
       useGenerationStore.getState().patchRequest({
         prompt: next.prompt,
-        promptParts: splitPromptForPreset(next.prompt),
+        promptParts: partsForApply(next),
         negativePrompt: next.negativePrompt,
         ...(next.params ?? {})
       })

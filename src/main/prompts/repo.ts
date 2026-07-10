@@ -1,23 +1,30 @@
 import { getDb } from '../db'
-import type { PresetParams, PromptPreset } from '../../shared/types'
+import type { PresetParams, PromptParts, PromptPreset } from '../../shared/types'
 
-/** 프롬프트 프리셋 CRUD — 프롬프트+네거티브+생성 파라미터를 이름 붙여 저장 */
+/** 프롬프트 프리셋 CRUD — 프롬프트+네거티브+생성 파라미터(+3분할 조각)를 이름 붙여 저장 */
+
+function parseJson<T>(raw: string | null): T | null {
+  try {
+    return raw ? (JSON.parse(raw) as T) : null
+  } catch {
+    return null // 깨진 JSON은 없음으로
+  }
+}
 
 export function listPromptPresets(): PromptPreset[] {
   const rows = getDb()
     .prepare(
-      'SELECT id, name, prompt, negative_prompt AS negativePrompt, params_json FROM prompt_presets ORDER BY sort_order, id'
+      'SELECT id, name, prompt, negative_prompt AS negativePrompt, params_json, prompt_parts_json FROM prompt_presets ORDER BY sort_order, id'
     )
-    .all() as (Omit<PromptPreset, 'params'> & { params_json: string | null })[]
-  return rows.map(({ params_json, ...r }) => {
-    let params: PresetParams | null = null
-    try {
-      params = params_json ? (JSON.parse(params_json) as PresetParams) : null
-    } catch {
-      // 깨진 JSON은 파라미터 없음으로
-    }
-    return { ...r, params }
-  })
+    .all() as (Omit<PromptPreset, 'params' | 'promptParts'> & {
+    params_json: string | null
+    prompt_parts_json: string | null
+  })[]
+  return rows.map(({ params_json, prompt_parts_json, ...r }) => ({
+    ...r,
+    params: parseJson<PresetParams>(params_json),
+    promptParts: parseJson<PromptParts>(prompt_parts_json)
+  }))
 }
 
 export function createPromptPreset(
@@ -40,7 +47,9 @@ export function createPromptPreset(
 
 export function updatePromptPreset(
   id: number,
-  patch: Partial<Pick<PromptPreset, 'name' | 'prompt' | 'negativePrompt' | 'params'>>
+  patch: Partial<
+    Pick<PromptPreset, 'name' | 'prompt' | 'negativePrompt' | 'params' | 'promptParts'>
+  >
 ): void {
   const cols: string[] = []
   const vals: unknown[] = []
@@ -50,6 +59,10 @@ export function updatePromptPreset(
     (cols.push('negative_prompt = ?'), vals.push(patch.negativePrompt))
   if (patch.params !== undefined)
     (cols.push('params_json = ?'), vals.push(patch.params ? JSON.stringify(patch.params) : null))
+  if (patch.promptParts !== undefined) {
+    cols.push('prompt_parts_json = ?')
+    vals.push(patch.promptParts ? JSON.stringify(patch.promptParts) : null)
+  }
   if (!cols.length) return
   vals.push(id)
   getDb()

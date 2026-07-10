@@ -32,12 +32,12 @@ const baseRequest: GenerationRequest = {
 }
 
 describe('payload builder', () => {
-  it('주석은 #부터 줄 끝까지 — # 앞 내용은 유지, 전체 주석 줄은 삭제', () => {
+  it('주석은 #로 시작하는 줄만 (NAIS2 동일) — 줄 중간 #는 태그의 일부로 유지', () => {
     expect(removeComments('a\n# comment\nb')).toBe('a\nb')
     expect(removeComments('  # indented comment\nkeep')).toBe('keep')
-    // 인라인 주석: # 앞은 살리고 뒤만 제거
-    expect(removeComments('tag1, tag2 # 메모\ntag3')).toBe('tag1, tag2 \ntag3')
-    expect(removeComments('a # x\nb # y')).toBe('a \nb ')
+    // 줄 중간 #는 주석이 아님 — sours#OOO 같은 아티스트 태그 실사용 케이스
+    expect(removeComments('sours#OOO, tag2\ntag3')).toBe('sours#OOO, tag2\ntag3')
+    expect(removeComments('tag1, tag2 # 메모\ntag3')).toBe('tag1, tag2 # 메모\ntag3')
   })
 
   it('UC 프리셋 None(4)은 네거티브를 그대로 두고, 3은 Human Focus다 (실캡처 매핑)', () => {

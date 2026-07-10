@@ -299,5 +299,11 @@ export const migrations: ((db: Database.Database) => void)[] = [
       UPDATE library_images SET sort_order = id;
       CREATE INDEX idx_library_images_order ON library_images(sort_order DESC, id DESC);
     `)
+  },
+
+  // v14: 프롬프트 프리셋에 3분할 조각 저장 — 프리셋 전환 후 복귀 시 가변/디테일이
+  // 고정으로 합쳐지지 않게 (null = 분할 없음/병합 프롬프트만)
+  (db) => {
+    db.exec(`ALTER TABLE prompt_presets ADD COLUMN prompt_parts_json TEXT;`)
   }
 ]

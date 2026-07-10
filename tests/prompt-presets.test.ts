@@ -66,3 +66,81 @@ describe('prompt preset sync guards', () => {
     })
   })
 })
+
+describe('prompt preset split parts (3분할 보존)', () => {
+  const parts = { base: '1girl', additional: 'smile', detail: 'cafe' }
+  const merged = '1girl, smile, cafe'
+
+  it('restores stored parts when they match the preset prompt', async () => {
+    const { partsForApply } = await helpers()
+    expect(partsForApply({ prompt: merged, promptParts: parts })).toEqual(parts)
+  })
+
+  it('reseeds when stored parts are stale (prompt edited while split off)', async () => {
+    const { partsForApply } = await helpers()
+    expect(partsForApply({ prompt: '1girl, edited', promptParts: parts })).toEqual({
+      base: '1girl, edited',
+      additional: '',
+      detail: ''
+    })
+  })
+
+  it('reseeds when no parts are stored', async () => {
+    const { partsForApply } = await helpers()
+    expect(partsForApply({ prompt: 'solo', promptParts: null })).toEqual({
+      base: 'solo',
+      additional: '',
+      detail: ''
+    })
+  })
+
+  it('normalizes trivial parts (base only) to null', async () => {
+    const { normalizePresetParts } = await helpers()
+    expect(normalizePresetParts({ base: '1girl', additional: '', detail: ' ' })).toBeNull()
+    expect(normalizePresetParts({ base: '1girl', additional: 'smile', detail: '' })).toEqual({
+      base: '1girl',
+      additional: 'smile',
+      detail: ''
+    })
+  })
+
+  it('syncs when split parts change but merged prompt stays the same', async () => {
+    const { shouldSyncPromptPreset } = await helpers()
+    expect(
+      shouldSyncPromptPreset(
+        { prompt: merged, negativePrompt: '', params: { steps: 28 }, promptParts: parts },
+        {
+          prompt: merged,
+          negativePrompt: '',
+          params: { steps: 28 },
+          promptParts: { base: '1girl, smile', additional: 'cafe', detail: '' }
+        }
+      )
+    ).toBe(true)
+  })
+
+  it('does not touch stored parts when split is off (promptParts undefined)', async () => {
+    const { shouldSyncPromptPreset } = await helpers()
+    expect(
+      shouldSyncPromptPreset(
+        { prompt: merged, negativePrompt: '', params: { steps: 28 }, promptParts: parts },
+        { prompt: merged, negativePrompt: '', params: { steps: 28 } }
+      )
+    ).toBe(false)
+  })
+
+  it('legacy preset guard still holds with trivial parts', async () => {
+    const { shouldSyncPromptPreset } = await helpers()
+    expect(
+      shouldSyncPromptPreset(
+        { prompt: 'old', negativePrompt: '', params: null, promptParts: null },
+        {
+          prompt: 'old',
+          negativePrompt: '',
+          params: { steps: 28 },
+          promptParts: { base: 'old', additional: '', detail: '' }
+        }
+      )
+    ).toBe(false)
+  })
+})

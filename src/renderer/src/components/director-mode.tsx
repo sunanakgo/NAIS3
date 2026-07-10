@@ -19,7 +19,7 @@ import {
   type LucideIcon
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { directorToolCost } from '@shared/anlas'
+import { directorAugmentCost, directorToolCost } from '@shared/anlas'
 import { EMOTIONS, type DirectorMethod } from '@shared/types'
 import { openInDirector, useDirectorStore } from '../stores/director-store'
 import { useGenerationStore } from '../stores/generation-store'
@@ -76,17 +76,27 @@ export function DirectorMode(): React.JSX.Element {
   const [dragOver, setDragOver] = useState(false)
   useDragEndCleanup(() => setDragOver(false))
 
-  // 예상 Anlas — 현재 이미지 해상도의 픽셀 버킷 요금 (Opus는 409600px 이하 무료)
+  // 예상 Anlas — 업스케일과 augment-image 디렉터 툴은 서로 다른 공식 계산식을 쓴다.
   const tier = useGenerationStore((s) => s.subscriptionTier)
-  const [toolCost, setToolCost] = useState<number | null>(null)
+  const [toolCosts, setToolCosts] = useState<{
+    upscale: number
+    backgroundRemoval: number
+    standardAugment: number
+  } | null>(null)
   useEffect(() => {
     if (!source) {
-      setToolCost(null)
+      setToolCosts(null)
       return
     }
     let alive = true
     void imageDims(source).then(({ width, height }) => {
-      if (alive) setToolCost(directorToolCost(width, height, tier === 'opus'))
+      if (!alive) return
+      const isOpus = tier === 'opus'
+      setToolCosts({
+        upscale: directorToolCost(width, height, isOpus),
+        backgroundRemoval: directorAugmentCost('bg-removal', width, height, isOpus),
+        standardAugment: directorAugmentCost('lineart', width, height, isOpus)
+      })
     })
     return () => {
       alive = false
@@ -257,9 +267,18 @@ export function DirectorMode(): React.JSX.Element {
             onRun={() => sendToMain('inpaint')}
           />
           <div className="!my-3 h-px bg-line" />
-          <UpscaleCard disabled={!source || loading} cost={toolCost} />
+          <UpscaleCard disabled={!source || loading} cost={toolCosts?.upscale ?? null} />
           {TOOLS.map((tool) => (
-            <ToolCard key={tool.method} tool={tool} disabled={!source || loading} cost={toolCost} />
+            <ToolCard
+              key={tool.method}
+              tool={tool}
+              disabled={!source || loading}
+              cost={
+                tool.method === 'bg-removal'
+                  ? (toolCosts?.backgroundRemoval ?? null)
+                  : (toolCosts?.standardAugment ?? null)
+              }
+            />
           ))}
           <div className="!my-3 h-px bg-line" />
           {/* 로컬 툴 — API/Anlas 안 씀 */}

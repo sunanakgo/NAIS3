@@ -13,11 +13,10 @@ import { Input } from './ui/input'
 import { PromptEditor } from './prompt-editor'
 
 function lineCount(content: string): number {
-  // #부터 줄 끝까지 주석 (main의 contentToLines와 동일 규칙)
-  return content.split('\n').filter((l) => {
-    const i = l.indexOf('#')
-    return (i === -1 ? l : l.slice(0, i)).trim().length > 0
-  }).length
+  // #로 시작하는 줄만 주석 (main의 contentToLines와 동일 규칙)
+  return content
+    .split('\n')
+    .filter((l) => l.trim().length > 0 && !l.trimStart().startsWith('#')).length
 }
 
 export function FragmentOverlay(): React.JSX.Element {
@@ -119,7 +118,7 @@ export function FragmentOverlay(): React.JSX.Element {
         className="h-36 max-h-[520px] min-h-20 resize-y bg-surface-2"
         value={fragment.content}
         tokensOverride={null}
-        placeholder={'한 줄 = 한 옵션 (여러 줄이면 생성마다 랜덤 선택)\n# 부터 줄 끝까지 주석'}
+        placeholder={'한 줄 = 한 옵션 (여러 줄이면 생성마다 랜덤 선택)\n#로 시작하는 줄은 주석'}
         onValueChange={(v) => update(fragment.id, { content: v })}
       />
       <p className="text-[10.5px] text-faint">

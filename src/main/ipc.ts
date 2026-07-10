@@ -1,4 +1,13 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeImage, shell } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  nativeImage,
+  Notification,
+  shell
+} from 'electron'
 import type { IpcEventMap, IpcInvokeMap } from '../shared/types'
 import {
   createCharacter,
@@ -316,7 +325,8 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     setImageFavorite(id, favorite)
   })
   handle('images:delete', ({ id, deleteFile }) => {
-    deleteImage(id, deleteFile === true)
+    // deleteFile 미지정(히스토리 삭제) — "히스토리 삭제 시 파일도 삭제" 설정을 따른다
+    deleteImage(id, deleteFile ?? getSetting('history_delete_file') === '1')
   })
   handle('images:clearAll', () => ({ count: clearAllImages() }))
 
@@ -350,7 +360,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
 
   handle('scenes:exportJson', async ({ presetId }) => ({ saved: await exportScenesJson(presetId) }))
   handle('scenes:importJson', async ({ presetId }) => ({ count: await importScenesJson(presetId) }))
-  handle('scenes:exportZip', async ({ mode }) => ({ count: await exportZip(mode) }))
+  handle('scenes:exportZip', async ({ presetId }) => ({ count: await exportZip(presetId) }))
 
   handle('settings:get', ({ key }) => ({ value: getSetting(key) }))
   handle('settings:set', ({ key, value }) => {
@@ -493,6 +503,21 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   handle('gen:setDelay', ({ ms }) => {
     ctx.queue.setDelayMs(ms)
     setSetting('gen_delay_ms', String(ms))
+  })
+
+  handle('notify:done', ({ done, failed }) => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (!win || win.isFocused()) return // 보고 있는 중엔 토스트 불필요
+    if (!Notification.isSupported()) return
+    const body = failed > 0 ? `${done}장 완료 · ${failed}장 실패` : `${done}장 완료`
+    // silent — 소리는 앱의 알림음 설정이 따로 담당 (이중 재생 방지)
+    const n = new Notification({ title: 'NAIS3 생성 완료', body, silent: true })
+    n.on('click', () => {
+      if (win.isMinimized()) win.restore()
+      win.show()
+      win.focus()
+    })
+    n.show()
   })
 
   handle('images:readMetadata', async ({ filePath, base64 }) => {

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
+  normalizePresetParts,
+  partsForApply,
   pickPresetParams,
   shouldSyncPromptPreset,
   splitPromptForPreset,
@@ -46,15 +48,26 @@ export function PromptPresetBar(): React.JSX.Element {
     syncTimer.current = setTimeout(() => {
       const p = usePromptPresetsStore.getState().presets.find((x) => x.id === activeId)
       if (!p) return
-      const params = pickPresetParams(useGenerationStore.getState().request)
+      const gen = useGenerationStore.getState()
+      const params = pickPresetParams(gen.request)
+      // 3분할 켜진 동안만 조각을 프리셋에 저장 — 꺼져 있으면 저장된 조각을 건드리지 않음
+      const promptParts = gen.promptSplitEnabled
+        ? normalizePresetParts(gen.request.promptParts)
+        : undefined
       if (
         shouldSyncPromptPreset(p, {
           prompt: currentPrompt,
           negativePrompt: currentNegative,
-          params
+          params,
+          promptParts
         })
       ) {
-        void update(activeId, { prompt: currentPrompt, negativePrompt: currentNegative, params })
+        void update(activeId, {
+          prompt: currentPrompt,
+          negativePrompt: currentNegative,
+          params,
+          ...(promptParts !== undefined ? { promptParts } : {})
+        })
       }
     }, 500)
     return () => clearTimeout(syncTimer.current)
@@ -68,11 +81,11 @@ export function PromptPresetBar(): React.JSX.Element {
     setOpen(false) // 먼저 닫기 (B9)
     // 활성 프리셋을 먼저 바꿔야 이전 프리셋이 적용값으로 자동 저장되는 레이스가 없다.
     setActive(id)
-    // 파라미터도 함께 복원. 구버전 프리셋(params=null)은 프롬프트만 적용하고,
-    // split ON 상태에서는 이전 프리셋의 3분할 조각이 남지 않도록 현재 프롬프트를 base로 재시드한다.
+    // 파라미터도 함께 복원. 구버전 프리셋(params=null)은 프롬프트만 적용.
+    // 3분할 조각은 프리셋에 저장된 것을 복원 (없거나 낡았으면 prompt를 base로 재시드)
     patch({
       prompt: p.prompt,
-      promptParts: splitPromptForPreset(p.prompt),
+      promptParts: partsForApply(p),
       negativePrompt: p.negativePrompt,
       ...(p.params ?? {})
     })

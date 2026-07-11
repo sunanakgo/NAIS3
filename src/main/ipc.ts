@@ -63,6 +63,7 @@ import {
   renamePreset,
   deletePreset,
   reorderPresets,
+  setPresetCharacters,
   setPresetDefaultResolution,
   listScenes,
   createScene,
@@ -119,6 +120,7 @@ import {
   createRefFolder,
   deleteRefFolder,
   deleteRefImage,
+  duplicateRefImage,
   listCharRefs,
   listVibes,
   renameRefFolder,
@@ -200,6 +202,9 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   })
   handle('scenePresets:reorder', ({ ids }) => {
     reorderPresets(ids)
+  })
+  handle('scenePresets:setCharacters', ({ id, characterIds }) => {
+    setPresetCharacters(id, characterIds)
   })
   handle('scenePresets:setDefaultResolution', ({ id, width, height }) => {
     setPresetDefaultResolution(id, width, height)
@@ -661,6 +666,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   handle('vibes:delete', ({ id }) => {
     deleteRefImage('vibe', id)
   })
+  handle('vibes:duplicate', ({ id }) => ({ id: duplicateRefImage('vibe', id) }))
   handle('vibes:reorder', ({ order }) => {
     reorderRefs('vibe', order)
   })
@@ -686,6 +692,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   handle('crefs:delete', ({ id }) => {
     deleteRefImage('charref', id)
   })
+  handle('crefs:duplicate', ({ id }) => ({ id: duplicateRefImage('charref', id) }))
   handle('crefs:reorder', ({ order }) => {
     reorderRefs('charref', order)
   })

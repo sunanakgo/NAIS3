@@ -43,11 +43,20 @@ function toScene(
 
 // ── 프리셋 ──────────────────────────────────────────────
 export function listPresets(): ScenePreset[] {
-  return getDb()
+  const rows = getDb()
     .prepare(
-      'SELECT id, name, default_width AS defaultWidth, default_height AS defaultHeight FROM scene_presets ORDER BY sort_order, id'
+      'SELECT id, name, default_width AS defaultWidth, default_height AS defaultHeight, character_ids FROM scene_presets ORDER BY sort_order, id'
     )
-    .all() as ScenePreset[]
+    .all() as (Omit<ScenePreset, 'characterIds'> & { character_ids: string | null })[]
+  return rows.map(({ character_ids, ...r }) => {
+    let characterIds: number[] | null = null
+    try {
+      characterIds = character_ids ? (JSON.parse(character_ids) as number[]) : null
+    } catch {
+      // 깨진 JSON은 바인드 없음으로
+    }
+    return { ...r, characterIds }
+  })
 }
 
 /** 프리셋의 새 씬 기본 해상도 설정 */
@@ -55,6 +64,13 @@ export function setPresetDefaultResolution(id: number, width: number, height: nu
   getDb()
     .prepare('UPDATE scene_presets SET default_width = ?, default_height = ? WHERE id = ?')
     .run(width, height, id)
+}
+
+/** 프리셋 캐릭터 바인드 설정 (null = 해제) */
+export function setPresetCharacters(id: number, characterIds: number[] | null): void {
+  getDb()
+    .prepare('UPDATE scene_presets SET character_ids = ? WHERE id = ?')
+    .run(characterIds && characterIds.length > 0 ? JSON.stringify(characterIds) : null, id)
 }
 
 export function createPreset(name: string): number {

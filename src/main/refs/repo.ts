@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog } from 'electron'
-import { copyFileSync, mkdirSync, readFileSync, rmSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'fs'
 import { basename, extname, join } from 'path'
 import { randomUUID } from 'crypto'
 import sharp from 'sharp'
@@ -141,11 +141,7 @@ const CREF_FIELDS: Record<string, string> = {
   fidelity: 'fidelity'
 }
 
-export function updateRefImage(
-  kind: Kind,
-  id: number,
-  patch: Record<string, unknown>
-): void {
+export function updateRefImage(kind: Kind, id: number, patch: Record<string, unknown>): void {
   const fields = kind === 'vibe' ? VIBE_FIELDS : CREF_FIELDS
   const sets: string[] = []
   const values: unknown[] = []
@@ -160,11 +156,34 @@ export function updateRefImage(
     .run(...values, id)
 }
 
+/** 복제 — 모든 컬럼 복사 (바이브 인코딩 캐시 포함 — 2 Anlas 재소모 방지). 삭제가 파일까지 지우므로 파일도 복사 */
+export function duplicateRefImage(kind: Kind, id: number): number {
+  const db = getDb()
+  const table = TABLES[kind].items
+  const row = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(id) as
+    Record<string, unknown> | undefined
+  if (!row) return 0
+  const src = row.file_path as string
+  if (src && existsSync(src)) {
+    const dest = join(refsDir(), `${randomUUID()}${extname(src)}`)
+    copyFileSync(src, dest)
+    row.file_path = dest
+  }
+  const max = db.prepare(`SELECT COALESCE(MAX(sort_order), 0) AS m FROM ${table}`).get() as {
+    m: number
+  }
+  row.sort_order = max.m + 1
+  const cols = Object.keys(row).filter((k) => k !== 'id' && k !== 'created_at')
+  const info = db
+    .prepare(`INSERT INTO ${table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`)
+    .run(...cols.map((k) => row[k]))
+  return Number(info.lastInsertRowid)
+}
+
 export function deleteRefImage(kind: Kind, id: number): void {
   const db = getDb()
   const row = db.prepare(`SELECT file_path FROM ${TABLES[kind].items} WHERE id = ?`).get(id) as
-    | { file_path: string }
-    | undefined
+    { file_path: string } | undefined
   db.prepare(`DELETE FROM ${TABLES[kind].items} WHERE id = ?`).run(id)
   if (row && row.file_path.startsWith(refsDir())) {
     try {

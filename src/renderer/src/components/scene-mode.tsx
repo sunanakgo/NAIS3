@@ -1,4 +1,5 @@
 import {
+  CalendarClock,
   CalendarPlus,
   CalendarX,
   ChevronDown,
@@ -16,7 +17,9 @@ import {
   RectangleHorizontal,
   RectangleVertical,
   Square,
-  Trash2
+  Trash2,
+  UserRound,
+  UsersRound
 } from 'lucide-react'
 import {
   closestCenter,
@@ -31,15 +34,15 @@ import {
 import { arrayMove, rectSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable'
 import { AnimatePresence, motion } from 'motion/react'
 import { memo, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
-import type { Scene } from '@shared/types'
+import type { Scene, ScenePreset } from '@shared/types'
 import { RESOLUTIONS, imageUrl } from '../lib/constants'
+import { useCharactersStore } from '../stores/characters-store'
 import { useGenerationStore } from '../stores/generation-store'
 import { useScenesStore } from '../stores/scenes-store'
 import { useResolutionsStore } from '../stores/resolutions-store'
 import { askConfirm, askText } from '../stores/dialog-store'
 import { toast } from '../stores/toast-store'
 import { cn } from '../lib/utils'
-import { ResolutionPicker } from './resolution-picker'
 import { SceneDetail } from './scene-detail'
 import { SortableList, SortableRow } from './sortable-list'
 import { Button } from './ui/button'
@@ -50,6 +53,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger
 } from './ui/context-menu'
+import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
@@ -77,8 +81,9 @@ function PresetDropdown(): React.JSX.Element {
   const renamePreset = useScenesStore((s) => s.renamePreset)
   const deletePreset = useScenesStore((s) => s.deletePreset)
   const reorderPresets = useScenesStore((s) => s.reorderPresets)
-  const setPresetDefaultResolution = useScenesStore((s) => s.setPresetDefaultResolution)
   const [open, setOpen] = useState(false)
+  // 캐릭터 바인드 다이얼로그 대상 프리셋
+  const [bindPreset, setBindPreset] = useState<ScenePreset | null>(null)
 
   const active = presets.find((p) => p.id === activePresetId)
 
@@ -113,7 +118,30 @@ function PresetDropdown(): React.JSX.Element {
                   )}
                 >
                   <span className="truncate">{p.name}</span>
+                  {(p.characterIds?.length ?? 0) > 0 && (
+                    <span
+                      className="flex shrink-0 items-center gap-0.5 rounded-full bg-accent/12 px-1.5 py-0.5 text-[10px] font-medium text-accent"
+                      title="캐릭터 바인드됨"
+                    >
+                      <UserRound size={9} /> {p.characterIds!.length}
+                    </span>
+                  )}
                 </div>
+                <button
+                  className={cn(
+                    'shrink-0 rounded p-1 opacity-0 group-hover:opacity-100',
+                    (p.characterIds?.length ?? 0) > 0
+                      ? 'text-accent opacity-100'
+                      : 'text-faint hover:text-fg'
+                  )}
+                  onClick={() => {
+                    setOpen(false)
+                    setBindPreset(p)
+                  }}
+                  title="캐릭터 바인드 — 이 프리셋 생성 시 사이드바 대신 지정 캐릭터 사용"
+                >
+                  <UsersRound size={12} />
+                </button>
                 <button
                   className="shrink-0 rounded p-1 text-faint opacity-0 hover:text-fg group-hover:opacity-100"
                   onClick={async () => {
@@ -147,20 +175,6 @@ function PresetDropdown(): React.JSX.Element {
           </SortableList>
         </div>
         <div className="my-1 h-px bg-line" />
-        {/* 활성 프리셋의 새 씬 기본 해상도 (N3) */}
-        {active && (
-          <div className="flex items-center gap-2 px-2 py-1.5 text-[12px] text-muted">
-            <span className="shrink-0">새 씬 기본 해상도</span>
-            <div className="flex-1" />
-            <ResolutionPicker
-              className="w-40"
-              width={active.defaultWidth ?? 832}
-              height={active.defaultHeight ?? 1216}
-              onPick={(w, h) => void setPresetDefaultResolution(active.id, w, h)}
-            />
-          </div>
-        )}
-        <div className="my-1 h-px bg-line" />
         <button
           className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-accent hover:bg-surface-2"
           onClick={async () => {
@@ -171,7 +185,120 @@ function PresetDropdown(): React.JSX.Element {
           <Plus size={14} /> 새 프리셋
         </button>
       </PopoverContent>
+      {bindPreset && (
+        <PresetCharacterDialog preset={bindPreset} onClose={() => setBindPreset(null)} />
+      )}
     </Popover>
+  )
+}
+
+/** 프리셋 캐릭터 바인드 다이얼로그 — 캐릭터 라이브러리에서 체크해 지정 */
+function PresetCharacterDialog({
+  preset,
+  onClose
+}: {
+  preset: ScenePreset
+  onClose: () => void
+}): React.JSX.Element {
+  const characters = useCharactersStore((s) => s.items)
+  const setPresetCharacters = useScenesStore((s) => s.setPresetCharacters)
+  const [selected, setSelected] = useState<Set<number>>(new Set(preset.characterIds ?? []))
+
+  const toggle = (id: number): void =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  // 저장 순서 = 캐릭터 라이브러리 순서 (캐릭터 슬롯 use_order와 일치)
+  const save = (): void => {
+    const ids = characters.filter((c) => selected.has(c.id)).map((c) => c.id)
+    void setPresetCharacters(preset.id, ids.length > 0 ? ids : null)
+    onClose()
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md p-4">
+        <DialogTitle className="mb-1">캐릭터 바인드 — {preset.name}</DialogTitle>
+        <p className="mb-3 text-[12px] text-muted">
+          바인드하면 이 프리셋의 씬을 생성할 때 사이드바에서 켜둔 캐릭터 대신 아래 캐릭터로
+          생성됩니다. 비우면 기존처럼 사이드바 캐릭터를 사용합니다.
+        </p>
+        <div className="max-h-80 space-y-1 overflow-y-auto">
+          {characters.length === 0 && (
+            <p className="py-6 text-center text-[12px] text-faint">
+              캐릭터 라이브러리가 비어 있습니다
+            </p>
+          )}
+          {characters.map((c) => {
+            const checked = selected.has(c.id)
+            return (
+              <button
+                key={c.id}
+                onClick={() => toggle(c.id)}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left transition',
+                  checked ? 'border-accent bg-accent-soft' : 'border-line hover:bg-surface-2'
+                )}
+              >
+                <span
+                  className={cn(
+                    'grid size-4 shrink-0 place-items-center rounded border-2',
+                    checked ? 'border-accent bg-accent text-white' : 'border-line'
+                  )}
+                >
+                  {checked && <span className="text-[9px] leading-none">✓</span>}
+                </span>
+                {c.thumbnail ? (
+                  <img
+                    src={`data:image/webp;base64,${c.thumbnail}`}
+                    className="size-7 shrink-0 rounded object-cover"
+                    alt=""
+                  />
+                ) : (
+                  <span className="grid size-7 shrink-0 place-items-center rounded bg-surface-2 text-faint">
+                    <UserRound size={13} />
+                  </span>
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] text-ink">
+                    {c.name || c.prompt.slice(0, 30) || '빈 캐릭터'}
+                  </span>
+                  {c.name && c.prompt && (
+                    <span className="block truncate font-mono text-[10.5px] text-faint">
+                      {c.prompt}
+                    </span>
+                  )}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          {(preset.characterIds?.length ?? 0) > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-danger hover:text-danger"
+              onClick={() => {
+                void setPresetCharacters(preset.id, null)
+                onClose()
+              }}
+            >
+              바인드 해제
+            </Button>
+          )}
+          <div className="flex-1" />
+          <Button variant="ghost" onClick={onClose}>
+            취소
+          </Button>
+          <Button variant="accent" onClick={save}>
+            저장 ({selected.size})
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -219,6 +346,7 @@ function SceneGrid(): React.JSX.Element {
   const cardOrientation = useScenesStore((s) => s.cardOrientation)
   const setCardOrientation = useScenesStore((s) => s.setCardOrientation)
   const adjustReserveAll = useScenesStore((s) => s.adjustReserveAll)
+  const generateAllReserved = useScenesStore((s) => s.generateAllReserved)
   const clearReserveAll = useScenesStore((s) => s.clearReserveAll)
   const reorder = useScenesStore((s) => s.reorder)
 
@@ -282,7 +410,7 @@ function SceneGrid(): React.JSX.Element {
         <IconBtn icon={<FileUp size={16} />} tip="JSON 불러오기" onClick={importJson} />
         <IconBtn
           icon={<FolderArchive size={16} />}
-          tip="ZIP 내보내기 — 씬별 즐겨찾기 전부, 없으면 최상단 1장 (이름=씬 이름)"
+          tip="ZIP 내보내기"
           onClick={() => void exportZip()}
         />
         <IconBtn
@@ -303,6 +431,17 @@ function SceneGrid(): React.JSX.Element {
           icon={<CalendarX size={16} />}
           tip="전체 예약 취소"
           onClick={() => void clearReserveAll()}
+        />
+        <IconBtn
+          icon={<CalendarClock size={16} />}
+          tip="모든 프리셋 예약 실행 — 프리셋 순서대로, 프리셋별 캐릭터 바인드 적용"
+          onClick={async () => {
+            const queued = await generateAllReserved()
+            toast(
+              queued > 0 ? `${queued}장 큐에 추가됨` : '예약된 씬이 없습니다',
+              queued > 0 ? 'success' : 'info'
+            )
+          }}
         />
         <div className="mx-1 h-5 w-px bg-line" />
         {/* 카드 비율: 세로/가로/정사각 (해상도와 무관하게 고정) */}

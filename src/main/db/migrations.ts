@@ -305,5 +305,11 @@ export const migrations: ((db: Database.Database) => void)[] = [
   // 고정으로 합쳐지지 않게 (null = 분할 없음/병합 프롬프트만)
   (db) => {
     db.exec(`ALTER TABLE prompt_presets ADD COLUMN prompt_parts_json TEXT;`)
+  },
+
+  // v15: 씬 프리셋에 캐릭터 바인드 — 이 프리셋 생성 시 사이드바 캐릭터 대신
+  // 바인드된 캐릭터 카드들로 교체 (다중 프리셋 예약 실행용. null = 바인드 없음)
+  (db) => {
+    db.exec(`ALTER TABLE scene_presets ADD COLUMN character_ids TEXT;`)
   }
 ]

@@ -224,6 +224,14 @@ export function setReserveAll(presetId: number, count: number): void {
   getDb().prepare('UPDATE gen_scenes SET reserve_count = ? WHERE preset_id = ?').run(count, presetId)
 }
 
+/** 모든 프리셋의 예약 총합 */
+export function reservedTotal(): number {
+  const row = getDb()
+    .prepare('SELECT COALESCE(SUM(reserve_count), 0) AS t FROM gen_scenes')
+    .get() as { t: number }
+  return row.t
+}
+
 /** 프리셋 내 전체 씬 예약 수를 delta만큼 증감 (최소 0) */
 export function adjustReserveAll(presetId: number, delta: number): void {
   getDb()

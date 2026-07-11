@@ -75,6 +75,7 @@ import {
   reorderScenes,
   setReserveAll,
   adjustReserveAll,
+  reservedTotal,
   bulkMove,
   bulkDelete,
   bulkSetResolution,
@@ -306,6 +307,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   handle('scenes:adjustReserveAll', ({ presetId, delta }) => {
     adjustReserveAll(presetId, delta)
   })
+  handle('scenes:reservedTotal', () => ({ total: reservedTotal() }))
   handle('scenes:bulkMove', ({ ids, presetId }) => {
     bulkMove(ids, presetId)
   })

@@ -55,6 +55,9 @@ interface ScenesState {
   setPresetDefaultResolution: (id: number, width: number, height: number) => Promise<void>
 
   // 예약
+  /** 모든 프리셋의 예약 총합 — 좌측 "씬 생성 n장" 표시 */
+  reservedTotal: number
+  refreshReservedTotal: () => Promise<void>
   adjustReserve: (id: number, delta: number) => Promise<void>
   adjustReserveAll: (delta: number) => Promise<void>
   clearReserveAll: () => Promise<void>
@@ -77,10 +80,8 @@ interface ScenesState {
   /** 즐겨찾기 제외 전체 삭제 (N5) */
   deleteNonFavorites: (sceneId: number) => Promise<number>
 
-  /** 예약된 씬들을 예약 수만큼 큐에 넣는다 (메인 생성 버튼이 씬 모드에서 호출) */
+  /** 모든 프리셋의 예약을 프리셋 순서대로 전부 큐에 넣는다 (프리셋별 캐릭터 바인드 적용) */
   generateReserved: () => Promise<void>
-  /** 모든 프리셋의 예약을 프리셋 순서대로 순차 실행 (프리셋별 캐릭터 바인드 적용). 큐에 넣은 장수 반환 */
-  generateAllReserved: () => Promise<number>
   /** 프리셋 캐릭터 바인드 (null = 해제) */
   setPresetCharacters: (id: number, characterIds: number[] | null) => Promise<void>
   /** 이 씬 1장 바로 생성 (예약 없이 — NAIS2식 즉석 생성) */
@@ -210,6 +211,7 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
     const seq = ++loadSeq
     const presetId = get().activePresetId
     const { items } = await window.nais.invoke('scenes:list', { presetId })
+    void get().refreshReservedTotal() // 예약 총합(전 프리셋)도 함께 갱신
     if (seq !== loadSeq || get().activePresetId !== presetId) return // 더 최신 로드가 있으면 폐기
     set({ scenes: items })
   },
@@ -284,6 +286,11 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
     await window.nais.invoke('scenes:reorder', { ids })
   },
 
+  reservedTotal: 0,
+  refreshReservedTotal: async () => {
+    const { total } = await window.nais.invoke('scenes:reservedTotal', undefined)
+    set({ reservedTotal: total })
+  },
   adjustReserve: async (id, delta) => {
     const scene = get().scenes.find((s) => s.id === id)
     if (!scene) return
@@ -292,6 +299,7 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
     const reserveCount = Math.max(0, scene.reserveCount + step)
     set({ scenes: get().scenes.map((s) => (s.id === id ? { ...s, reserveCount } : s)) })
     await window.nais.invoke('scenes:update', { id, patch: { reserveCount } })
+    void get().refreshReservedTotal()
   },
   adjustReserveAll: async (delta) => {
     const step = delta * (useGenerationStore.getState().batchCount || 1)
@@ -302,10 +310,12 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
       presetId: get().activePresetId,
       delta: step
     })
+    void get().refreshReservedTotal()
   },
   clearReserveAll: async () => {
     set({ scenes: get().scenes.map((s) => ({ ...s, reserveCount: 0 })) })
     await window.nais.invoke('scenes:setReserveAll', { presetId: get().activePresetId, count: 0 })
+    void get().refreshReservedTotal()
   },
 
   bulkMove: async (presetId) => {
@@ -407,17 +417,8 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
   },
 
   generateReserved: async () => {
-    const preset = get().presets.find((p) => p.id === get().activePresetId)
-    const reserved = get().scenes.filter((s) => s.reserveCount > 0)
+    // 프리셋 순서대로: 프리셋1 예약 전부 → 프리셋2 예약 전부 → … (프리셋별 캐릭터 바인드 적용).
     // 예약을 큐에 넣는 즉시 예약 수는 소진(0) — 예약이란 게 "뽑을 대기열"이므로
-    set({ scenes: get().scenes.map((s) => (s.reserveCount > 0 ? { ...s, reserveCount: 0 } : s)) })
-    void window.nais.invoke('scenes:setReserveAll', { presetId: get().activePresetId, count: 0 })
-    await enqueueReserved(reserved, preset?.characterIds ?? null)
-  },
-
-  generateAllReserved: async () => {
-    // 프리셋 순서대로: 프리셋1 예약 전부 → 프리셋2 예약 전부 → … (다중 프리셋 예약 실행)
-    let queued = 0
     for (const preset of get().presets) {
       const { items } = await window.nais.invoke('scenes:list', { presetId: preset.id })
       const reserved = items.filter((s) => s.reserveCount > 0)
@@ -428,9 +429,9 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
         })
       }
       void window.nais.invoke('scenes:setReserveAll', { presetId: preset.id, count: 0 })
-      queued += await enqueueReserved(reserved, preset.characterIds)
+      await enqueueReserved(reserved, preset.characterIds)
     }
-    return queued
+    set({ reservedTotal: 0 })
   },
 
   setPresetCharacters: async (id, characterIds) => {
@@ -471,11 +472,6 @@ async function enqueueReserved(scenes: Scene[], characterIds: number[] | null): 
 function sceneSeed(offset: number): number {
   const g = useGenerationStore.getState()
   return g.seedLocked && g.request.seed >= 0 ? (g.request.seed + offset) % 4294967296 : randomSeed()
-}
-
-/** 활성 프리셋의 총 예약 수 (메인 생성 버튼 활성/표시용) */
-export function totalReserved(scenes: Scene[]): number {
-  return scenes.reduce((sum, s) => sum + s.reserveCount, 0)
 }
 
 /**

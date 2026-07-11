@@ -19,7 +19,7 @@ import { useFragmentsStore } from '../stores/fragments-store'
 import { useGenerationStore } from '../stores/generation-store'
 import { useLayoutStore } from '../stores/layout-store'
 import { useCharRefsStore, useVibesStore } from '../stores/refs-store'
-import { totalReserved, useScenesStore } from '../stores/scenes-store'
+import { useScenesStore } from '../stores/scenes-store'
 import { PromptEditor } from './prompt-editor'
 import { PromptPresetBar } from './prompt-preset-bar'
 import { CharacterOverlay } from './character-overlay'
@@ -64,7 +64,8 @@ export function PromptPanel(): React.JSX.Element {
 
   // 씬 모드: 생성은 예약된 씬들을 예약 수만큼 큐에 넣는다. 예약 0이면 생성 버튼 비활성.
   const centerMode = useLayoutStore((s) => s.centerMode)
-  const sceneReserved = useScenesStore((s) => totalReserved(s.scenes))
+  // 모든 프리셋의 예약 총합 — 씬 생성 버튼 한 번으로 전부 실행
+  const sceneReserved = useScenesStore((s) => s.reservedTotal)
   const generateReserved = useScenesStore((s) => s.generateReserved)
   const isScene = centerMode === 'scene'
   // 프롬프트/네거티브 개별 접기 — 하나를 접으면 다른 하나가 넓어짐
@@ -377,7 +378,7 @@ export function PromptPanel(): React.JSX.Element {
             title={
               sceneReserved === 0
                 ? '씬에 예약(+)을 걸어야 생성할 수 있습니다'
-                : `예약된 ${sceneReserved}장 생성`
+                : `모든 프리셋의 예약 ${sceneReserved}장 생성 (프리셋 순서대로)`
             }
             onClick={() => void generateReserved()}
           >

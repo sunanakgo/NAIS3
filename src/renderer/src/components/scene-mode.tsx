@@ -1,5 +1,4 @@
 import {
-  CalendarClock,
   CalendarPlus,
   CalendarX,
   ChevronDown,
@@ -84,6 +83,11 @@ function PresetDropdown(): React.JSX.Element {
   const [open, setOpen] = useState(false)
   // 캐릭터 바인드 다이얼로그 대상 프리셋
   const [bindPreset, setBindPreset] = useState<ScenePreset | null>(null)
+  // 팝오버가 닫히는 클릭과 같은 틱에 다이얼로그를 열면 dismiss 레이스로 바로 닫힘 — 한 틱 미룸
+  const openBindDialog = (p: ScenePreset): void => {
+    setOpen(false)
+    setTimeout(() => setBindPreset(p), 0)
+  }
 
   const active = presets.find((p) => p.id === activePresetId)
 
@@ -94,101 +98,108 @@ function PresetDropdown(): React.JSX.Element {
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button className="flex h-8 min-w-52 items-center gap-1.5 rounded-md border border-line bg-paper px-2.5 text-[13px] font-medium hover:bg-surface-2">
-          <span className="min-w-0 flex-1 truncate text-left">{active?.name ?? '프리셋'}</span>
-          <ChevronDown size={14} className="shrink-0 text-muted" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-1">
-        <div className="max-h-64 overflow-y-auto overflow-x-hidden no-scrollbar">
-          {/* 드래그로 순서 변경 */}
-          <SortableList
-            ids={presets.map((p) => p.id)}
-            onReorder={(ids) => void reorderPresets(ids)}
-          >
-            {presets.map((p) => (
-              <SortableRow key={p.id} id={p.id} className="group gap-1" onTap={() => choose(p.id)}>
-                <div
-                  onClick={() => choose(p.id)}
-                  className={cn(
-                    'flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px]',
-                    p.id === activePresetId && 'font-semibold text-accent'
-                  )}
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button className="flex h-8 min-w-52 items-center gap-1.5 rounded-md border border-line bg-paper px-2.5 text-[13px] font-medium hover:bg-surface-2">
+            <span className="min-w-0 flex-1 truncate text-left">{active?.name ?? '프리셋'}</span>
+            <ChevronDown size={14} className="shrink-0 text-muted" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-1">
+          <div className="max-h-64 overflow-y-auto overflow-x-hidden no-scrollbar">
+            {/* 드래그로 순서 변경 */}
+            <SortableList
+              ids={presets.map((p) => p.id)}
+              onReorder={(ids) => void reorderPresets(ids)}
+            >
+              {presets.map((p) => (
+                <SortableRow
+                  key={p.id}
+                  id={p.id}
+                  className="group gap-1"
+                  onTap={() => choose(p.id)}
                 >
-                  <span className="truncate">{p.name}</span>
-                  {(p.characterIds?.length ?? 0) > 0 && (
-                    <span
-                      className="flex shrink-0 items-center gap-0.5 rounded-full bg-accent/12 px-1.5 py-0.5 text-[10px] font-medium text-accent"
-                      title="캐릭터 바인드됨"
-                    >
-                      <UserRound size={9} /> {p.characterIds!.length}
-                    </span>
-                  )}
-                </div>
-                <button
-                  className={cn(
-                    'shrink-0 rounded p-1 opacity-0 group-hover:opacity-100',
-                    (p.characterIds?.length ?? 0) > 0
-                      ? 'text-accent opacity-100'
-                      : 'text-faint hover:text-fg'
-                  )}
-                  onClick={() => {
-                    setOpen(false)
-                    setBindPreset(p)
-                  }}
-                  title="캐릭터 바인드 — 이 프리셋 생성 시 사이드바 대신 지정 캐릭터 사용"
-                >
-                  <UsersRound size={12} />
-                </button>
-                <button
-                  className="shrink-0 rounded p-1 text-faint opacity-0 hover:text-fg group-hover:opacity-100"
-                  onClick={async () => {
-                    const name = await askText('프리셋 이름', p.name)
-                    if (name) void renamePreset(p.id, name)
-                  }}
-                  title="이름 변경"
-                >
-                  <Pencil size={12} />
-                </button>
-                {presets.length > 1 && (
-                  <button
-                    className="shrink-0 rounded p-1 text-faint opacity-0 hover:text-danger group-hover:opacity-100"
-                    onClick={async () => {
-                      if (
-                        await askConfirm('프리셋 삭제', {
-                          message: `"${p.name}" 프리셋과 그 안의 씬을 모두 삭제합니다.`,
-                          confirmLabel: '삭제',
-                          danger: true
-                        })
-                      )
-                        void deletePreset(p.id)
-                    }}
-                    title="삭제"
+                  <div
+                    onClick={() => choose(p.id)}
+                    className={cn(
+                      'flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px]',
+                      p.id === activePresetId && 'font-semibold text-accent'
+                    )}
                   >
-                    <Trash2 size={12} />
+                    <span className="truncate">{p.name}</span>
+                    {(p.characterIds?.length ?? 0) > 0 && (
+                      // 바인드 표시 겸 편집 진입점. 반드시 <button> — SortableRow의 onTap(행 선택)이
+                      // button/input에서 시작한 클릭만 제외하므로, span이면 행 선택으로 먹혀버린다
+                      <button
+                        className="flex shrink-0 cursor-pointer items-center gap-0.5 rounded-full bg-accent/12 px-1.5 py-0.5 text-[10px] font-medium text-accent hover:bg-accent/25"
+                        title="캐릭터 바인드됨 — 클릭해서 편집"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openBindDialog(p)
+                        }}
+                      >
+                        <UserRound size={9} /> {p.characterIds!.length}
+                      </button>
+                    )}
+                  </div>
+                  {(p.characterIds?.length ?? 0) === 0 && (
+                    <button
+                      className="shrink-0 rounded p-1 text-faint opacity-0 hover:text-fg group-hover:opacity-100"
+                      onClick={() => openBindDialog(p)}
+                      title="캐릭터 바인드 — 이 프리셋 생성 시 사이드바 대신 지정 캐릭터 사용"
+                    >
+                      <UsersRound size={12} />
+                    </button>
+                  )}
+                  <button
+                    className="shrink-0 rounded p-1 text-faint opacity-0 hover:text-fg group-hover:opacity-100"
+                    onClick={async () => {
+                      const name = await askText('프리셋 이름', p.name)
+                      if (name) void renamePreset(p.id, name)
+                    }}
+                    title="이름 변경"
+                  >
+                    <Pencil size={12} />
                   </button>
-                )}
-              </SortableRow>
-            ))}
-          </SortableList>
-        </div>
-        <div className="my-1 h-px bg-line" />
-        <button
-          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-accent hover:bg-surface-2"
-          onClick={async () => {
-            const name = await askText('새 프리셋 이름', '새 프리셋')
-            if (name) void createPreset(name)
-          }}
-        >
-          <Plus size={14} /> 새 프리셋
-        </button>
-      </PopoverContent>
+                  {presets.length > 1 && (
+                    <button
+                      className="shrink-0 rounded p-1 text-faint opacity-0 hover:text-danger group-hover:opacity-100"
+                      onClick={async () => {
+                        if (
+                          await askConfirm('프리셋 삭제', {
+                            message: `"${p.name}" 프리셋과 그 안의 씬을 모두 삭제합니다.`,
+                            confirmLabel: '삭제',
+                            danger: true
+                          })
+                        )
+                          void deletePreset(p.id)
+                      }}
+                      title="삭제"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </SortableRow>
+              ))}
+            </SortableList>
+          </div>
+          <div className="my-1 h-px bg-line" />
+          <button
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-accent hover:bg-surface-2"
+            onClick={async () => {
+              const name = await askText('새 프리셋 이름', '새 프리셋')
+              if (name) void createPreset(name)
+            }}
+          >
+            <Plus size={14} /> 새 프리셋
+          </button>
+        </PopoverContent>
+      </Popover>
       {bindPreset && (
         <PresetCharacterDialog preset={bindPreset} onClose={() => setBindPreset(null)} />
       )}
-    </Popover>
+    </>
   )
 }
 
@@ -346,7 +357,6 @@ function SceneGrid(): React.JSX.Element {
   const cardOrientation = useScenesStore((s) => s.cardOrientation)
   const setCardOrientation = useScenesStore((s) => s.setCardOrientation)
   const adjustReserveAll = useScenesStore((s) => s.adjustReserveAll)
-  const generateAllReserved = useScenesStore((s) => s.generateAllReserved)
   const clearReserveAll = useScenesStore((s) => s.clearReserveAll)
   const reorder = useScenesStore((s) => s.reorder)
 
@@ -431,17 +441,6 @@ function SceneGrid(): React.JSX.Element {
           icon={<CalendarX size={16} />}
           tip="전체 예약 취소"
           onClick={() => void clearReserveAll()}
-        />
-        <IconBtn
-          icon={<CalendarClock size={16} />}
-          tip="모든 프리셋 예약 실행 — 프리셋 순서대로, 프리셋별 캐릭터 바인드 적용"
-          onClick={async () => {
-            const queued = await generateAllReserved()
-            toast(
-              queued > 0 ? `${queued}장 큐에 추가됨` : '예약된 씬이 없습니다',
-              queued > 0 ? 'success' : 'info'
-            )
-          }}
         />
         <div className="mx-1 h-5 w-px bg-line" />
         {/* 카드 비율: 세로/가로/정사각 (해상도와 무관하게 고정) */}

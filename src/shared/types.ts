@@ -494,6 +494,8 @@ export interface IpcInvokeMap {
   'scenes:setReserveAll': { req: { presetId: number; count: number }; res: void }
   /** 예약: 전체 씬 예약 수를 delta만큼 증감 (최소 0) */
   'scenes:adjustReserveAll': { req: { presetId: number; delta: number }; res: void }
+  /** 모든 프리셋의 예약 총합 — 좌측 "씬 생성 n장" 표시용 */
+  'scenes:reservedTotal': { req: void; res: { total: number } }
   /** 편집 모드 일괄 작업 (선택 씬 대상) */
   'scenes:bulkMove': { req: { ids: number[]; presetId: number }; res: void }
   'scenes:bulkDelete': { req: { ids: number[] }; res: void }

@@ -4,7 +4,7 @@ import { useFragmentsStore } from './fragments-store'
 import { useGenerationStore } from './generation-store'
 import { useLayoutStore } from './layout-store'
 import { useCharRefsStore, useVibesStore } from './refs-store'
-import { totalReserved, useScenesStore } from './scenes-store'
+import { useScenesStore } from './scenes-store'
 import { toast } from './toast-store'
 
 export type ShortcutAction =
@@ -93,8 +93,9 @@ function runAction(action: ShortcutAction): void {
   switch (action) {
     case 'generate': {
       if (layout.centerMode === 'scene') {
-        const scenes = useScenesStore.getState().scenes
-        if (totalReserved(scenes) > 0) void useScenesStore.getState().generateReserved()
+        // 모든 프리셋의 예약 총합 기준 (씬 생성 버튼과 동일)
+        if (useScenesStore.getState().reservedTotal > 0)
+          void useScenesStore.getState().generateReserved()
       } else {
         void useGenerationStore.getState().generate()
       }

@@ -15,6 +15,37 @@ interface Row {
   width: number
   height: number
   reserve_count: number
+  reserve_json?: string | null
+}
+
+/** 출연별 예약 내역 파싱 (키 '' = 사이드바) */
+function parseReserves(raw: string | null): Record<string, number> {
+  if (!raw) return {}
+  try {
+    const parsed = JSON.parse(raw) as Record<string, number>
+    const out: Record<string, number> = {}
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === 'number' && v > 0) out[k] = v
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+/** 씬의 출연별 예약 내역 설정 — reserve_count(합계)도 함께 갱신 */
+export function setSceneReserves(id: number, reserves: Record<string, number>): void {
+  const clean: Record<string, number> = {}
+  let total = 0
+  for (const [k, v] of Object.entries(reserves)) {
+    if (typeof v === 'number' && v > 0) {
+      clean[k] = v
+      total += v
+    }
+  }
+  getDb()
+    .prepare('UPDATE gen_scenes SET reserve_json = ?, reserve_count = ? WHERE id = ?')
+    .run(total > 0 ? JSON.stringify(clean) : null, total, id)
 }
 
 function toScene(
@@ -34,6 +65,7 @@ function toScene(
     width: r.width,
     height: r.height,
     reserveCount: r.reserve_count,
+    reserves: parseReserves(r.reserve_json ?? null),
     thumbnail: r.thumb ? r.thumb.toString('base64') : '',
     thumbnailPath: r.thumb_path ?? '',
     imageCount: r.image_count,
@@ -105,7 +137,7 @@ export function listScenes(presetId: number): Scene[] {
   // 카드 썸네일: 즐겨찾기가 있으면 최상단(최신) 즐겨찾기, 없으면 최신 이미지 (NAIS2 방식)
   const rows = getDb()
     .prepare(
-      `SELECT s.id, s.preset_id, s.name, s.prompt, s.negative_prompt, s.width, s.height, s.reserve_count,
+      `SELECT s.id, s.preset_id, s.name, s.prompt, s.negative_prompt, s.width, s.height, s.reserve_count, s.reserve_json,
               (SELECT COUNT(*) FROM images WHERE scene_id = s.id) AS image_count,
               (SELECT thumbnail FROM images WHERE scene_id = s.id ORDER BY favorite DESC, id DESC LIMIT 1) AS thumb,
               (SELECT file_path FROM images WHERE scene_id = s.id ORDER BY favorite DESC, id DESC LIMIT 1) AS thumb_path,
@@ -133,15 +165,14 @@ export function reorderPresets(ids: number[]): void {
 /** 씬 저장 폴더 계층용 프리셋 이름 */
 export function getPresetName(id: number): string | null {
   const r = getDb().prepare('SELECT name FROM scene_presets WHERE id = ?').get(id) as
-    | { name: string }
-    | undefined
+    { name: string } | undefined
   return r?.name ?? null
 }
 
 export function getScene(id: number): Scene | null {
   const r = getDb()
     .prepare(
-      `SELECT id, preset_id, name, prompt, negative_prompt, width, height, reserve_count,
+      `SELECT id, preset_id, name, prompt, negative_prompt, width, height, reserve_count, reserve_json,
               (SELECT COUNT(*) FROM images WHERE scene_id = ?) AS image_count
        FROM gen_scenes WHERE id = ?`
     )
@@ -221,7 +252,10 @@ export function reorderScenes(ids: number[]): void {
 
 /** 프리셋 내 전체 씬 예약 수를 count로 설정 (전체 취소 0 등) */
 export function setReserveAll(presetId: number, count: number): void {
-  getDb().prepare('UPDATE gen_scenes SET reserve_count = ? WHERE preset_id = ?').run(count, presetId)
+  // 절대값 설정은 전체 취소(0) 용도 — 출연 내역도 함께 초기화
+  getDb()
+    .prepare('UPDATE gen_scenes SET reserve_count = ?, reserve_json = NULL WHERE preset_id = ?')
+    .run(count, presetId)
 }
 
 /** 모든 프리셋의 예약 총합 */
@@ -233,10 +267,19 @@ export function reservedTotal(): number {
 }
 
 /** 프리셋 내 전체 씬 예약 수를 delta만큼 증감 (최소 0) */
-export function adjustReserveAll(presetId: number, delta: number): void {
-  getDb()
-    .prepare('UPDATE gen_scenes SET reserve_count = MAX(0, reserve_count + ?) WHERE preset_id = ?')
-    .run(delta, presetId)
+export function adjustReserveAll(presetId: number, castId: string, delta: number): void {
+  const db = getDb()
+  const rows = db
+    .prepare('SELECT id, reserve_json FROM gen_scenes WHERE preset_id = ?')
+    .all(presetId) as { id: number; reserve_json: string | null }[]
+  const tx = db.transaction(() => {
+    for (const row of rows) {
+      const reserves = parseReserves(row.reserve_json)
+      reserves[castId] = Math.max(0, (reserves[castId] ?? 0) + delta)
+      setSceneReserves(row.id, reserves)
+    }
+  })
+  tx()
 }
 
 // ── 편집 모드 일괄 작업 ──────────────────────────────────
@@ -261,7 +304,9 @@ export function bulkDelete(ids: number[]): void {
 export function bulkSetResolution(ids: number[], width: number, height: number): void {
   if (ids.length === 0) return
   getDb()
-    .prepare(`UPDATE gen_scenes SET width = ?, height = ? WHERE id IN (${placeholders(ids.length)})`)
+    .prepare(
+      `UPDATE gen_scenes SET width = ?, height = ? WHERE id IN (${placeholders(ids.length)})`
+    )
     .run(width, height, ...ids)
 }
 
@@ -300,9 +345,9 @@ export function sceneImages(
   const db = getDb()
   const fav = favoritesOnly ? ' AND favorite = 1' : ''
   const total = (
-    db
-      .prepare(`SELECT COUNT(*) AS c FROM images WHERE scene_id = ?${fav}`)
-      .get(sceneId) as { c: number }
+    db.prepare(`SELECT COUNT(*) AS c FROM images WHERE scene_id = ?${fav}`).get(sceneId) as {
+      c: number
+    }
   ).c
   const rows = db
     .prepare(
@@ -380,8 +425,7 @@ export function clearAllImages(): number {
 export function deleteImage(id: number, deleteFile: boolean): void {
   const db = getDb()
   const r = db.prepare('SELECT file_path FROM images WHERE id = ?').get(id) as
-    | { file_path: string }
-    | undefined
+    { file_path: string } | undefined
   db.prepare('DELETE FROM images WHERE id = ?').run(id)
   if (!r) return
   if (isMemoryPath(r.file_path)) {
@@ -505,8 +549,7 @@ function zipEntriesForScenes(sceneIds: number[]): ZipEntry[] {
   const entries: ZipEntry[] = []
   for (const sceneId of sceneIds) {
     const scene = db.prepare('SELECT name FROM gen_scenes WHERE id = ?').get(sceneId) as
-      | { name: string }
-      | undefined
+      { name: string } | undefined
     if (!scene) continue
     const favorites = db
       .prepare('SELECT file_path FROM images WHERE scene_id = ? AND favorite = 1 ORDER BY id DESC')
@@ -520,7 +563,10 @@ function zipEntriesForScenes(sceneIds: number[]): ZipEntry[] {
     const safe = scene.name.replace(/[/\\:*?"<>|]/g, '_').trim() || `씬-${sceneId}`
     picks.forEach((p, i) => {
       const suffix = picks.length > 1 ? `_${i + 1}` : ''
-      entries.push({ file_path: p.file_path, name: `${safe}${suffix}${extname(p.file_path) || '.png'}` })
+      entries.push({
+        file_path: p.file_path,
+        name: `${safe}${suffix}${extname(p.file_path) || '.png'}`
+      })
     })
   }
   return entries

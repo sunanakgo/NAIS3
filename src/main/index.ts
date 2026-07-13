@@ -166,10 +166,11 @@ app.whenReady().then(() => {
       }))
     }
 
-    // 바이브/캐릭레퍼는 DB의 enabled 항목에서 준비 (바이브는 필요 시 인코딩 — 2 Anlas, 캐시됨)
-    const { vibes, newlyEncoded } = await prepareVibes(token)
+    // 바이브/캐릭레퍼 준비 — 요청이 id를 지정하면(출연 예약) 그것으로, 아니면 DB enabled 항목
+    // (바이브는 필요 시 인코딩 — 2 Anlas, 캐시됨)
+    const { vibes, newlyEncoded } = await prepareVibes(token, request.vibeIds)
     if (newlyEncoded.length) broadcast('vibes:encoded', {}) // 카드 인코딩 표시 갱신
-    const characterReferences = await prepareCharRefs()
+    const characterReferences = await prepareCharRefs(request.charRefIds)
 
     let source = request.source
     // i2i/인페인트: 소스 해상도를 유효 NAI 해상도(64 배수·픽셀 상한)로 스냅하고 이미지를 맞춰 리사이즈.

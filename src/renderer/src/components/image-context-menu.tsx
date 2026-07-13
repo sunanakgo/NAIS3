@@ -1,7 +1,18 @@
-import { Copy, Download, FileText, FolderOpen, ImageIcon, Layers, Trash2, Wand2 } from 'lucide-react'
+import {
+  Copy,
+  Download,
+  FileText,
+  FolderOpen,
+  ImageIcon,
+  Layers,
+  Library,
+  Trash2,
+  Wand2
+} from 'lucide-react'
 import { toast } from '../stores/toast-store'
 import { openInDirector } from '../stores/director-store'
 import { setI2iSource, useGenerationStore } from '../stores/generation-store'
+import { addToLibrary } from '../stores/library-store'
 import { useMetadataStore } from '../stores/metadata-store'
 import {
   ContextMenu,
@@ -18,11 +29,17 @@ import {
 export function ImageContextMenu({
   filePath,
   onDelete,
+  hideLibraryAdd,
+  extra,
   children
 }: {
   filePath: string
   /** 지정 시 메뉴에 '삭제' 표시 — 호스트가 삭제+목록 갱신을 처리 */
   onDelete?: () => void
+  /** 라이브러리 자신의 카드에서는 "라이브러리에 추가" 숨김 (중복 추가 방지) */
+  hideLibraryAdd?: boolean
+  /** 호스트 전용 추가 항목 (라이브러리의 "스택에 추가" 등) — 삭제 위에 렌더 */
+  extra?: React.ReactNode
   children: React.ReactNode
 }): React.JSX.Element {
   const startInpaint = useGenerationStore((s) => s.startInpaintFromPath)
@@ -60,6 +77,15 @@ export function ImageContextMenu({
         >
           <FolderOpen size={13} className="text-amber-400" /> 파일 탐색기에서 보기
         </ContextMenuItem>
+        {!hideLibraryAdd && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem onSelect={() => void addToLibrary([filePath])}>
+              <Library size={13} className="text-fuchsia-400" /> 라이브러리에 추가
+            </ContextMenuItem>
+          </>
+        )}
+        {extra}
         {onDelete && (
           <>
             <ContextMenuSeparator />

@@ -76,6 +76,7 @@ import {
   setReserveAll,
   adjustReserveAll,
   reservedTotal,
+  setSceneReserves,
   bulkMove,
   bulkDelete,
   bulkSetResolution,
@@ -102,6 +103,7 @@ import {
   createStack,
   deleteImages as deleteLibraryImages,
   deleteStack,
+  exportImages as exportLibraryImages,
   importBase64 as importLibraryBase64,
   importPaths as importLibraryPaths,
   importViaDialog,
@@ -304,8 +306,11 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   handle('scenes:setReserveAll', ({ presetId, count }) => {
     setReserveAll(presetId, count)
   })
-  handle('scenes:adjustReserveAll', ({ presetId, delta }) => {
-    adjustReserveAll(presetId, delta)
+  handle('scenes:adjustReserveAll', ({ presetId, castId, delta }) => {
+    adjustReserveAll(presetId, castId, delta)
+  })
+  handle('scenes:setReserves', ({ id, reserves }) => {
+    setSceneReserves(id, reserves)
   })
   handle('scenes:reservedTotal', () => ({ total: reservedTotal() }))
   handle('scenes:bulkMove', ({ ids, presetId }) => {
@@ -364,6 +369,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   handle('library:stackSet', ({ imageIds, stackId }) => {
     setStack(imageIds, stackId)
   })
+  handle('library:export', async ({ ids }) => ({ count: await exportLibraryImages(ids) }))
 
   handle('scenes:exportJson', async ({ presetId }) => ({ saved: await exportScenesJson(presetId) }))
   handle('scenes:importJson', async ({ presetId }) => ({ count: await importScenesJson(presetId) }))

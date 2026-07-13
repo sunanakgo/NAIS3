@@ -2,14 +2,22 @@ import { readFileSync } from 'fs'
 import sharp from 'sharp'
 import type { CharacterReferenceOptions, VibeOptions } from '../nai/payload'
 import { ENDPOINTS } from '../nai/endpoints'
-import { enabledCharRefRows, enabledVibeRows, saveVibeEncoding } from './repo'
+import {
+  charRefRowsByIds,
+  enabledCharRefRows,
+  enabledVibeRows,
+  saveVibeEncoding,
+  vibeRowsByIds
+} from './repo'
 
 /** 생성 직전 바이브 준비 — 미인코딩/ie 변경분만 encode-vibe (2 Anlas) 후 캐시.
  *  newlyEncoded: 이번에 새로 인코딩된 바이브 id (카드 표시 갱신 통지용) */
 export async function prepareVibes(
-  token: string
+  token: string,
+  ids?: number[]
 ): Promise<{ vibes: VibeOptions[]; newlyEncoded: number[] }> {
-  const rows = enabledVibeRows()
+  // ids 지정 시 그 바이브들(enabled 무시 — 출연 예약), 미지정 시 enabled 항목
+  const rows = ids ? vibeRowsByIds(ids) : enabledVibeRows()
   const vibes: VibeOptions[] = []
   const newlyEncoded: number[] = []
   for (const row of rows) {
@@ -57,8 +65,9 @@ async function processCharRefImage(filePath: string): Promise<string> {
   return png.toString('base64')
 }
 
-export async function prepareCharRefs(): Promise<CharacterReferenceOptions[]> {
-  const rows = enabledCharRefRows()
+export async function prepareCharRefs(ids?: number[]): Promise<CharacterReferenceOptions[]> {
+  // ids 지정 시 그 캐릭레퍼들(enabled 무시 — 출연 예약), 미지정 시 enabled 항목
+  const rows = ids ? charRefRowsByIds(ids) : enabledCharRefRows()
   const result: CharacterReferenceOptions[] = []
   for (const row of rows) {
     result.push({

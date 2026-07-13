@@ -40,6 +40,15 @@ interface LibraryState {
   unstackSelected: () => Promise<void>
   deleteStack: (id: number) => Promise<void>
   renameStack: (id: number, name: string) => Promise<void>
+
+  /** 선택 이미지 일괄 내보내기 — 배치된 순서대로 001, 002… 파일명 */
+  exportSelected: () => Promise<void>
+  /** 이미지들을 스택으로 이동 (드래그/우클릭 공용, stackId null = 빼기) */
+  moveToStack: (imageIds: number[], stackId: number | null) => Promise<void>
+  /** 임의 이미지들로 새 스택 생성 (우클릭 "새 스택…") */
+  createStackWith: (name: string, imageIds: number[]) => Promise<void>
+  /** 파일 경로들을 특정 스택으로 가져오기 (스택 카드에 드롭) */
+  importToStack: (stackId: number, filePaths: string[]) => Promise<void>
 }
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
@@ -182,5 +191,46 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     const { currentStack } = get()
     if (currentStack?.id === id) set({ currentStack: { ...currentStack, name } })
     set({ stacks: get().stacks.map((s) => (s.id === id ? { ...s, name } : s)) })
+  },
+
+  exportSelected: async () => {
+    const ids = [...get().selection]
+    if (ids.length === 0) return
+    const { count } = await window.nais.invoke('library:export', { ids })
+    if (count > 0) toast(`${count}장 내보냄`, 'success')
+  },
+  moveToStack: async (imageIds, stackId) => {
+    if (imageIds.length === 0) return
+    await window.nais.invoke('library:stackSet', { imageIds, stackId })
+    set({ selection: new Set() })
+    toast(stackId != null ? `스택에 ${imageIds.length}장 추가됨` : '스택에서 뺐습니다', 'success')
+    await get().load(true)
+  },
+  createStackWith: async (name, imageIds) => {
+    await window.nais.invoke('library:stackCreate', { name, imageIds })
+    set({ selection: new Set() })
+    toast(`"${name}" 스택 생성됨`, 'success')
+    await get().load(true)
+  },
+  importToStack: async (stackId, filePaths) => {
+    const { count } = await window.nais.invoke('library:importPaths', { filePaths, stackId })
+    if (count > 0) {
+      toast(`스택에 ${count}장 추가됨`, 'success')
+      await get().load(true)
+    }
   }
 }))
+
+/**
+ * 라이브러리에 복제 추가 — 우클릭 메뉴/라이트박스 L 단축키 등 라이브러리 밖에서 사용.
+ * 항상 루트(미분류)로 들어가고, 원본 파일은 건드리지 않는다.
+ */
+export async function addToLibrary(filePaths: string[]): Promise<void> {
+  const { count } = await window.nais.invoke('library:importPaths', { filePaths, stackId: null })
+  if (count > 0) {
+    toast(`라이브러리에 ${count}장 추가됨`, 'success')
+    // 라이브러리 루트가 열려 있으면 즉시 갱신 (스택 안이면 루트로 나올 때 어차피 재로드)
+    const st = useLibraryStore.getState()
+    if (st.loaded && !st.currentStack) void st.load(true)
+  }
+}

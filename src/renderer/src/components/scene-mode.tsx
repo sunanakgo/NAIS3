@@ -15,9 +15,9 @@ import {
   Plus,
   RectangleHorizontal,
   RectangleVertical,
+  SlidersHorizontal,
   Square,
   Trash2,
-  UserRound,
   UsersRound
 } from 'lucide-react'
 import {
@@ -33,15 +33,15 @@ import {
 import { arrayMove, rectSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable'
 import { AnimatePresence, motion } from 'motion/react'
 import { memo, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
-import type { Scene, ScenePreset } from '@shared/types'
+import type { Scene, SceneCast } from '@shared/types'
 import { RESOLUTIONS, imageUrl } from '../lib/constants'
-import { useCharactersStore } from '../stores/characters-store'
 import { useGenerationStore } from '../stores/generation-store'
-import { useScenesStore } from '../stores/scenes-store'
+import { loadCasts, useScenesStore } from '../stores/scenes-store'
 import { useResolutionsStore } from '../stores/resolutions-store'
 import { askConfirm, askText } from '../stores/dialog-store'
 import { toast } from '../stores/toast-store'
 import { cn } from '../lib/utils'
+import { SceneCastDialog } from './scene-cast-dialog'
 import { SceneDetail } from './scene-detail'
 import { SortableList, SortableRow } from './sortable-list'
 import { Button } from './ui/button'
@@ -52,7 +52,6 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger
 } from './ui/context-menu'
-import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
@@ -64,6 +63,7 @@ export function SceneMode(): React.JSX.Element {
 
   useEffect(() => {
     void loadPresets()
+    void loadCasts() // 출연 목록 복원 (1회)
   }, [loadPresets])
 
   const selected = scenes.find((s) => s.id === selectedId) ?? null
@@ -81,13 +81,6 @@ function PresetDropdown(): React.JSX.Element {
   const deletePreset = useScenesStore((s) => s.deletePreset)
   const reorderPresets = useScenesStore((s) => s.reorderPresets)
   const [open, setOpen] = useState(false)
-  // 캐릭터 바인드 다이얼로그 대상 프리셋
-  const [bindPreset, setBindPreset] = useState<ScenePreset | null>(null)
-  // 팝오버가 닫히는 클릭과 같은 틱에 다이얼로그를 열면 dismiss 레이스로 바로 닫힘 — 한 틱 미룸
-  const openBindDialog = (p: ScenePreset): void => {
-    setOpen(false)
-    setTimeout(() => setBindPreset(p), 0)
-  }
 
   const active = presets.find((p) => p.id === activePresetId)
 
@@ -128,30 +121,7 @@ function PresetDropdown(): React.JSX.Element {
                     )}
                   >
                     <span className="truncate">{p.name}</span>
-                    {(p.characterIds?.length ?? 0) > 0 && (
-                      // 바인드 표시 겸 편집 진입점. 반드시 <button> — SortableRow의 onTap(행 선택)이
-                      // button/input에서 시작한 클릭만 제외하므로, span이면 행 선택으로 먹혀버린다
-                      <button
-                        className="flex shrink-0 cursor-pointer items-center gap-0.5 rounded-full bg-accent/12 px-1.5 py-0.5 text-[10px] font-medium text-accent hover:bg-accent/25"
-                        title="캐릭터 바인드됨 — 클릭해서 편집"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          openBindDialog(p)
-                        }}
-                      >
-                        <UserRound size={9} /> {p.characterIds!.length}
-                      </button>
-                    )}
                   </div>
-                  {(p.characterIds?.length ?? 0) === 0 && (
-                    <button
-                      className="shrink-0 rounded p-1 text-faint opacity-0 hover:text-fg group-hover:opacity-100"
-                      onClick={() => openBindDialog(p)}
-                      title="캐릭터 바인드 — 이 프리셋 생성 시 사이드바 대신 지정 캐릭터 사용"
-                    >
-                      <UsersRound size={12} />
-                    </button>
-                  )}
                   <button
                     className="shrink-0 rounded p-1 text-faint opacity-0 hover:text-fg group-hover:opacity-100"
                     onClick={async () => {
@@ -196,120 +166,99 @@ function PresetDropdown(): React.JSX.Element {
           </button>
         </PopoverContent>
       </Popover>
-      {bindPreset && (
-        <PresetCharacterDialog preset={bindPreset} onClose={() => setBindPreset(null)} />
-      )}
     </>
   )
 }
 
-/** 프리셋 캐릭터 바인드 다이얼로그 — 캐릭터 라이브러리에서 체크해 지정 */
-function PresetCharacterDialog({
-  preset,
-  onClose
-}: {
-  preset: ScenePreset
-  onClose: () => void
-}): React.JSX.Element {
-  const characters = useCharactersStore((s) => s.items)
-  const setPresetCharacters = useScenesStore((s) => s.setPresetCharacters)
-  const [selected, setSelected] = useState<Set<number>>(new Set(preset.characterIds ?? []))
+/**
+ * 출연 셀렉터 — 예약(+)이 어느 출연으로 기록될지 선택.
+ * "사이드바 설정" = 기본 동작 (지금까지와 동일), 출연 선택 시 그 구성으로 예약/생성.
+ */
+function CastSelector(): React.JSX.Element {
+  const casts = useScenesStore((s) => s.casts)
+  const activeCastId = useScenesStore((s) => s.activeCastId)
+  const setActiveCast = useScenesStore((s) => s.setActiveCast)
+  const [open, setOpen] = useState(false)
+  const [manageOpen, setManageOpen] = useState(false)
 
-  const toggle = (id: number): void =>
-    setSelected((prev) => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-  // 저장 순서 = 캐릭터 라이브러리 순서 (캐릭터 슬롯 use_order와 일치)
-  const save = (): void => {
-    const ids = characters.filter((c) => selected.has(c.id)).map((c) => c.id)
-    void setPresetCharacters(preset.id, ids.length > 0 ? ids : null)
-    onClose()
-  }
+  const active = casts.find((c) => c.id === activeCastId)
+  const label = active ? active.name || '이름 없음' : '사이드바 설정'
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md p-4">
-        <DialogTitle className="mb-1">캐릭터 바인드 — {preset.name}</DialogTitle>
-        <p className="mb-3 text-[12px] text-muted">
-          바인드하면 이 프리셋의 씬을 생성할 때 사이드바에서 켜둔 캐릭터 대신 아래 캐릭터로
-          생성됩니다. 비우면 기존처럼 사이드바 캐릭터를 사용합니다.
-        </p>
-        <div className="max-h-80 space-y-1 overflow-y-auto">
-          {characters.length === 0 && (
-            <p className="py-6 text-center text-[12px] text-faint">
-              캐릭터 라이브러리가 비어 있습니다
-            </p>
-          )}
-          {characters.map((c) => {
-            const checked = selected.has(c.id)
-            return (
-              <button
-                key={c.id}
-                onClick={() => toggle(c.id)}
-                className={cn(
-                  'flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left transition',
-                  checked ? 'border-accent bg-accent-soft' : 'border-line hover:bg-surface-2'
-                )}
-              >
-                <span
-                  className={cn(
-                    'grid size-4 shrink-0 place-items-center rounded border-2',
-                    checked ? 'border-accent bg-accent text-white' : 'border-line'
-                  )}
-                >
-                  {checked && <span className="text-[9px] leading-none">✓</span>}
-                </span>
-                {c.thumbnail ? (
-                  <img
-                    src={`data:image/webp;base64,${c.thumbnail}`}
-                    className="size-7 shrink-0 rounded object-cover"
-                    alt=""
-                  />
-                ) : (
-                  <span className="grid size-7 shrink-0 place-items-center rounded bg-surface-2 text-faint">
-                    <UserRound size={13} />
-                  </span>
-                )}
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] text-ink">
-                    {c.name || c.prompt.slice(0, 30) || '빈 캐릭터'}
-                  </span>
-                  {c.name && c.prompt && (
-                    <span className="block truncate font-mono text-[10.5px] text-faint">
-                      {c.prompt}
-                    </span>
-                  )}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-        <div className="mt-3 flex items-center gap-2">
-          {(preset.characterIds?.length ?? 0) > 0 && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-danger hover:text-danger"
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            className={cn(
+              'flex h-8 max-w-44 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium',
+              !active && 'border-line bg-paper text-muted hover:bg-surface-2'
+            )}
+            style={
+              active
+                ? {
+                    borderColor: `${active.color}80`,
+                    backgroundColor: `${active.color}1f`,
+                    color: active.color
+                  }
+                : undefined
+            }
+            title="출연 — 예약(+)이 이 구성으로 기록됩니다"
+          >
+            <UsersRound size={13} className="shrink-0" />
+            <span className="min-w-0 truncate">{label}</span>
+            <ChevronDown size={13} className="shrink-0 opacity-60" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-56 p-1">
+          <button
+            className={cn(
+              'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-surface-2',
+              !active && 'font-semibold text-accent'
+            )}
+            onClick={() => {
+              setActiveCast('')
+              setOpen(false)
+            }}
+          >
+            <span className="size-2.5 shrink-0 rounded-full bg-danger" />
+            사이드바 설정
+          </button>
+          {casts.map((c) => (
+            <button
+              key={c.id}
+              className={cn(
+                'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-surface-2',
+                c.id === activeCastId && 'font-semibold text-accent'
+              )}
               onClick={() => {
-                void setPresetCharacters(preset.id, null)
-                onClose()
+                setActiveCast(c.id)
+                setOpen(false)
               }}
             >
-              바인드 해제
-            </Button>
-          )}
-          <div className="flex-1" />
-          <Button variant="ghost" onClick={onClose}>
-            취소
-          </Button>
-          <Button variant="accent" onClick={save}>
-            저장 ({selected.size})
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+              <span
+                className="size-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: c.color }}
+              />
+              <span className="min-w-0 flex-1 truncate">{c.name || '이름 없음'}</span>
+              <span className="shrink-0 font-mono text-[10px] text-faint">
+                {c.characterIds.length > 0 && `👤${c.characterIds.length}`}
+              </span>
+            </button>
+          ))}
+          <div className="my-1 h-px bg-line" />
+          <button
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-accent hover:bg-surface-2"
+            onClick={() => {
+              setOpen(false)
+              setTimeout(() => setManageOpen(true), 0) // 팝오버 dismiss 레이스 회피
+            }}
+          >
+            <SlidersHorizontal size={13} /> 출연 관리…
+          </button>
+        </PopoverContent>
+      </Popover>
+      {manageOpen && <SceneCastDialog onClose={() => setManageOpen(false)} />}
+    </>
   )
 }
 
@@ -415,6 +364,7 @@ function SceneGrid(): React.JSX.Element {
       {/* 툴바 — 한 행: 프리셋 드롭다운 + 아이콘(툴팁) */}
       <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
         <PresetDropdown />
+        <CastSelector />
         <div className="mx-1 h-5 w-px bg-line" />
         <IconBtn icon={<FileDown size={16} />} tip="JSON 내보내기" onClick={exportJson} />
         <IconBtn icon={<FileUp size={16} />} tip="JSON 불러오기" onClick={importJson} />
@@ -712,6 +662,28 @@ function dndStyle(sortable: ReturnType<typeof useSortable>): CSSProperties {
   }
 }
 
+/**
+ * 예약 배지 목록 — 사이드바('') 예약은 빨강(color: null → bg-danger), 출연 예약은 출연 고유색.
+ * 삭제된 출연의 잔여 예약은 회색으로 표시해 정리할 수 있게 한다.
+ */
+function reserveBadges(
+  scene: Scene,
+  casts: SceneCast[]
+): { key: string; name: string; count: number; color: string | null }[] {
+  const out: { key: string; name: string; count: number; color: string | null }[] = []
+  const sidebar = scene.reserves[''] ?? 0
+  if (sidebar > 0) out.push({ key: '', name: '사이드바 설정', count: sidebar, color: null })
+  for (const c of casts) {
+    const n = scene.reserves[c.id] ?? 0
+    if (n > 0) out.push({ key: c.id, name: c.name || '이름 없음', count: n, color: c.color })
+  }
+  for (const [id, n] of Object.entries(scene.reserves)) {
+    if (id !== '' && n > 0 && !casts.some((c) => c.id === id))
+      out.push({ key: id, name: '삭제된 출연', count: n, color: '#6b7280' })
+  }
+  return out
+}
+
 // dnd-kit useSortable은 렌더 중 ref/listener props를 JSX에 전달하는 것이 공식 사용 패턴이다.
 /* eslint-disable react-hooks/refs */
 const SceneCard = memo(function SceneCard({
@@ -733,7 +705,13 @@ const SceneCard = memo(function SceneCard({
   const duplicate = useScenesStore((s) => s.duplicate)
   const remove = useScenesStore((s) => s.remove)
   const adjustReserve = useScenesStore((s) => s.adjustReserve)
+  const casts = useScenesStore((s) => s.casts)
+  const activeCastId = useScenesStore((s) => s.activeCastId)
   const sortable = useSortable({ id: `scene-${scene.id}` })
+
+  // +/- 는 현재 선택된 출연의 예약을 조작하므로 그 출연의 수만 표시 (배지가 전체 내역 담당)
+  const activeCast = casts.find((c) => c.id === activeCastId) ?? null
+  const ctxCount = scene.reserves[activeCastId] ?? 0
 
   const checked = selection.has(scene.id)
   // 이미지 우선순위: 생성 중 스트리밍 > 저장 썸네일(가벼움, 드래그 렉 방지) > 원본 > 없음.
@@ -808,11 +786,23 @@ const SceneCard = memo(function SceneCard({
             </div>
           )}
 
-          {/* 예약 수 — 좌측 상단 붉은 원 */}
+          {/* 예약 배지 — 좌측 상단 세로 스택: 사이드바 예약(빨강) + 출연별 고유색 */}
           {scene.reserveCount > 0 && (
-            <span className="absolute left-1.5 top-1.5 grid h-6 min-w-6 place-items-center rounded-full bg-danger px-1.5 text-[12px] font-bold text-white shadow">
-              {scene.reserveCount}
-            </span>
+            <div className="absolute left-1.5 top-1.5 flex flex-col items-start gap-1">
+              {reserveBadges(scene, casts).map((b) => (
+                <span
+                  key={b.key}
+                  className={cn(
+                    'grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-[12px] font-bold text-white shadow',
+                    b.color === null && 'bg-danger'
+                  )}
+                  style={b.color ? { backgroundColor: b.color } : undefined}
+                  title={`${b.name} ${b.count}장`}
+                >
+                  {b.count}
+                </span>
+              ))}
+            </div>
           )}
 
           {/* 우측 상단 — 편집 모드 체크박스 / 일반 3점 메뉴 */}
@@ -888,13 +878,22 @@ const SceneCard = memo(function SceneCard({
               >
                 <button
                   className="grid size-5 place-items-center rounded-full text-white hover:bg-white/20 disabled:opacity-30"
-                  disabled={scene.reserveCount === 0}
+                  disabled={ctxCount === 0}
                   onClick={() => void adjustReserve(scene.id, -1)}
                 >
                   <Minus size={13} />
                 </button>
-                <span className="min-w-4 text-center text-[12px] font-medium text-white">
-                  {scene.reserveCount}
+                <span
+                  className={cn(
+                    'min-w-5 rounded-full px-1 text-center text-[12px] font-medium text-white',
+                    !activeCast && ctxCount > 0 && 'bg-danger'
+                  )}
+                  style={
+                    activeCast && ctxCount > 0 ? { backgroundColor: activeCast.color } : undefined
+                  }
+                  title={activeCast ? `"${activeCast.name}" 출연 예약` : '사이드바 설정 예약'}
+                >
+                  {ctxCount}
                 </span>
                 <button
                   className="grid size-5 place-items-center rounded-full text-white hover:bg-white/20"

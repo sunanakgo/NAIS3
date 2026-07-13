@@ -2,6 +2,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -11,10 +12,12 @@ import { arrayMove, rectSortingStrategy, SortableContext, useSortable } from '@d
 import {
   ArrowLeft,
   CheckSquare,
+  FileDown,
   ImagePlus,
   Layers,
   Library,
   Pencil,
+  Plus,
   RectangleHorizontal,
   RectangleVertical,
   Square,
@@ -38,6 +41,9 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger
 } from './ui/context-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
@@ -89,6 +95,9 @@ export function LibraryMode(): React.JSX.Element {
   const unstackSelected = useLibraryStore((s) => s.unstackSelected)
   const deleteStack = useLibraryStore((s) => s.deleteStack)
   const renameStack = useLibraryStore((s) => s.renameStack)
+  const exportSelected = useLibraryStore((s) => s.exportSelected)
+  const moveToStack = useLibraryStore((s) => s.moveToStack)
+  const createStackWith = useLibraryStore((s) => s.createStackWith)
 
   const [dragOver, setDragOver] = useState(false)
   useDragEndCleanup(() => setDragOver(false))
@@ -101,10 +110,20 @@ export function LibraryMode(): React.JSX.Element {
   const onDragStart = (e: DragStartEvent): void => {
     setDragImg(images.find((i) => `img-${i.id}` === e.active.id) ?? null)
   }
+  // 편집 모드에서 선택된 이미지를 끌면 선택 전체가 함께 움직인다 (스택 드롭/우클릭 공용)
+  const idsWith = (id: number): number[] => (editMode && selection.has(id) ? [...selection] : [id])
+
   const onDragEnd = (e: DragEndEvent): void => {
     setDragImg(null)
     const { active, over } = e
     if (!over || active.id === over.id) return
+    // 스택 카드 위에 드롭 → 그 스택으로 이동
+    const overId = String(over.id)
+    if (overId.startsWith('stack-')) {
+      const dragId = Number(String(active.id).slice(4))
+      void moveToStack(idsWith(dragId), Number(overId.slice(6)))
+      return
+    }
     const keys = images.map((i) => `img-${i.id}`)
     const from = keys.indexOf(String(active.id))
     const to = keys.indexOf(String(over.id))
@@ -339,6 +358,41 @@ export function LibraryMode(): React.JSX.Element {
                         : setLightboxIdx(i)
                     }
                     onDelete={() => void confirmDelete([img.id])}
+                    menuExtra={
+                      <>
+                        <ContextMenuSeparator />
+                        {currentStack ? (
+                          <ContextMenuItem onSelect={() => void moveToStack(idsWith(img.id), null)}>
+                            <Ungroup size={13} className="text-orange-400" /> 스택에서 빼기
+                          </ContextMenuItem>
+                        ) : (
+                          <ContextMenuSub>
+                            <ContextMenuSubTrigger>
+                              <Layers size={13} className="text-cyan-400" /> 스택에 추가
+                            </ContextMenuSubTrigger>
+                            <ContextMenuSubContent>
+                              {stacks.map((s) => (
+                                <ContextMenuItem
+                                  key={s.id}
+                                  onSelect={() => void moveToStack(idsWith(img.id), s.id)}
+                                >
+                                  <Layers size={13} className="text-faint" /> {s.name}
+                                </ContextMenuItem>
+                              ))}
+                              {stacks.length > 0 && <ContextMenuSeparator />}
+                              <ContextMenuItem
+                                onSelect={async () => {
+                                  const name = await askText('스택 이름', '', '예: 표지 후보')
+                                  if (name) void createStackWith(name, idsWith(img.id))
+                                }}
+                              >
+                                <Plus size={13} /> 새 스택…
+                              </ContextMenuItem>
+                            </ContextMenuSubContent>
+                          </ContextMenuSub>
+                        )}
+                      </>
+                    }
                   />
                 ))}
               </div>
@@ -406,6 +460,16 @@ export function LibraryMode(): React.JSX.Element {
           <Button
             size="sm"
             variant="ghost"
+            className="gap-1"
+            disabled={selection.size === 0}
+            title="선택한 이미지를 배치된 순서대로 001, 002… 파일명으로 폴더에 복사"
+            onClick={() => void exportSelected()}
+          >
+            <FileDown size={13} /> 내보내기
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
             className="gap-1 text-danger hover:text-danger"
             disabled={selection.size === 0}
             onClick={() => void confirmDelete([...selection])}
@@ -428,6 +492,7 @@ export function LibraryMode(): React.JSX.Element {
           index={lightboxIdx}
           onIndex={setLightboxIdx}
           onClose={() => setLightboxIdx(-1)}
+          allowLibraryAdd={false}
         />
       )}
     </div>
@@ -442,7 +507,8 @@ function ImageCard({
   checked,
   editMode,
   onClick,
-  onDelete
+  onDelete,
+  menuExtra
 }: {
   img: LibraryImage
   orientation: CardOrientation
@@ -450,10 +516,11 @@ function ImageCard({
   editMode: boolean
   onClick: (e: React.MouseEvent) => void
   onDelete: () => void
+  menuExtra?: React.ReactNode
 }): React.JSX.Element {
   const sortable = useSortable({ id: `img-${img.id}` })
   return (
-    <ImageContextMenu filePath={img.filePath} onDelete={onDelete}>
+    <ImageContextMenu filePath={img.filePath} onDelete={onDelete} hideLibraryAdd extra={menuExtra}>
       <div
         ref={sortable.setNodeRef}
         {...sortable.attributes}
@@ -487,7 +554,6 @@ function ImageCard({
     </ImageContextMenu>
   )
 }
-/* eslint-enable react-hooks/refs */
 
 function StackCard({
   stack,
@@ -502,11 +568,19 @@ function StackCard({
   onRename: () => void
   onUnstack: () => void
 }): React.JSX.Element {
+  // 라이브러리 이미지를 끌어다 놓으면 이 스택으로 이동 (onDragEnd에서 stack- 접두어로 판별)
+  const drop = useDroppable({ id: `stack-${stack.id}` })
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
-          className="group relative cursor-pointer overflow-hidden rounded-lg border border-line bg-surface-2 transition hover:border-muted/60"
+          ref={drop.setNodeRef}
+          className={cn(
+            'group relative cursor-pointer overflow-hidden rounded-lg border bg-surface-2 transition',
+            drop.isOver
+              ? 'border-accent ring-2 ring-accent/50'
+              : 'border-line hover:border-muted/60'
+          )}
           style={{ aspectRatio: CARD_ASPECT[orientation] }}
           onClick={onOpen}
         >
@@ -552,6 +626,7 @@ function StackCard({
   )
 }
 
+/* eslint-enable react-hooks/refs */
 function IconBtn({
   icon,
   tip,

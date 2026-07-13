@@ -280,6 +280,35 @@ export function enabledVibeRows(): {
   }))
 }
 
+/** id 목록으로 조회 (출연 예약 — enabled 무시). 입력 순서 유지 */
+export function vibeRowsByIds(ids: number[]): ReturnType<typeof enabledVibeRows> {
+  if (ids.length === 0) return []
+  const rows = (
+    getDb()
+      .prepare(
+        `SELECT id, file_path, strength, info_extracted, encoded, encoded_ie
+         FROM vibe_images WHERE id IN (${ids.map(() => '?').join(',')})`
+      )
+      .all(...ids) as {
+      id: number
+      file_path: string
+      strength: number
+      info_extracted: number
+      encoded: string | null
+      encoded_ie: number | null
+    }[]
+  ).map((r) => ({
+    id: r.id,
+    filePath: r.file_path,
+    strength: r.strength,
+    infoExtracted: r.info_extracted,
+    encoded: r.encoded,
+    encodedIe: r.encoded_ie
+  }))
+  const byId = new Map(rows.map((r) => [r.id, r]))
+  return ids.flatMap((id) => byId.get(id) ?? [])
+}
+
 export function saveVibeEncoding(id: number, encoded: string, ie: number): void {
   getDb()
     .prepare('UPDATE vibe_images SET encoded = ?, encoded_ie = ? WHERE id = ?')
@@ -304,4 +333,42 @@ export function enabledCharRefRows(): {
     strength: r.strength,
     fidelity: r.fidelity
   }))
+}
+
+/** id 목록으로 조회 (출연 예약 — enabled 무시). 입력 순서 유지 */
+export function charRefRowsByIds(ids: number[]): ReturnType<typeof enabledCharRefRows> {
+  if (ids.length === 0) return []
+  const rows = getDb()
+    .prepare(
+      `SELECT id, file_path, ref_type, strength, fidelity
+       FROM charref_images WHERE id IN (${ids.map(() => '?').join(',')})`
+    )
+    .all(...ids) as {
+    id: number
+    file_path: string
+    ref_type: string
+    strength: number
+    fidelity: number
+  }[]
+  const mapped = rows.map((r) => ({
+    filePath: r.file_path,
+    refType: r.ref_type,
+    strength: r.strength,
+    fidelity: r.fidelity,
+    id: r.id
+  }))
+  const byId = new Map(mapped.map((r) => [r.id, r]))
+  return ids.flatMap((id) => {
+    const row = byId.get(id)
+    return row
+      ? [
+          {
+            filePath: row.filePath,
+            refType: row.refType,
+            strength: row.strength,
+            fidelity: row.fidelity
+          }
+        ]
+      : []
+  })
 }

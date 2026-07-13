@@ -78,6 +78,10 @@ export interface GenerationRequest {
   source?: SourceImage
   /** 씬 생성이면 씬 id (저장 시 images.scene_id 연결) */
   sceneId?: number
+  /** 지정 시 enabled 대신 이 바이브들 사용 (출연 예약 — id 참조, [] = 바이브 없이) */
+  vibeIds?: number[]
+  /** 지정 시 enabled 대신 이 캐릭레퍼들 사용 (출연 예약 — id 참조, [] = 레퍼 없이) */
+  charRefIds?: number[]
 }
 
 export interface PromptParts {
@@ -268,6 +272,21 @@ export interface PromptPreset {
 }
 
 /** 씬 (미리 저장한 프롬프트+해상도. 예약 수만큼 생성) */
+/**
+ * 출연(Cast) — 씬 예약에 붙는 캐릭터/레퍼런스 구성.
+ * 예약이 "누구로 뽑을지"를 기억하므로 예약 수 = 생성 수가 항상 성립한다.
+ */
+export interface SceneCast {
+  id: string
+  name: string
+  /** 예약 배지 색 (hex) — 사이드바 예약(빨강)과 구분되는 출연 고유색 */
+  color: string
+  /** 캐릭터 카드 id들 (여러 명 = 한 장에 함께) */
+  characterIds: number[]
+  charRefIds: number[]
+  vibeIds: number[]
+}
+
 export interface Scene {
   id: number
   presetId: number
@@ -276,8 +295,10 @@ export interface Scene {
   negativePrompt: string
   width: number
   height: number
-  /** 예약 수 (예약→생성 워크플로. +/-로 조정) */
+  /** 총 예약 수 (출연별 합계 — 카드 배지 표시용) */
   reserveCount: number
+  /** 출연별 예약 내역 — 키는 출연 id ('' = 사이드바 설정) */
+  reserves: Record<string, number>
   /** 목록 카드용 썸네일 — 즐겨찾기가 있으면 최상단 즐겨찾기, 없으면 최신 이미지 (없으면 '') */
   thumbnail: string
   /** 썸네일 원본 파일 경로 (카드에 풀해상도로 선명하게 표시. 없으면 '') */
@@ -490,10 +511,12 @@ export interface IpcInvokeMap {
   'scenes:duplicate': { req: { id: number }; res: { id: number } }
   'scenes:delete': { req: { id: number }; res: void }
   'scenes:reorder': { req: { ids: number[] }; res: void }
-  /** 예약: 전체 취소(count=0 등 절대값 설정) */
+  /** 예약: 전체 취소(count=0 등 절대값 설정 — 출연 내역도 함께 초기화) */
   'scenes:setReserveAll': { req: { presetId: number; count: number }; res: void }
-  /** 예약: 전체 씬 예약 수를 delta만큼 증감 (최소 0) */
-  'scenes:adjustReserveAll': { req: { presetId: number; delta: number }; res: void }
+  /** 예약: 전체 씬의 해당 출연 예약을 delta만큼 증감 (최소 0). castId '' = 사이드바 */
+  'scenes:adjustReserveAll': { req: { presetId: number; castId: string; delta: number }; res: void }
+  /** 씬 하나의 출연별 예약 내역 설정 (합계는 메인이 계산) */
+  'scenes:setReserves': { req: { id: number; reserves: Record<string, number> }; res: void }
   /** 모든 프리셋의 예약 총합 — 좌측 "씬 생성 n장" 표시용 */
   'scenes:reservedTotal': { req: void; res: { total: number } }
   /** 편집 모드 일괄 작업 (선택 씬 대상) */
@@ -586,6 +609,8 @@ export interface IpcInvokeMap {
   'library:stackDelete': { req: { id: number }; res: void }
   /** 이미지들을 스택에 넣기/빼기 (stackId null = 해제) */
   'library:stackSet': { req: { imageIds: number[]; stackId: number | null }; res: void }
+  /** 선택 이미지 일괄 내보내기 — 폴더 선택 후 배치 순서대로 001, 002… 파일명으로 복사 */
+  'library:export': { req: { ids: number[] }; res: { count: number } }
 }
 
 /** 메인 → 렌더러 이벤트 채널 */

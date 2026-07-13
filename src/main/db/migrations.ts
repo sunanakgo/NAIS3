@@ -311,5 +311,14 @@ export const migrations: ((db: Database.Database) => void)[] = [
   // 바인드된 캐릭터 카드들로 교체 (다중 프리셋 예약 실행용. null = 바인드 없음)
   (db) => {
     db.exec(`ALTER TABLE scene_presets ADD COLUMN character_ids TEXT;`)
+  },
+
+  // v16: 출연별 예약 내역 — 예약이 "누구로 뽑을지"를 기억 (키 '' = 사이드바 설정).
+  // reserve_count는 출연별 합계로 유지 (카드 배지·총합 쿼리 호환). 기존 예약은 사이드바 출연으로 백필
+  (db) => {
+    db.exec(`
+      ALTER TABLE gen_scenes ADD COLUMN reserve_json TEXT;
+      UPDATE gen_scenes SET reserve_json = json_object('', reserve_count) WHERE reserve_count > 0;
+    `)
   }
 ]

@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
 import { basename, extname, join } from 'path'
 import { BrowserWindow, dialog } from 'electron'
 import sharp from 'sharp'
@@ -195,6 +195,42 @@ export function deleteStack(id: number): void {
   const db = getDb()
   db.prepare('UPDATE library_images SET stack_id = NULL WHERE stack_id = ?').run(id)
   db.prepare('DELETE FROM library_stacks WHERE id = ?').run(id)
+}
+
+/**
+ * 선택 이미지 일괄 내보내기 — 폴더를 고르면 라이브러리 배치 순서대로
+ * 001, 002… 연번 파일명으로 복사한다 (연속 장면 연출용).
+ */
+export async function exportImages(ids: number[]): Promise<number> {
+  if (ids.length === 0) return 0
+  const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+  const result = await dialog.showOpenDialog(win, {
+    title: '내보낼 폴더 선택',
+    properties: ['openDirectory', 'createDirectory']
+  })
+  if (result.canceled || !result.filePaths[0]) return 0
+  const dir = result.filePaths[0]
+
+  const q = ids.map(() => '?').join(',')
+  const rows = getDb()
+    .prepare(
+      `SELECT file_path FROM library_images WHERE id IN (${q}) ORDER BY sort_order DESC, id DESC`
+    )
+    .all(...ids) as { file_path: string }[]
+
+  const pad = Math.max(3, String(rows.length).length)
+  let count = 0
+  for (const r of rows) {
+    if (!existsSync(r.file_path)) continue
+    const ext = extname(r.file_path) || '.png'
+    // 같은 이름이 이미 있으면 -2, -3… (기존 파일을 덮어쓰지 않음)
+    const base = String(count + 1).padStart(pad, '0')
+    let dest = join(dir, `${base}${ext}`)
+    for (let k = 2; existsSync(dest); k++) dest = join(dir, `${base}-${k}${ext}`)
+    copyFileSync(r.file_path, dest)
+    count++
+  }
+  return count
 }
 
 export function setStack(imageIds: number[], stackId: number | null): void {

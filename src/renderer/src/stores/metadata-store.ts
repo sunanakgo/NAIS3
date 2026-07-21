@@ -6,6 +6,7 @@ import { useCharactersStore } from './characters-store'
 import { mergePromptParts, useGenerationStore } from './generation-store'
 import { useLayoutStore } from './layout-store'
 import { usePromptPresetsStore } from './prompt-presets-store'
+import { toast } from './toast-store'
 
 /** 실질적으로 3분할인지 — base만 있고 가변/디테일이 비었으면 단일 프롬프트로 취급 */
 export function isSplitMeta(meta: ImageMetadata): boolean {
@@ -33,8 +34,6 @@ interface MetadataState {
   error: string | null
   /** 팝업에 표시할 이미지 src (파일=nais-image, 드롭=data URL) */
   imageSrc: string | null
-  /** 마지막으로 연 원본 — 작가 태그 분석 등 후속 동작에 재사용 */
-  src: { filePath?: string; base64?: string } | null
   /** 파일 경로 또는 base64(외부 드롭)로 메타데이터 팝업 열기 */
   show: (src: { filePath?: string; base64?: string }) => Promise<void>
   close: () => void
@@ -48,7 +47,6 @@ export const useMetadataStore = create<MetadataState>((set, get) => ({
   meta: null,
   error: null,
   imageSrc: null,
-  src: null,
 
   show: async (src) => {
     const imageSrc = src.base64
@@ -58,11 +56,12 @@ export const useMetadataStore = create<MetadataState>((set, get) => ({
       : src.filePath
         ? imageUrl(src.filePath)
         : null
-    set({ open: true, loading: true, meta: null, error: null, imageSrc, src })
+    set({ open: true, loading: true, meta: null, error: null, imageSrc })
     const res = await window.nais.invoke('images:readMetadata', src)
-    // 실패해도 닫지 않고 에러를 표시 — 메타데이터 없는 외부 이미지도 작가 태그 분석은 가능
-    if ('error' in res) set({ loading: false, error: res.error })
-    else set({ loading: false, meta: res.meta })
+    if ('error' in res) {
+      set({ open: false, loading: false })
+      toast(res.error, 'error')
+    } else set({ loading: false, meta: res.meta })
   },
   close: () => set({ open: false }),
 

@@ -8,6 +8,7 @@ import {
   Loader2,
   Maximize2,
   MessageSquareText,
+  Palette,
   Pencil,
   PenTool,
   Smile,
@@ -21,6 +22,7 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { directorAugmentCost, directorToolCost } from '@shared/anlas'
 import { EMOTIONS, type DirectorMethod } from '@shared/types'
+import { useArtistTagsStore } from '../stores/artist-tags-store'
 import { openInDirector, useDirectorStore } from '../stores/director-store'
 import { useGenerationStore } from '../stores/generation-store'
 import { useLayoutStore } from '../stores/layout-store'
@@ -291,6 +293,17 @@ export function DirectorMode(): React.JSX.Element {
             onRun={() => {
               if (!source) return
               void imageDims(source).then((dims) => setMosaic({ base64: source, ...dims }))
+            }}
+          />
+          {/* Anlas는 안 쓰지만 외부(HF Space) 호출 — 인터넷 필요 */}
+          <SendToMainCard
+            icon={Palette}
+            color="text-teal-400"
+            label="작가 태그 분석"
+            desc="그림체 닮은 작가 태그 추출 (Kaloscope·무료)"
+            disabled={!source || loading}
+            onRun={() => {
+              if (source) void useArtistTagsStore.getState().show({ base64: source })
             }}
           />
         </div>

@@ -1,7 +1,6 @@
-import { Check, Copy, ImageOff, Loader2, Palette } from 'lucide-react'
+import { Check, Copy, ImageOff, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ImageMetadata } from '@shared/types'
-import { useArtistTagsStore } from '../stores/artist-tags-store'
 import { isSplitMeta, useMetadataStore } from '../stores/metadata-store'
 import { cn } from '../lib/utils'
 import { Button } from './ui/button'
@@ -16,10 +15,8 @@ export function MetadataDialog(): React.JSX.Element {
   const meta = useMetadataStore((s) => s.meta)
   const error = useMetadataStore((s) => s.error)
   const imageSrc = useMetadataStore((s) => s.imageSrc)
-  const src = useMetadataStore((s) => s.src)
   const close = useMetadataStore((s) => s.close)
   const applyToMain = useMetadataStore((s) => s.applyToMain)
-  const showArtists = useArtistTagsStore((s) => s.show)
 
   // 기본 전부 체크, 시드만 해제
   const [sel, setSel] = useState<Record<string, boolean>>({})
@@ -191,20 +188,7 @@ export function MetadataDialog(): React.JSX.Element {
           </div>
         ) : null}
 
-        <div className="flex items-center gap-2 border-t border-line px-5 py-3">
-          {/* 메타데이터 없는 외부 이미지도 그림체 분석은 가능 — 좌측에 배치 */}
-          <Button
-            variant="ghost"
-            className="gap-1.5 text-muted"
-            disabled={!src}
-            onClick={() => {
-              close()
-              if (src) void showArtists(src)
-            }}
-          >
-            <Palette size={13} className="text-orange-400" /> 작가 태그 분석
-          </Button>
-          <div className="flex-1" />
+        <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
           <Button variant="ghost" onClick={close}>
             닫기
           </Button>

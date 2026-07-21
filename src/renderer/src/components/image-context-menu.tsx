@@ -6,10 +6,12 @@ import {
   ImageIcon,
   Layers,
   Library,
+  Palette,
   Trash2,
   Wand2
 } from 'lucide-react'
 import { toast } from '../stores/toast-store'
+import { useArtistTagsStore } from '../stores/artist-tags-store'
 import { openInDirector } from '../stores/director-store'
 import { setI2iSource, useGenerationStore } from '../stores/generation-store'
 import { addToLibrary } from '../stores/library-store'
@@ -44,6 +46,7 @@ export function ImageContextMenu({
 }): React.JSX.Element {
   const startInpaint = useGenerationStore((s) => s.startInpaintFromPath)
   const showMeta = useMetadataStore((s) => s.show)
+  const showArtists = useArtistTagsStore((s) => s.show)
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
@@ -60,6 +63,9 @@ export function ImageContextMenu({
         <ContextMenuSeparator />
         <ContextMenuItem onSelect={() => void showMeta({ filePath })}>
           <FileText size={13} className="text-sky-400" /> 메타데이터 보기
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={() => void showArtists({ filePath })}>
+          <Palette size={13} className="text-orange-400" /> 작가 태그 분석
         </ContextMenuItem>
         <ContextMenuItem
           onSelect={async () => {

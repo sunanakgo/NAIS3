@@ -7,6 +7,7 @@ import { PreviewPane } from './components/preview-pane'
 import { DirectorMode } from './components/director-mode'
 import { InpaintHost } from './components/inpaint-host'
 import { LibraryMode } from './components/library-mode'
+import { ArtistTagsDialog } from './components/artist-tags-dialog'
 import { MetadataDialog } from './components/metadata-dialog'
 import { PromptPanel } from './components/prompt-panel'
 import { SceneMode } from './components/scene-mode'
@@ -151,6 +152,7 @@ export default function App(): React.JSX.Element {
         <TextPromptHost />
         <InpaintHost />
         <MetadataDialog />
+        <ArtistTagsDialog />
         <Toaster />
         <AnimatePresence>{!ready && <LoadingScreen key="loading" />}</AnimatePresence>
       </div>

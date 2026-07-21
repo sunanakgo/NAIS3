@@ -61,6 +61,7 @@ interface ScenesState {
   addCast: (data: Pick<SceneCast, 'name' | 'characterIds' | 'charRefIds' | 'vibeIds'>) => void
   updateCast: (id: string, patch: Partial<SceneCast>) => void
   removeCast: (id: string) => void
+  reorderCasts: (ids: string[]) => void
 
   // 예약
   /** 모든 프리셋의 예약 총합 — 좌측 "씬 생성 n장" 표시 (예약 수 = 생성 수) */
@@ -513,6 +514,13 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
   removeCast: (id) => {
     set({ casts: get().casts.filter((c) => c.id !== id) })
     if (get().activeCastId === id) get().setActiveCast('')
+    persistCasts()
+  },
+  reorderCasts: (ids) => {
+    const byId = new Map(get().casts.map((c) => [c.id, c]))
+    const next = ids.map((id) => byId.get(id)).filter((c): c is SceneCast => !!c)
+    if (next.length !== get().casts.length) return // 목록이 어긋나면 무시 (동시 삭제 등)
+    set({ casts: next })
     persistCasts()
   }
 }))

@@ -17,21 +17,21 @@ import { useRef, type CSSProperties } from 'react'
 import { cn } from '../lib/utils'
 
 /** 드롭다운 목록용 세로 드래그 정렬 컨테이너 — onReorder에 새 id 순서 전달 */
-export function SortableList({
+export function SortableList<Id extends number | string>({
   ids,
   onReorder,
   children
 }: {
-  ids: number[]
-  onReorder: (ids: number[]) => void
+  ids: Id[]
+  onReorder: (ids: Id[]) => void
   children: React.ReactNode
 }): React.JSX.Element {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
   const onDragEnd = (e: DragEndEvent): void => {
     const { active, over } = e
     if (!over || active.id === over.id) return
-    const from = ids.indexOf(Number(active.id))
-    const to = ids.indexOf(Number(over.id))
+    const from = ids.findIndex((id) => String(id) === String(active.id))
+    const to = ids.findIndex((id) => String(id) === String(over.id))
     if (from < 0 || to < 0) return
     onReorder(arrayMove(ids, from, to))
   }
@@ -61,7 +61,7 @@ export function SortableRow({
   onTap,
   children
 }: {
-  id: number
+  id: number | string
   className?: string
   onTap?: () => void
   children: React.ReactNode

@@ -15,6 +15,7 @@ import { cn } from '../lib/utils'
 import { useCharactersStore } from '../stores/characters-store'
 import { useCharRefsStore, useVibesStore } from '../stores/refs-store'
 import { nextCastColor, useScenesStore } from '../stores/scenes-store'
+import { SortableList, SortableRow } from './sortable-list'
 import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
 import { Input } from './ui/input'
@@ -30,6 +31,7 @@ export function SceneCastDialog({ onClose }: { onClose: () => void }): React.JSX
   const addCast = useScenesStore((s) => s.addCast)
   const updateCast = useScenesStore((s) => s.updateCast)
   const removeCast = useScenesStore((s) => s.removeCast)
+  const reorderCasts = useScenesStore((s) => s.reorderCasts)
   const characters = useCharactersStore((s) => s.items)
   const charFolders = useCharactersStore((s) => s.folders)
   const charRefs = useCharRefsStore((s) => s.items) as CharRefItem[]
@@ -210,19 +212,23 @@ export function SceneCastDialog({ onClose }: { onClose: () => void }): React.JSX
               <p className="text-[12.5px]">위에서 선택 후 &quot;출연 추가&quot;를 누르세요.</p>
             </div>
           ) : (
-            casts.map((cast) => (
-              <CastRow
-                key={cast.id}
-                cast={cast}
-                editing={cast.id === editingId}
-                characters={characters}
-                onEdit={() => startEdit(cast)}
-                onRemove={() => {
-                  if (cast.id === editingId) resetBuilder()
-                  removeCast(cast.id)
-                }}
-              />
-            ))
+            /* 드래그로 순서 변경 — 툴바 출연 드롭다운 순서와 동일하게 반영 */
+            <SortableList ids={casts.map((c) => c.id)} onReorder={reorderCasts}>
+              {casts.map((cast) => (
+                <SortableRow key={cast.id} id={cast.id}>
+                  <CastRow
+                    cast={cast}
+                    editing={cast.id === editingId}
+                    characters={characters}
+                    onEdit={() => startEdit(cast)}
+                    onRemove={() => {
+                      if (cast.id === editingId) resetBuilder()
+                      removeCast(cast.id)
+                    }}
+                  />
+                </SortableRow>
+              ))}
+            </SortableList>
           )}
         </div>
       </DialogContent>
@@ -255,7 +261,7 @@ function CastRow({
   return (
     <div
       className={cn(
-        'flex items-center gap-2.5 rounded-lg border border-line bg-surface-2/40 px-3 py-2',
+        'flex w-full items-center gap-2.5 rounded-lg border border-line bg-surface-2/40 px-3 py-2',
         editing && 'border-accent/60 ring-1 ring-accent/40'
       )}
     >

@@ -206,6 +206,12 @@ export const EMOTIONS = [
   'playful'
 ] as const
 
+/** 작가 태그 분석 결과 한 줄 — label은 `artist:이름`, score는 0~1 유사도 */
+export interface ArtistTag {
+  label: string
+  score: number
+}
+
 /** NAI PNG에서 읽은 이미지 메타데이터 (정규화) */
 export interface ImageMetadata {
   prompt: string
@@ -454,6 +460,11 @@ export interface IpcInvokeMap {
   'images:readMetadata': {
     req: { filePath?: string; base64?: string }
     res: { meta: ImageMetadata } | { error: string }
+  }
+  /** 작가 태그 분석 — Kaloscope 스타일 분류기(HF Space)로 artist: 태그 추출 (인터넷 필요) */
+  'images:analyzeArtists': {
+    req: { filePath?: string; base64?: string }
+    res: { tags: ArtistTag[] } | { error: string }
   }
   'scenePresets:list': { req: void; res: { items: ScenePreset[] } }
   'scenePresets:create': { req: { name: string }; res: { id: number } }

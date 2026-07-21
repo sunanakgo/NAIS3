@@ -6,6 +6,12 @@ import { cn } from '../lib/utils'
 import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
 
+/** 유사도 표시 — 10% 이상은 정수, 미만은 소수 한 자리 (낮은 점수끼리 구분되게) */
+function formatScore(score: number): string {
+  const pct = score * 100
+  return pct >= 10 ? `${Math.round(pct)}%` : `${pct.toFixed(1)}%`
+}
+
 /**
  * 작가 태그 분석 팝업 — 좌: 이미지 / 우: artist: 태그 칩 목록(클릭 = 제외/포함).
  * 선택된 태그만 하단 텍스트로 모아 복사한다.
@@ -94,7 +100,7 @@ export function ArtistTagsDialog(): React.JSX.Element {
                       <Palette size={11} className={off ? 'text-faint' : 'text-accent'} />
                       <span className="max-w-44 truncate">{t.label}</span>
                       <span className="font-mono text-[10px] text-faint">
-                        {Math.round(t.score * 100)}%
+                        {formatScore(t.score)}
                       </span>
                     </button>
                   )

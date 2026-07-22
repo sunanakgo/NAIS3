@@ -82,7 +82,8 @@ export function ArtistTagsDialog(): React.JSX.Element {
 
             {/* 우: 태그 칩 + 선택 결과 */}
             <div className="flex min-w-0 flex-1 flex-col gap-3">
-              <div className="flex flex-wrap content-start items-start gap-1.5 overflow-y-auto">
+              {/* 한 줄에 하나씩 — 이름 길이와 무관하게 정렬이 흐트러지지 않게 */}
+              <div className="flex min-h-0 flex-col gap-1 overflow-y-auto">
                 {tags.map((t) => {
                   const off = excluded.has(t.label)
                   return (
@@ -91,15 +92,18 @@ export function ArtistTagsDialog(): React.JSX.Element {
                       onClick={() => toggle(t.label)}
                       title={off ? '클릭해서 포함' : '클릭해서 제외'}
                       className={cn(
-                        'flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11.5px] transition-colors',
+                        'flex w-full shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-[11.5px] transition-colors',
                         off
                           ? 'border-line text-faint opacity-55 hover:opacity-80'
                           : 'border-accent/50 bg-accent/10 text-ink'
                       )}
                     >
-                      <Palette size={11} className={off ? 'text-faint' : 'text-accent'} />
-                      <span className="max-w-44 truncate">{t.label}</span>
-                      <span className="font-mono text-[10px] text-faint">
+                      <Palette
+                        size={11}
+                        className={cn('shrink-0', off ? 'text-faint' : 'text-accent')}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-left">{t.label}</span>
+                      <span className="shrink-0 font-mono text-[10px] text-faint">
                         {formatScore(t.score)}
                       </span>
                     </button>

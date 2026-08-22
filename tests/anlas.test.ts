@@ -5,7 +5,8 @@ import {
   displayOpusUsagePercent,
   effectiveGenerationStrength,
   estimateAnlas,
-  formatAnlasEstimate
+  formatAnlasEstimate,
+  opusUsagePercentSegments
 } from '../src/shared/anlas'
 
 const base = {
@@ -32,6 +33,21 @@ describe('Anlas 추정 (NAI 웹 공식 이식)', () => {
     expect(
       displayOpusUsagePercent({ percent: 35, isNegative: true, timeUntilNextPercent: 0 })
     ).toBe(0)
+  })
+
+  it('V5 Usage 막대는 100% 단위 구간으로 나눈다', () => {
+    expect(
+      opusUsagePercentSegments({ percent: 70, isNegative: false, timeUntilNextPercent: 0 })
+    ).toEqual([70])
+    expect(
+      opusUsagePercentSegments({ percent: 130, isNegative: false, timeUntilNextPercent: 0 })
+    ).toEqual([100, 30])
+    expect(
+      opusUsagePercentSegments({ percent: 230, isNegative: false, timeUntilNextPercent: 0 })
+    ).toEqual([100, 100, 30])
+    expect(
+      opusUsagePercentSegments({ percent: 200, isNegative: false, timeUntilNextPercent: 0 })
+    ).toEqual([100, 100])
   })
 
   it('기본 해상도 28스텝 = 장당 20 Anlas (커뮤니티 공지값과 일치)', () => {

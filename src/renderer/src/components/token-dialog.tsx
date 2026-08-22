@@ -15,7 +15,7 @@ import {
   Upload
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
-import { displayOpusUsagePercent } from '@shared/anlas'
+import { displayOpusUsagePercent, opusUsagePercentSegments } from '@shared/anlas'
 import discordSvg from '../assets/discord.svg'
 import nais3Logo from '../assets/nais3-logo.svg'
 import { playChime } from '../lib/completion-alert'
@@ -642,14 +642,18 @@ function AccountSection(): React.JSX.Element {
               {opusUsage ? `${displayOpusUsagePercent(opusUsage)}%` : '—'}
             </span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-paper">
-            <div
-              className={cn(
-                'h-full max-w-full rounded-full transition-[width] duration-300',
-                opusUsage?.isNegative ? 'bg-danger' : 'bg-accent'
-              )}
-              style={{ width: `${opusUsage ? displayOpusUsagePercent(opusUsage) : 0}%` }}
-            />
+          <div className="flex h-2 gap-1">
+            {(opusUsage ? opusUsagePercentSegments(opusUsage) : [0]).map((percent, index) => (
+              <div key={index} className="h-full flex-1 overflow-hidden rounded-full bg-paper">
+                <div
+                  className={cn(
+                    'h-full rounded-full transition-[width] duration-300',
+                    opusUsage?.isNegative ? 'bg-danger' : 'bg-accent'
+                  )}
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
+            ))}
           </div>
           <p className="mt-2 text-[10.5px] text-faint">
             {opusUsage

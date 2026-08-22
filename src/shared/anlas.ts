@@ -4,6 +4,15 @@ export function displayOpusUsagePercent(usage: OpusUsageStatus): number {
   return usage.isNegative ? 0 : Math.max(0, usage.percent)
 }
 
+export function opusUsagePercentSegments(usage: OpusUsageStatus): number[] {
+  const percent = displayOpusUsagePercent(usage)
+  const fullSegments = Math.floor(percent / 100)
+  const remainder = percent % 100
+
+  if (fullSegments === 0) return [remainder]
+  return [...Array.from({ length: fullSegments }, () => 100), ...(remainder > 0 ? [remainder] : [])]
+}
+
 /**
  * Anlas 비용 추정 — NAI 웹 번들의 실제 비용 함수를 이식 (2026-07-05 _app 번들에서 추출).
  *

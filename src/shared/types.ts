@@ -114,7 +114,7 @@ export interface QueueStatus {
 }
 
 export interface OpusUsageStatus {
-  /** Remaining rechargeable allowance, 0-100. */
+  /** Remaining rechargeable allowance percentage. May exceed 100 during boosts. */
   percent: number
   /** True once the allowance is exhausted and V5 falls back to Anlas. */
   isNegative: boolean

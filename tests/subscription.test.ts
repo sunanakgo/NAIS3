@@ -21,6 +21,11 @@ describe('V5 Opus usage 응답', () => {
     expect(parseSubscriptionResponse({ tier: 1 }).usage).toBeUndefined()
   })
 
+  it('부스트로 100%를 넘긴 usage도 상한 없이 전달한다', () => {
+    const usage = { percent: 230, isNegative: false, timeUntilNextPercent: 6048 }
+    expect(parseSubscriptionResponse({ tier: 3, usage }).usage).toEqual(usage)
+  })
+
   it('잘못된 usage 값은 UI에 전달하지 않는다', () => {
     expect(
       parseSubscriptionResponse({

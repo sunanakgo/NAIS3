@@ -645,7 +645,7 @@ function AccountSection(): React.JSX.Element {
           <div className="h-2 overflow-hidden rounded-full bg-paper">
             <div
               className={cn(
-                'h-full rounded-full transition-[width] duration-300',
+                'h-full max-w-full rounded-full transition-[width] duration-300',
                 opusUsage?.isNegative ? 'bg-danger' : 'bg-accent'
               )}
               style={{ width: `${opusUsage ? displayOpusUsagePercent(opusUsage) : 0}%` }}

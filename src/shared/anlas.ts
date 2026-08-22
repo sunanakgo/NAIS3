@@ -1,7 +1,7 @@
 import type { DirectorMethod, OpusUsageStatus } from './types'
 
 export function displayOpusUsagePercent(usage: OpusUsageStatus): number {
-  return usage.isNegative ? 0 : Math.max(0, Math.min(100, usage.percent))
+  return usage.isNegative ? 0 : Math.max(0, usage.percent)
 }
 
 /**

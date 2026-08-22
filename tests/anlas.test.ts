@@ -19,13 +19,16 @@ const base = {
 }
 
 describe('Anlas 추정 (NAI 웹 공식 이식)', () => {
-  it('V5 Usage 퍼센트는 정상 범위로 고정하고 소진 상태는 0%로 표시한다', () => {
+  it('V5 Usage 퍼센트는 부스트 값을 유지하고 소진 상태만 0%로 표시한다', () => {
     expect(
       displayOpusUsagePercent({ percent: 100, isNegative: false, timeUntilNextPercent: 0 })
     ).toBe(100)
     expect(
       displayOpusUsagePercent({ percent: 120, isNegative: false, timeUntilNextPercent: 0 })
-    ).toBe(100)
+    ).toBe(120)
+    expect(
+      displayOpusUsagePercent({ percent: -30, isNegative: false, timeUntilNextPercent: 0 })
+    ).toBe(0)
     expect(
       displayOpusUsagePercent({ percent: 35, isNegative: true, timeUntilNextPercent: 0 })
     ).toBe(0)

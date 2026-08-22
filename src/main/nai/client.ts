@@ -41,8 +41,6 @@ export function parseSubscriptionResponse(data: NaiSubscriptionResponse): Subscr
   const validUsage =
     usage &&
     Number.isFinite(usage.percent) &&
-    usage.percent >= 0 &&
-    usage.percent <= 100 &&
     typeof usage.isNegative === 'boolean' &&
     Number.isFinite(usage.timeUntilNextPercent) &&
     usage.timeUntilNextPercent >= 0

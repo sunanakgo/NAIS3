@@ -120,7 +120,8 @@ import {
   reorderImages as reorderLibraryImages,
   setStack
 } from './library/repo'
-import { exportAll, importAll } from './backup/repo'
+import { exportLegacyJson, exportNais, importLegacyJson, importNais } from './backup/repo'
+import { hasZipSignature } from './backup/archive'
 import { importNais2 } from './backup/nais2'
 import { startUpdateDownload } from './updater'
 import { countTokens } from './nai/tokenizer'
@@ -187,6 +188,13 @@ async function naiAccountInfos(): Promise<{ accounts: NaiAccountInfo[]; activeId
     })
   )
   return { accounts: infos, activeId }
+}
+
+function localDateStamp(date = new Date()): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQueue }): void {
@@ -308,31 +316,62 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
 
   handle('backup:export', async () => {
     const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-    const stamp = new Date().toISOString().slice(0, 10)
+    const stamp = localDateStamp()
     const result = await dialog.showSaveDialog(win, {
       title: '데이터 내보내기',
-      defaultPath: `NAIS3-backup-${stamp}.json`,
+      defaultPath: `NAIS3-backup-${stamp}.nais`,
+      filters: [{ name: 'NAIS 백업', extensions: ['nais'] }]
+    })
+    if (result.canceled || !result.filePath) return { saved: false }
+    try {
+      const { archive, skippedFiles } = await exportNais(app.getVersion())
+      writeFileSync(result.filePath, archive)
+      return { saved: true, skippedFiles }
+    } catch (error) {
+      return { saved: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  })
+
+  handle('backup:exportLegacy', async () => {
+    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    const result = await dialog.showSaveDialog(win, {
+      title: '레거시 JSON 내보내기',
+      defaultPath: `NAIS3-backup-${localDateStamp()}.json`,
       filters: [{ name: 'JSON', extensions: ['json'] }]
     })
     if (result.canceled || !result.filePath) return { saved: false }
-    writeFileSync(result.filePath, JSON.stringify(exportAll()))
-    return { saved: true }
+    try {
+      writeFileSync(result.filePath, JSON.stringify(exportLegacyJson()))
+      return { saved: true }
+    } catch (error) {
+      return { saved: false, error: error instanceof Error ? error.message : String(error) }
+    }
   })
 
   handle('backup:import', async () => {
     const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
     const result = await dialog.showOpenDialog(win, {
-      title: '데이터 가져오기 (NAIS3 / NAIS2 백업)',
-      filters: [{ name: 'JSON', extensions: ['json'] }],
+      title: '데이터 가져오기 (.nais / NAIS3 JSON / NAIS2 JSON)',
+      filters: [{ name: 'NAIS 백업', extensions: ['nais', 'json'] }],
       properties: ['openFile']
     })
     if (result.canceled || !result.filePaths[0]) return { canceled: true as const }
     try {
-      const data = JSON.parse(readFileSync(result.filePaths[0], 'utf-8')) as Record<string, unknown>
+      const input = readFileSync(result.filePaths[0])
+      if (hasZipSignature(input)) {
+        const { imported } = await importNais(input)
+        return { summary: `.nais 백업 복원 완료 (${imported}개 항목)`, needsPromptReload: true }
+      }
+
+      const data = JSON.parse(input.toString('utf-8')) as Record<string, unknown>
       // 포맷 감지: NAIS3는 _app='NAIS3', NAIS2는 nais2-* 키
       if (data._app === 'NAIS3') {
-        const { imported } = importAll(data)
-        return { summary: `NAIS3 백업 복원 완료 (${imported}개 항목)`, needsPromptReload: true }
+        const { imported, skippedFiles } = importLegacyJson(data)
+        const skipped = skippedFiles ? ` · 누락 이미지 ${skippedFiles}개 제외` : ''
+        return {
+          summary: `NAIS3 JSON 복원 완료 (${imported}개 항목${skipped})`,
+          needsPromptReload: true
+        }
       }
       if (Object.keys(data).some((k) => k.startsWith('nais2-'))) {
         const r = importNais2(data)

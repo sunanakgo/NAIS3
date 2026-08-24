@@ -30,6 +30,7 @@ import { useFragmentsStore } from '../stores/fragments-store'
 import { useVibesStore, useCharRefsStore } from '../stores/refs-store'
 import { usePromptPresetsStore } from '../stores/prompt-presets-store'
 import { useScenesStore } from '../stores/scenes-store'
+import { useLibraryStore } from '../stores/library-store'
 import { useUpdateStore } from '../stores/update-store'
 import { askConfirm } from '../stores/dialog-store'
 import { toast } from '../stores/toast-store'
@@ -395,7 +396,9 @@ function StorageSection(): React.JSX.Element {
 
       <div className="mt-1 border-t border-line pt-3">
         <p className="text-[13px] text-ink">데이터 백업</p>
-        <p className="mt-0.5 text-[11.5px] text-faint">라이브러리 전체 JSON (NAIS2 백업 호환)</p>
+        <p className="mt-0.5 text-[11.5px] text-faint">
+          전체 작업 데이터 .nais · 기존 NAIS3/NAIS2 JSON 불러오기 지원
+        </p>
         <BackupButtons />
       </div>
     </div>
@@ -403,17 +406,35 @@ function StorageSection(): React.JSX.Element {
 }
 
 function BackupButtons(): React.JSX.Element {
+  async function exportArchive(): Promise<void> {
+    const result = await window.nais.invoke('backup:export', undefined)
+    if (result.error) {
+      toast(`내보내기 오류: ${result.error}`, 'error')
+      return
+    }
+    if (!result.saved) return
+    const skipped = result.skippedFiles
+      ? ` (원본 파일이 없는 이미지 ${result.skippedFiles}개 제외)`
+      : ''
+    toast(`.nais 내보내기 완료${skipped}`, result.skippedFiles ? 'info' : 'success')
+  }
+
+  async function exportLegacy(): Promise<void> {
+    const result = await window.nais.invoke('backup:exportLegacy', undefined)
+    if (result.error) {
+      toast(`내보내기 오류: ${result.error}`, 'error')
+      return
+    }
+    if (result.saved) toast('레거시 JSON 내보내기 완료', 'success')
+  }
+
   return (
-    <div className="mt-2 flex items-center gap-2">
-      <Button
-        variant="default"
-        className="gap-1.5"
-        onClick={async () => {
-          const r = await window.nais.invoke('backup:export', undefined)
-          if (r.saved) toast('내보내기 완료', 'success')
-        }}
-      >
-        <Upload size={14} /> 내보내기
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <Button variant="default" className="gap-1.5" onClick={() => void exportArchive()}>
+        <Upload size={14} /> .nais 내보내기
+      </Button>
+      <Button variant="ghost" className="gap-1.5" onClick={() => void exportLegacy()}>
+        <Upload size={14} /> 레거시 JSON
       </Button>
       <Button
         variant="default"
@@ -439,6 +460,7 @@ function BackupButtons(): React.JSX.Element {
           void useCharRefsStore.getState().load()
           void usePromptPresetsStore.getState().load()
           void useScenesStore.getState().loadPresets()
+          useLibraryStore.getState().openStack(null)
           // 메인 프롬프트가 바뀌었으면 재하이드레이트
           if (r.needsPromptReload) void useGenerationStore.getState().hydrate()
         }}

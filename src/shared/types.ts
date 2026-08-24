@@ -559,9 +559,17 @@ export interface IpcInvokeMap {
   'promptPresets:delete': { req: { id: number }; res: void }
   /** 업데이트 다운로드 시작 (완료 시 자동 설치/재시작) */
   'update:start': { req: void; res: void }
-  /** 전체 데이터 JSON 내보내기 (저장 다이얼로그) */
-  'backup:export': { req: void; res: { saved: boolean } }
-  /** JSON 가져오기 (열기 다이얼로그). NAIS3/NAIS2 포맷 자동 감지. summary=사람이 읽는 결과 */
+  /** 전체 데이터 .nais 내보내기 (저장 다이얼로그) */
+  'backup:export': {
+    req: void
+    res: { saved: boolean; skippedFiles?: number; error?: string }
+  }
+  /** 이전 NAIS3 버전에서 읽을 수 있는 JSON 내보내기 */
+  'backup:exportLegacy': {
+    req: void
+    res: { saved: boolean; error?: string }
+  }
+  /** .nais/NAIS3 JSON/NAIS2 JSON 가져오기. summary=사람이 읽는 결과 */
   'backup:import': {
     req: void
     res: { summary: string; needsPromptReload: boolean } | { error: string } | { canceled: true }

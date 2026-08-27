@@ -105,6 +105,7 @@ function AppearanceSection(): React.JSX.Element {
           <SelectContent>
             <SelectItem value="ko">한국어</SelectItem>
             <SelectItem value="en">English</SelectItem>
+            <SelectItem value="zh-CN">简体中文</SelectItem>
           </SelectContent>
         </Select>
       </Row>

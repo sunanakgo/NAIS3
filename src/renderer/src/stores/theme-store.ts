@@ -15,8 +15,19 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
   if (s.theme === 'system') applyTheme('system', s.presetId)
 })
 
-const PRETENDARD_STACK =
-  "'Pretendard Variable', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif"
+const SYSTEM_UI = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI'"
+const KOREAN_UI = "'Apple SD Gothic Neo', 'Malgun Gothic'"
+const SC_UI =
+  "'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Source Han Sans SC', 'Microsoft YaHei UI', 'Microsoft YaHei'"
+
+/** Pretendard는 한글·라틴만 있다. 한자 폴백은 UI 언어에 맞춰 고른다. */
+function stacksForLang(lang: string): { ui: string; mono: string } {
+  const cjk = lang === 'zh-CN' ? SC_UI : KOREAN_UI
+  return {
+    ui: `'Pretendard Variable', ${cjk}, ${SYSTEM_UI}, ${KOREAN_UI}, sans-serif`,
+    mono: `'JetBrains Mono', Consolas, ui-monospace, 'Pretendard Variable', ${cjk}, ${KOREAN_UI}, monospace`
+  }
+}
 
 interface ThemeState {
   theme: Theme
@@ -49,13 +60,18 @@ function applyTheme(theme: Theme, presetId: string): void {
 }
 
 function applyFont(uiFont: string, uiSize: number): void {
+  const { ui, mono } = stacksForLang(document.documentElement.lang || 'ko')
   const style = document.documentElement.style
-  style.setProperty(
-    '--font-ui',
-    uiFont.trim() ? `'${uiFont.trim()}', ${PRETENDARD_STACK}` : PRETENDARD_STACK
-  )
+  style.setProperty('--font-ui', uiFont.trim() ? `'${uiFont.trim()}', ${ui}` : ui)
+  style.setProperty('--font-mono', mono)
   style.setProperty('--ui-size', `${uiSize}px`)
   style.setProperty('--ui-scale', `${uiSize / 14}`)
+}
+
+/** 언어 변경 후 한자 폴백 스택을 다시 입힌다. */
+export function reapplyUiFont(): void {
+  const { uiFont, uiSize } = useThemeStore.getState()
+  applyFont(uiFont, uiSize)
 }
 
 function applyPromptSize(size: number): void {

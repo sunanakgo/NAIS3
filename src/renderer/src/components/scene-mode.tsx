@@ -596,8 +596,8 @@ function BulkBar(): React.JSX.Element {
 
   function reserveTip(delta: number): string {
     const step = Math.abs(delta) * (batchCount || 1)
-    const who = activeCast ? `"${activeCast.name}" 출연` : '사이드바 설정'
-    return `선택한 ${n}개 씬의 ${who} 예약 ${delta > 0 ? '+' : '-'}${step}`
+    const who = activeCast ? t('"{0}" 출연', activeCast.name || t('이름 없음')) : t('사이드바 설정')
+    return t('선택한 {0}개 씬의 {1} 예약 {2}', n, who, `${delta > 0 ? '+' : '-'}${step}`)
   }
 
   return (
@@ -613,7 +613,7 @@ function BulkBar(): React.JSX.Element {
 
       {/* 선택 씬만 예약 증감 — 단위·대상 출연은 카드의 +/-와 동일 */}
       <div className="flex items-center gap-0.5 rounded-full border border-line bg-paper p-0.5">
-        <span className="px-1.5 text-[12px] text-muted">예약</span>
+        <span className="px-1.5 text-[12px] text-muted">{t('예약')}</span>
         <button
           className="grid size-5 place-items-center rounded-full text-fg hover:bg-surface-2 disabled:opacity-30"
           disabled={disabled}
@@ -738,6 +738,15 @@ function dndStyle(sortable: ReturnType<typeof useSortable>): CSSProperties {
  * 예약 배지 목록 — 사이드바('') 예약은 빨강(color: null → bg-danger), 출연 예약은 출연 고유색.
  * 삭제된 출연의 잔여 예약은 회색으로 표시해 정리할 수 있게 한다.
  */
+function reserveBadgeLabel(
+  b: { key: string; name: string },
+  t: (key: string, ...args: (string | number)[]) => string
+): string {
+  if (b.key === '') return t('사이드바 설정')
+  if (b.name === '삭제된 출연') return t('삭제된 출연')
+  return b.name || t('이름 없음')
+}
+
 function reserveBadges(
   scene: Scene,
   casts: SceneCast[]
@@ -877,7 +886,7 @@ const SceneCard = memo(function SceneCard({
                         b.color === null && 'bg-danger'
                       )}
                       style={b.color ? { backgroundColor: b.color } : undefined}
-                      title={t('{0} {1}장', b.name, b.count)}
+                      title={t('{0} {1}장', reserveBadgeLabel(b, t), b.count)}
                     >
                       {b.count}
                     </span>
@@ -885,7 +894,9 @@ const SceneCard = memo(function SceneCard({
                   {rest.length > 0 && (
                     <span
                       className="grid h-6 min-w-6 place-items-center rounded-full bg-black/60 px-1.5 text-[11px] font-bold text-white shadow"
-                      title={rest.map((b) => t('{0} {1}장', b.name, b.count)).join('\n')}
+                      title={rest
+                        .map((b) => t('{0} {1}장', reserveBadgeLabel(b, t), b.count))
+                        .join('\n')}
                     >
                       +{rest.length}
                     </span>

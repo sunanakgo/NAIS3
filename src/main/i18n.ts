@@ -1,6 +1,5 @@
 import { app } from 'electron'
-import { EN } from '../shared/i18n/dict-en'
-import { isLang, translate, type Lang } from '../shared/i18n'
+import { dictFor, isLang, localeToLang, translate, type Lang } from '../shared/i18n'
 import { getDb } from './db'
 import { getSetting, setSetting } from './db/settings'
 
@@ -18,7 +17,8 @@ function currentLang(): Lang {
 
 /** 메인 프로세스용 번역 (다이얼로그 제목, 네이티브 UI, 업데이트 알림 등) */
 export function t(key: string, ...args: (string | number)[]): string {
-  return translate(EN, currentLang(), key, args)
+  const lang = currentLang()
+  return translate(dictFor(lang), lang, key, args)
 }
 
 /**
@@ -39,7 +39,7 @@ export function resolveInitialLanguage(): Lang {
     const row = getDb().prepare('SELECT 1 AS x FROM settings LIMIT 1').get() as
       { x: number } | undefined
     const freshInstall = row === undefined
-    if (freshInstall) lang = app.getLocale().toLowerCase().startsWith('ko') ? 'ko' : 'en'
+    if (freshInstall) lang = localeToLang(app.getLocale())
   } catch {
     // 판정 불가 = 안전한 쪽(한국어)으로
   }

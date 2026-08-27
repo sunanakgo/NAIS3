@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { format, isLang, translate } from '../src/shared/i18n'
+import { format, isLang, localeToLang, translate } from '../src/shared/i18n'
 import { EN } from '../src/shared/i18n/dict-en'
+import { ZH_CN } from '../src/shared/i18n/dict-zh-CN'
 
 describe('i18n core', () => {
   it('한국어 모드는 원문을 그대로 돌려준다 (기존 사용자 무영향)', () => {
@@ -53,7 +54,57 @@ describe('i18n core', () => {
   it('isLang은 알 수 없는 값을 거른다', () => {
     expect(isLang('ko')).toBe(true)
     expect(isLang('en')).toBe(true)
+    expect(isLang('zh-CN')).toBe(true)
+    expect(isLang('zh')).toBe(false)
+    expect(isLang('zh-TW')).toBe(false)
     expect(isLang('jp')).toBe(false)
     expect(isLang(null)).toBe(false)
+  })
+
+  it('간체 모드는 ZH_CN 사전을 사용한다', () => {
+    expect(translate(ZH_CN, 'zh-CN', '설정', [])).toBe('设置')
+  })
+
+  it('ZH_CN에 없는 키는 한국어로 폴백한다', () => {
+    expect(translate(ZH_CN, 'zh-CN', '사전에 없는 문구', [])).toBe('사전에 없는 문구')
+  })
+
+  it('한국어 모드는 ZH_CN을 넘겨도 원문을 돌려준다', () => {
+    expect(translate(ZH_CN, 'ko', '설정', [])).toBe('설정')
+  })
+
+  it('ZH_CN 키 집합은 EN과 같다', () => {
+    expect(Object.keys(ZH_CN).sort()).toEqual(Object.keys(EN).sort())
+  })
+
+  it('ZH_CN 값의 플레이스홀더는 키와 일치한다', () => {
+    const slots = (s: string): string[] => [
+      ...new Set([...s.matchAll(/\{(\d+)[|}]/g)].map((m) => m[1]))
+    ]
+    for (const [key, value] of Object.entries(ZH_CN)) {
+      expect([key, slots(value).sort()]).toEqual([key, slots(key).sort()])
+    }
+  })
+
+  it('ZH_CN 값에는 영어 복수형 문법이 없다', () => {
+    for (const value of Object.values(ZH_CN)) expect(value).not.toMatch(/\{\d+\|/)
+  })
+
+  it('localeToLang은 간체만 zh-CN으로, 번체는 en으로 매핑한다', () => {
+    expect(localeToLang('ko')).toBe('ko')
+    expect(localeToLang('ko-KR')).toBe('ko')
+    expect(localeToLang('zh-CN')).toBe('zh-CN')
+    expect(localeToLang('zh-Hans')).toBe('zh-CN')
+    expect(localeToLang('zh-Hans-CN')).toBe('zh-CN')
+    expect(localeToLang('zh_CN')).toBe('zh-CN')
+    expect(localeToLang('zh-SG')).toBe('zh-CN')
+    expect(localeToLang('zh')).toBe('zh-CN')
+    expect(localeToLang('zh-TW')).toBe('en')
+    expect(localeToLang('zh-HK')).toBe('en')
+    expect(localeToLang('zh-MO')).toBe('en')
+    expect(localeToLang('zh-Hant')).toBe('en')
+    expect(localeToLang('zh-Hant-TW')).toBe('en')
+    expect(localeToLang('en-US')).toBe('en')
+    expect(localeToLang('ja')).toBe('en')
   })
 })

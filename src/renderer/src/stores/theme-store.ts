@@ -10,10 +10,12 @@ function resolveTheme(theme: Theme): 'dark' | 'light' {
 }
 
 // OS 다크모드 전환 실시간 반영 (system 모드일 때만)
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-  const s = useThemeStore.getState()
-  if (s.theme === 'system') applyTheme('system', s.presetId)
-})
+if (typeof window !== 'undefined') {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    const s = useThemeStore.getState()
+    if (s.theme === 'system') applyTheme('system', s.presetId)
+  })
+}
 
 const SYSTEM_UI = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI'"
 const KOREAN_UI = "'Apple SD Gothic Neo', 'Malgun Gothic'"

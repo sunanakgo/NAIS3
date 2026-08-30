@@ -398,6 +398,7 @@ export const EN: Record<string, string> = {
   '추가 프롬프트 (선택)': 'Additional prompt (optional)',
   '색 유도 프롬프트 (선택)': 'Color guidance prompt (optional)',
   업스케일: 'Upscale',
+  'V5 Curated로 선명하게 2배 확대': 'Sharpen and upscale 2x with V5 Curated',
   '해상도를 배수로 키움': 'Scale resolution by a multiple',
   '약화 {0}': 'Defry {0}',
   '배경 제거': 'Remove BG',

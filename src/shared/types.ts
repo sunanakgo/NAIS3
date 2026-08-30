@@ -506,9 +506,9 @@ export interface IpcInvokeMap {
     req: { method: DirectorMethod; imageBase64: string; prompt?: string; defry?: number }
     res: { filePath: string; base64: string } | { error: string }
   }
-  /** 업스케일 (2x/4x) — 결과를 히스토리에 저장하고 파일 경로 + 결과 base64 반환 */
+  /** V5 Curated 업스케일 (2x) — 결과를 히스토리에 저장하고 파일 경로 + 결과 base64 반환 */
   'images:upscale': {
-    req: { imageBase64: string; scale: number }
+    req: { imageBase64: string }
     res: { filePath: string; base64: string } | { error: string }
   }
   /** 렌더러 로컬 편집 결과(base64 PNG)를 히스토리에 저장 — 모자이크 등 API 없는 디렉터 로컬 툴용 */

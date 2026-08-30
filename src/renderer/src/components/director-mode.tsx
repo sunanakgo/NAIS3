@@ -20,7 +20,7 @@ import {
   type LucideIcon
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { directorAugmentCost, directorToolCost } from '@shared/anlas'
+import { directorAugmentCost, UPSCALE_ANLAS_COST } from '@shared/anlas'
 import { EMOTIONS, type DirectorMethod } from '@shared/types'
 import { useT } from '../lib/i18n'
 import { useArtistTagsStore } from '../stores/artist-tags-store'
@@ -115,21 +115,20 @@ export function DirectorMode(): React.JSX.Element {
   // 예상 Anlas — 업스케일과 augment-image 디렉터 툴은 서로 다른 공식 계산식을 쓴다.
   const tier = useGenerationStore((s) => s.subscriptionTier)
   const [toolCosts, setToolCosts] = useState<{
+    source: string
     upscale: number
     backgroundRemoval: number
     standardAugment: number
   } | null>(null)
   useEffect(() => {
-    if (!source) {
-      setToolCosts(null)
-      return
-    }
+    if (!source) return
     let alive = true
     void imageDims(source).then(({ width, height }) => {
       if (!alive) return
       const isOpus = tier === 'opus'
       setToolCosts({
-        upscale: directorToolCost(width, height, isOpus),
+        source,
+        upscale: UPSCALE_ANLAS_COST,
         backgroundRemoval: directorAugmentCost('bg-removal', width, height, isOpus),
         standardAugment: directorAugmentCost('lineart', width, height, isOpus)
       })
@@ -138,6 +137,7 @@ export function DirectorMode(): React.JSX.Element {
       alive = false
     }
   }, [source, tier])
+  const currentToolCosts = toolCosts?.source === source ? toolCosts : null
 
   // i2i/인페인트로 보내고 메인 페이지로 전환 (현재 이미지 사용)
   async function sendToMain(mode: 'i2i' | 'inpaint'): Promise<void> {
@@ -316,7 +316,7 @@ export function DirectorMode(): React.JSX.Element {
             onRun={() => sendToMain('inpaint')}
           />
           <div className="!my-3 h-px bg-line" />
-          <UpscaleCard disabled={!source || loading} cost={toolCosts?.upscale ?? null} />
+          <UpscaleCard disabled={!source || loading} cost={currentToolCosts?.upscale ?? null} />
           {TOOLS.map((tool) => (
             <ToolCard
               key={tool.method}
@@ -324,8 +324,8 @@ export function DirectorMode(): React.JSX.Element {
               disabled={!source || loading}
               cost={
                 tool.method === 'bg-removal'
-                  ? (toolCosts?.backgroundRemoval ?? null)
-                  : (toolCosts?.standardAugment ?? null)
+                  ? (currentToolCosts?.backgroundRemoval ?? null)
+                  : (currentToolCosts?.standardAugment ?? null)
               }
             />
           ))}
@@ -479,7 +479,7 @@ function ToolCard({
   )
 }
 
-/** 업스케일 카드 — 2x/4x 선택 후 클릭 실행 (결과 자동 체이닝) */
+/** V5 Curated 2x 업스케일 카드 (결과 자동 체이닝) */
 function UpscaleCard({
   disabled,
   cost
@@ -489,45 +489,29 @@ function UpscaleCard({
 }): React.JSX.Element {
   const t = useT()
   const upscale = useDirectorStore((s) => s.upscale)
-  const [scale, setScale] = useState(2)
   return (
     <div
       role="button"
       aria-disabled={disabled}
-      onClick={() => !disabled && void upscale(scale)}
+      onClick={() => !disabled && void upscale()}
       className={cn(
         'group rounded-xl border border-line bg-surface-2/40 p-3 transition-colors',
         disabled ? 'opacity-60' : 'cursor-pointer hover:bg-surface-2/70'
       )}
     >
-      <div className="mb-2 flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5">
         <Maximize2 size={18} className="text-cyan-400" />
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-medium text-ink">{t('업스케일')}</p>
-          <p className="truncate text-[11px] text-faint">{t('해상도를 배수로 키움')}</p>
+          <p className="truncate text-[11px] text-faint">
+            {t('V5 Curated로 선명하게 2배 확대')}
+          </p>
         </div>
         <CostChip cost={cost} />
         <ChevronRight
           size={16}
           className="shrink-0 text-faint transition-colors group-hover:text-accent"
         />
-      </div>
-      {/* 배율 선택 — 클릭이 카드 실행으로 전파되지 않게 */}
-      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-        {[2, 4].map((n) => (
-          <button
-            key={n}
-            onClick={() => setScale(n)}
-            className={cn(
-              'flex-1 rounded-md border py-1 text-[12px] font-medium transition-colors',
-              scale === n
-                ? 'border-accent bg-accent/10 text-accent'
-                : 'border-line text-muted hover:text-ink'
-            )}
-          >
-            {n}x
-          </button>
-        ))}
       </div>
     </div>
   )

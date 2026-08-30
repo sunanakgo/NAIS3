@@ -2,8 +2,7 @@
  * NAI 엔드포인트.
  *
  * 2026-06 이전: user 계열이 api.novelai.net에서 image.novelai.net으로 이동했다.
- * NAIS3는 전 호출을 image 호스트 단일로 사용한다. 예외: /ai/upscale은
- * api.novelai.net에만 잔존 (2026-07-04 확인, docs/nai-api-2026-07.md).
+ * 2026-08 V5 업스케일러 전환으로 /ai/upscale도 image 호스트를 사용한다.
  */
 export const NAI_HOST = 'https://image.novelai.net'
 
@@ -17,6 +16,5 @@ export const ENDPOINTS = {
   userData: `${NAI_HOST}/user/data`,
   userInfo: `${NAI_HOST}/user/information`,
   subscription: `${NAI_HOST}/user/subscription`,
-  // 예외: image 호스트에는 없음 (404). api 호스트에 잔존.
-  upscale: 'https://api.novelai.net/ai/upscale'
+  upscale: `${NAI_HOST}/ai/upscale`
 } as const

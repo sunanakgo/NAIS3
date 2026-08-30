@@ -180,22 +180,35 @@ export async function augmentImage(
   return Buffer.from(await zip.file(entry)!.async('nodebuffer'))
 }
 
-/**
- * 업스케일. 주의: api.novelai.net 호스트(예외). ZIP 응답에서 PNG 추출.
- */
-export async function upscaleImage(
-  token: string,
-  opts: { imageBase64: string; width: number; height: number; scale: number }
-): Promise<Buffer> {
+export const UPSCALE_MODEL = 'nai-diffusion-5-curated'
+export const UPSCALE_SCALE = 2
+
+/** V5 Curated 기반 2x 업스케일. 현재 생성 모델과 무관한 공통 전용 모델을 사용한다. */
+export async function upscaleImage(token: string, imageBase64: string): Promise<Buffer> {
+  const body = new FormData()
+  body.append('image', new Blob([Buffer.from(imageBase64, 'base64')], { type: 'image/png' }))
+  body.append(
+    'request',
+    new Blob(
+      [
+        JSON.stringify({
+          image: 'image',
+          model: UPSCALE_MODEL,
+          declared_blur_sigma: 0
+        })
+      ],
+      { type: 'application/json' }
+    )
+  )
+
   const res = await fetch(ENDPOINTS.upscale, {
     method: 'POST',
-    headers: headers(token),
-    body: JSON.stringify({
-      image: opts.imageBase64,
-      width: opts.width,
-      height: opts.height,
-      scale: opts.scale
-    })
+    headers: {
+      Authorization: `Bearer ${token.trim()}`,
+      'x-correlation-id': Math.random().toString(36).slice(2, 8),
+      'x-initiated-at': new Date().toISOString()
+    },
+    body
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
@@ -206,8 +219,7 @@ export async function upscaleImage(
     )
   }
   const zip = await JSZip.loadAsync(await res.arrayBuffer())
-  const names = Object.keys(zip.files)
-  const entry = names[names.length - 1]
+  const entry = Object.keys(zip.files).find((name) => /^image.*\.png$/i.test(name))
   if (!entry) throw new Error(t('업스케일 응답에 이미지가 없음'))
   return Buffer.from(await zip.file(entry)!.async('nodebuffer'))
 }

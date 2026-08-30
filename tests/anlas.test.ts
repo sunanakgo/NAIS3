@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   directorAugmentCost,
-  directorToolCost,
   displayOpusUsagePercent,
   effectiveGenerationStrength,
   estimateAnlas,
   formatAnlasEstimate,
-  opusUsagePercentSegments
+  opusUsagePercentSegments,
+  UPSCALE_ANLAS_COST
 } from '../src/shared/anlas'
 
 const base = {
@@ -208,8 +208,7 @@ describe('Anlas 추정 (NAI 웹 공식 이식)', () => {
     expect(directorAugmentCost('bg-removal', 512, 512, true)).toBe(65)
   })
 
-  it('업스케일은 기존 픽셀 버킷 요금을 유지', () => {
-    expect(directorToolCost(832, 1216, true)).toBe(7)
-    expect(directorToolCost(768, 1024, true)).toBe(5)
+  it('V5 Curated 업스케일러는 고정 1 Anlas', () => {
+    expect(UPSCALE_ANLAS_COST).toBe(1)
   })
 })

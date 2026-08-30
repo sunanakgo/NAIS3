@@ -25,8 +25,7 @@ export function opusUsagePercentSegments(usage: OpusUsageStatus): number[] {
  *   요청당 1장 차감 — NAIS3는 배치를 요청 N개(각 1장)로 쪼개므로 조건 충족 시 배치 전체 무료
  * - 프롬프트 길이는 비용에 영향 없음 (번들 전수 확인 — 관련 항 자체가 없다)
  * - 바이브 인코딩: encode-vibe 1회당 2 Anlas, 인코딩 캐시 재사용 시 0 (NAIS2에서 검증)
- * - 참고: 디렉터 툴(배경제거 등) 테이블 — [[1048576,7],[786432,5],[524288,3],[409600,2],
- *   [262144,1]], Opus는 409600px 이하 무료 (추후 스마트 툴에서 사용)
+ * - 참고: 구형 업스케일러는 해상도별 0~7 Anlas였지만 V5 Curated 업스케일러는 고정 1 Anlas
  */
 
 export interface AnlasEstimateInput {
@@ -107,20 +106,8 @@ const VIBE_ENCODE_COST = 2
  */
 const CHARREF_COST = 5
 
-/**
- * 디렉터 툴(배경제거·색칠 등)·업스케일 비용 — 웹 번들 픽셀 버킷 테이블.
- * [[262144,1],[409600,2],[524288,3],[786432,5],[1048576,7]] — Opus는 409600px 이하 무료.
- * (실사용 검증: 768×1024 업스케일 = 5 Anlas)
- */
-export function directorToolCost(width: number, height: number, isOpus: boolean): number {
-  const px = width * height
-  if (isOpus && px <= 409600) return 0
-  if (px <= 262144) return 1
-  if (px <= 409600) return 2
-  if (px <= 524288) return 3
-  if (px <= 786432) return 5
-  return 7
-}
+/** V5 Curated 전용 업스케일러는 입력 크기·구독 등급과 무관하게 고정 1 Anlas. */
+export const UPSCALE_ANLAS_COST = 1
 
 /**
  * augment-image 디렉터 툴 비용.

@@ -14,7 +14,7 @@ interface DirectorState {
   current: () => string | null
   setSource: (base64: string | null) => void
   run: (method: DirectorMethod, opts?: { prompt?: string; defry?: number }) => Promise<void>
-  upscale: (scale: number) => Promise<void>
+  upscale: () => Promise<void>
   /** API 없는 로컬 편집(모자이크 등) 결과를 스택에 push + 히스토리 저장 */
   applyLocal: (base64: string, kind: 'mosaic') => Promise<void>
   undo: () => void
@@ -53,11 +53,11 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
     void useGenerationStore.getState().refreshHistory()
   },
 
-  upscale: async (scale) => {
+  upscale: async () => {
     const cur = get().current()
     if (!cur || get().loading) return
     set({ loading: true, error: null })
-    const res = await window.nais.invoke('images:upscale', { imageBase64: cur, scale })
+    const res = await window.nais.invoke('images:upscale', { imageBase64: cur })
     if ('error' in res) {
       set({ loading: false, error: null })
       toast(res.error, 'error')

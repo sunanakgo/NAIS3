@@ -61,9 +61,14 @@ import {
   setSetting
 } from './db/settings'
 import { anlasUsage, logBalance } from './nai/anlas-log'
-import { fetchAnlasBalance } from './nai/client'
+import {
+  augmentImage,
+  fetchAnlasBalance,
+  UPSCALE_MODEL,
+  UPSCALE_SCALE,
+  upscaleImage
+} from './nai/client'
 import { listImages, getImagePayload, saveGeneratedImage } from './images/storage'
-import { augmentImage, upscaleImage } from './nai/client'
 import {
   listPresets,
   createPreset,
@@ -682,21 +687,15 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     }
   })
 
-  handle('images:upscale', async ({ imageBase64, scale }) => {
+  handle('images:upscale', async ({ imageBase64 }) => {
     const token = getNaiToken()
     if (!token) return { error: t('NAI 토큰이 설정되지 않았습니다') }
     try {
       const input = Buffer.from(imageBase64.replace(/^data:[^,]+,/, ''), 'base64')
-      const meta = await sharp(input).metadata()
-      const png = await upscaleImage(token, {
-        imageBase64: input.toString('base64'),
-        width: meta.width ?? 0,
-        height: meta.height ?? 0,
-        scale
-      })
+      const png = await upscaleImage(token, input.toString('base64'))
       const saved = await saveGeneratedImage({
         png,
-        sentPayload: JSON.stringify({ upscale: scale }),
+        sentPayload: JSON.stringify({ upscale: UPSCALE_SCALE, model: UPSCALE_MODEL }),
         seed: 0,
         kind: 'upscale'
       })

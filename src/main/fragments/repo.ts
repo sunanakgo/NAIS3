@@ -99,7 +99,7 @@ export function duplicateFragment(id: number): number | null {
     .prepare('SELECT name, content, folder_id FROM fragments WHERE id = ?')
     .get(id) as { name: string; content: string; folder_id: number | null } | undefined
   if (!r) return null
-  return createFragment(t('{0} 복사', r.name), r.folder_id, r.content)
+  return createFragment(t('ui.copyValue', r.name), r.folder_id, r.content)
 }
 
 export function reorderFragments(order: CharacterOrderEntry[]): void {
@@ -181,9 +181,9 @@ export function fragmentSource(): FragmentSource {
 export async function importTxtFragments(): Promise<number> {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
   const result = await dialog.showOpenDialog(win, {
-    title: t('조각 TXT 가져오기'),
+    title: t('ui.importFragmentTxt'),
     properties: ['openFile', 'multiSelections'],
-    filters: [{ name: t('텍스트/ZIP'), extensions: ['txt', 'zip'] }]
+    filters: [{ name: t('ui.textZip'), extensions: ['txt', 'zip'] }]
   })
   if (result.canceled) return 0
   let count = 0
@@ -211,7 +211,7 @@ export async function exportAllFragmentsZip(): Promise<number> {
   if (!rows.length) return 0
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
   const result = await dialog.showSaveDialog(win, {
-    title: t('조각 전체 내보내기'),
+    title: t('ui.exportAllFragments'),
     defaultPath: 'nais3-fragments.zip',
     filters: [{ name: 'ZIP', extensions: ['zip'] }]
   })
@@ -234,10 +234,10 @@ export async function exportTxtFragment(id: number): Promise<boolean> {
   if (!row) return false
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
   const result = await dialog.showSaveDialog(win, {
-    title: t('조각 내보내기'),
+    title: t('ui.exportFragment'),
     // Windows 금지 문자 제거 (이름은 사용자 입력)
     defaultPath: `${row.name.replace(/[/\\:*?"<>|]/g, '_') || 'fragment'}.txt`,
-    filters: [{ name: t('텍스트'), extensions: ['txt'] }]
+    filters: [{ name: t('ui.text'), extensions: ['txt'] }]
   })
   if (result.canceled || !result.filePath) return false
   writeFileSync(result.filePath, row.content, 'utf-8')

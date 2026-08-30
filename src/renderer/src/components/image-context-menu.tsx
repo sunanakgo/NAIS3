@@ -54,36 +54,36 @@ export function ImageContextMenu({
           <ImageIcon size={13} className="text-indigo-400" /> I2I
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => void startInpaint(filePath)}>
-          <Layers size={13} className="text-pink-400" /> {t('인페인트')}
+          <Layers size={13} className="text-pink-400" /> {t('ui.inpaint')}
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => void openInDirector(filePath)}>
-          <Wand2 size={13} className="text-violet-400" /> {t('디렉터 툴에서 열기')}
+          <Wand2 size={13} className="text-violet-400" /> {t('ui.openInDirectorTools')}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onSelect={() => void showMeta({ filePath })}>
-          <FileText size={13} className="text-sky-400" /> {t('메타데이터 보기')}
+          <FileText size={13} className="text-sky-400" /> {t('ui.viewMetadata')}
         </ContextMenuItem>
         <ContextMenuItem
           onSelect={async () => {
             const { copied } = await window.nais.invoke('images:copy', { filePath })
-            if (copied) toast(t('클립보드에 복사됨'), 'success')
+            if (copied) toast(t('ui.copiedToClipboard'), 'success')
           }}
         >
-          <Copy size={13} className="text-teal-400" /> {t('이미지 복사')}
+          <Copy size={13} className="text-teal-400" /> {t('ui.copyImage')}
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => void window.nais.invoke('images:saveAs', { filePath })}>
-          <Download size={13} className="text-emerald-400" /> {t('다른 이름으로 저장')}
+          <Download size={13} className="text-emerald-400" /> {t('ui.saveAs')}
         </ContextMenuItem>
         <ContextMenuItem
           onSelect={() => void window.nais.invoke('images:showInFolder', { filePath })}
         >
-          <FolderOpen size={13} className="text-amber-400" /> {t('파일 탐색기에서 보기')}
+          <FolderOpen size={13} className="text-amber-400" /> {t('ui.showInFileExplorer')}
         </ContextMenuItem>
         {!hideLibraryAdd && (
           <>
             <ContextMenuSeparator />
             <ContextMenuItem onSelect={() => void addToLibrary([filePath])}>
-              <Library size={13} className="text-fuchsia-400" /> {t('라이브러리에 추가')}
+              <Library size={13} className="text-fuchsia-400" /> {t('ui.addToLibrary')}
             </ContextMenuItem>
           </>
         )}
@@ -92,7 +92,7 @@ export function ImageContextMenu({
           <>
             <ContextMenuSeparator />
             <ContextMenuItem danger onSelect={onDelete}>
-              <Trash2 size={13} /> {t('삭제')}
+              <Trash2 size={13} /> {t('ui.delete')}
             </ContextMenuItem>
           </>
         )}

@@ -138,7 +138,7 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
       {/* 헤더 */}
       <div className="flex items-center gap-2 border-b border-line px-3 py-2">
         <Button size="sm" variant="ghost" className="gap-1" onClick={() => select(null)}>
-          <ArrowLeft size={15} /> {t('씬 목록')}
+          <ArrowLeft size={15} /> {t('ui.sceneList')}
         </Button>
         <input
           className="min-w-0 flex-1 truncate rounded-md bg-transparent px-2 py-1 text-[15px] font-medium outline-none focus:bg-surface-2"
@@ -157,10 +157,10 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
           size="sm"
           variant="accent"
           className="gap-1"
-          title={t('이 씬 1장 바로 생성')}
+          title={t('ui.generate1ImageOfThisSceneNow')}
           onClick={() => void generateOne(scene.id)}
         >
-          <Play size={13} /> {t('생성')}
+          <Play size={13} /> {t('ui.generate')}
         </Button>
         {/* 예약 +/- — 현재 선택된 출연 기준 (씬 목록 카드와 동일) */}
         <div className="flex items-center gap-0.5 rounded-full bg-surface-2 p-0.5">
@@ -182,7 +182,11 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
                 ? { backgroundColor: activeCast.color, color: '#fff' }
                 : undefined
             }
-            title={activeCast ? t('"{0}" 출연 예약', activeCast.name) : t('사이드바 설정 예약')}
+            title={
+              activeCast
+                ? t('ui.queuedForCastValue', activeCast.name)
+                : t('ui.queuedWithSidebarSettings')
+            }
             onCommit={(n) => void setReserve(scene.id, n)}
           />
           <button
@@ -197,7 +201,7 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
       {source && (
         <p className="border-b border-line bg-surface-2 px-3 py-1 text-[11px] text-muted">
           {t(
-            'i2i/인페인트 소스가 설정돼 있어 씬 해상도 대신 소스 해상도({0}×{1})로 생성됩니다.',
+            'ui.anI2iInpaintSourceIsSetSoImagesAreGeneratedAtTheSourceResolution57f81a9',
             source.width,
             source.height
           )}
@@ -211,14 +215,14 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
           <PromptEditor
             value={scene.prompt}
             onValueChange={(v) => void update(scene.id, { prompt: v })}
-            placeholder={t('씬 프롬프트')}
+            placeholder={t('ui.scenePrompt')}
             tokensOverride={sceneTokens.pos}
             className="h-32 max-h-[520px] min-h-24 resize-y"
           />
           <PromptEditor
             value={scene.negativePrompt}
             onValueChange={(v) => void update(scene.id, { negativePrompt: v })}
-            placeholder={t('씬 네거티브 프롬프트')}
+            placeholder={t('ui.sceneNegativePrompt')}
             negative
             tokensOverride={sceneTokens.neg}
             className="h-20 max-h-96 min-h-16 resize-y"
@@ -226,8 +230,8 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
         </div>
 
         <div className="mt-4 mb-2 flex items-center gap-2 text-[12px] text-muted">
-          <span className="font-medium text-fg">{t('생성된 이미지')}</span>
-          <span>{t('{0}장', imagesTotal.toLocaleString())}</span>
+          <span className="font-medium text-fg">{t('ui.generatedImages')}</span>
+          <span>{t('ui.valueImages', imagesTotal.toLocaleString())}</span>
           <div className="flex-1" />
           {/* 즐겨찾기만 보기 (N4) */}
           <button
@@ -238,31 +242,31 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
                 ? 'bg-amber-400/90 text-black'
                 : 'bg-surface-2 text-muted hover:text-ink'
             )}
-            title={t('즐겨찾기만 보기')}
+            title={t('ui.showFavoritesOnly')}
           >
-            <Star size={12} fill={favoritesOnly ? 'currentColor' : 'none'} /> {t('즐겨찾기')}
+            <Star size={12} fill={favoritesOnly ? 'currentColor' : 'none'} /> {t('ui.favorites')}
           </button>
           {/* 즐겨찾기 제외 삭제 (N5) */}
           <button
             onClick={async () => {
-              const ok = await askConfirm(t('즐겨찾기 제외 삭제'), {
+              const ok = await askConfirm(t('ui.deleteNonFavorites'), {
                 message: t(
-                  '이 씬에서 즐겨찾기하지 않은 이미지를 모두 삭제합니다 (파일 포함). 되돌릴 수 없습니다.'
+                  'ui.deletesAllNonFavoritedImagesInThisSceneFilesIncludedThisCannotBeUndone'
                 ),
-                confirmLabel: t('삭제'),
+                confirmLabel: t('ui.delete'),
                 danger: true
               })
               if (!ok) return
               const n = await deleteNonFavorites(scene.id)
               toast(
-                n > 0 ? t('{0}장 삭제됨', n.toLocaleString()) : t('삭제할 이미지가 없습니다'),
+                n > 0 ? t('ui.valueImagesDeleted', n.toLocaleString()) : t('ui.noImagesToDelete'),
                 n > 0 ? 'success' : 'info'
               )
             }}
             className="flex h-6 items-center gap-1 rounded-md bg-surface-2 px-2 text-[11.5px] font-medium text-muted transition-colors hover:text-danger"
-            title={t('즐겨찾기 제외 전체 삭제')}
+            title={t('ui.deleteAllExceptFavorites')}
           >
-            <Trash2 size={12} /> {t('정리')}
+            <Trash2 size={12} /> {t('ui.declutter')}
           </button>
           <div className="flex items-center gap-0.5 rounded-md bg-surface-2 p-0.5">
             {[2, 3, 4, 5].map((n) => (
@@ -283,8 +287,8 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
         {images.length === 0 && !imagesLoading && !streaming ? (
           <p className="py-10 text-center text-[13px] text-faint">
             {favoritesOnly
-              ? t('즐겨찾기한 이미지가 없습니다.')
-              : t('아직 생성된 이미지가 없습니다. 위에서 예약(+)하고 좌측 생성 버튼을 누르세요.')}
+              ? t('ui.noFavoritedImages')
+              : t('ui.noImagesGeneratedYetQueueAboveAndPressTheGenerateButtonOnTheLeft')}
           </p>
         ) : (
           <div
@@ -316,7 +320,7 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
                 )}
                 {streaming && (
                   <span className="absolute bottom-1 left-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                    {t('생성 중…')}
+                    {t('ui.generating')}
                   </span>
                 )}
                 {/* 완성본이 도착하면 숨겨서 미리 디코드 → 로드되는 순간 프레임 해제(끊김 없음) */}
@@ -362,14 +366,14 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
                         : 'bg-black/40 text-white opacity-0 group-hover:opacity-100'
                     )}
                     onClick={() => void toggleFavorite(img.id)}
-                    title={t('즐겨찾기')}
+                    title={t('ui.favorites')}
                   >
                     <Star size={13} fill={img.favorite ? 'currentColor' : 'none'} />
                   </button>
                   <button
                     className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-black/40 text-white opacity-0 backdrop-blur transition hover:bg-danger group-hover:opacity-100"
                     onClick={() => void deleteImage(img.id)}
-                    title={t('삭제')}
+                    title={t('ui.delete')}
                   >
                     <Trash2 size={13} />
                   </button>
@@ -380,7 +384,7 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
         )}
         <div ref={sentinelRef} className="h-4" />
         {imagesLoading && (
-          <p className="py-3 text-center text-[12px] text-faint">{t('불러오는 중…')}</p>
+          <p className="py-3 text-center text-[12px] text-faint">{t('ui.loading')}</p>
         )}
       </div>
 

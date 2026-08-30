@@ -128,7 +128,7 @@ export const useMetadataStore = create<MetadataState>((set, get) => ({
       const req = useGenerationStore.getState().request
       void usePromptPresetsStore
         .getState()
-        .create(t('가져온 프리셋'), req.prompt, req.negativePrompt)
+        .create(t('ui.importedPreset'), req.prompt, req.negativePrompt)
         .then((id) => usePromptPresetsStore.getState().setActive(id))
     }
     if (sel.seed && m.seed != null) gen.setSeedLocked(true)

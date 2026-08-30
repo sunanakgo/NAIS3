@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { displayOpusUsagePercent, opusUsagePercentSegments } from '@shared/anlas'
+import type { MessageId } from '@shared/i18n'
 import type { NaiAccountInfo } from '@shared/types'
 import discordSvg from '../assets/discord.svg'
 import nais3Logo from '../assets/nais3-logo.svg'
@@ -53,13 +54,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 
 type SectionId = 'appearance' | 'generation' | 'storage' | 'shortcuts' | 'account' | 'about'
 
-const NAV: { id: SectionId; label: string; icon: typeof Info }[] = [
-  { id: 'appearance', label: '모양', icon: Palette },
-  { id: 'generation', label: '생성', icon: ImageIcon },
-  { id: 'storage', label: '저장', icon: FolderOpen },
-  { id: 'shortcuts', label: '단축키', icon: Keyboard },
-  { id: 'account', label: 'NAI 계정', icon: KeyRound },
-  { id: 'about', label: '정보', icon: Info }
+const NAV: { id: SectionId; label: MessageId; icon: typeof Info }[] = [
+  { id: 'appearance', label: 'ui.appearance', icon: Palette },
+  { id: 'generation', label: 'ui.generate', icon: ImageIcon },
+  { id: 'storage', label: 'ui.storage', icon: FolderOpen },
+  { id: 'shortcuts', label: 'ui.shortcuts', icon: Keyboard },
+  { id: 'account', label: 'ui.naiAccount', icon: KeyRound },
+  { id: 'about', label: 'ui.about', icon: Info }
 ]
 
 function Row({
@@ -97,7 +98,7 @@ function AppearanceSection(): React.JSX.Element {
 
   return (
     <div className="divide-y divide-line">
-      <Row label={t('언어')}>
+      <Row label={t('ui.language')}>
         <Select value={lang} onValueChange={(v) => setLang(v as Lang)}>
           <SelectTrigger className="w-44">
             <SelectValue />
@@ -108,10 +109,10 @@ function AppearanceSection(): React.JSX.Element {
           </SelectContent>
         </Select>
       </Row>
-      <Row label={t('색상 모드')}>
+      <Row label={t('ui.colorMode')}>
         <ThemeToggle />
       </Row>
-      <Row label={t('테마 프리셋')}>
+      <Row label={t('ui.themePreset')}>
         <Select value={presetId} onValueChange={setPreset}>
           <SelectTrigger className="w-44">
             <SelectValue />
@@ -125,7 +126,7 @@ function AppearanceSection(): React.JSX.Element {
           </SelectContent>
         </Select>
       </Row>
-      <Row label={t('UI 폰트')} hint={t('비우면 기본 폰트')}>
+      <Row label={t('ui.uiFont')} hint={t('ui.leaveEmptyForDefaultFont')}>
         <Input
           className="w-44"
           value={uiFont}
@@ -133,7 +134,7 @@ function AppearanceSection(): React.JSX.Element {
           onChange={(e) => setUiFont(e.target.value)}
         />
       </Row>
-      <Row label={t('UI 크기 — {0}px', uiSize)}>
+      <Row label={t('ui.uiSizeValuePx', uiSize)}>
         <Slider
           className="w-44"
           min={11}
@@ -144,8 +145,8 @@ function AppearanceSection(): React.JSX.Element {
         />
       </Row>
       <Row
-        label={t('프롬프트 폰트 크기 — {0}px', promptSize)}
-        hint={t('기본/캐릭터 프롬프트 입력 박스')}
+        label={t('ui.promptFontSizeValuePx', promptSize)}
+        hint={t('ui.baseCharacterPromptInputBoxes')}
       >
         <Slider
           className="w-44"
@@ -156,18 +157,18 @@ function AppearanceSection(): React.JSX.Element {
           onValueChange={([v]) => setPromptSize(v)}
         />
       </Row>
-      <Row label={t('표시할 탭')} hint={t('끈 탭은 상단에서 숨김')}>
+      <Row label={t('ui.visibleTabs')} hint={t('ui.tabsTurnedOffAreHiddenFromTheTopBar')}>
         <PageToggles />
       </Row>
     </div>
   )
 }
 
-const TOGGLABLE_PAGES: { id: CenterMode; label: string }[] = [
-  { id: 'scene', label: '씬' },
-  { id: 'director', label: '디렉터' },
-  { id: 'library', label: '라이브러리' },
-  { id: 'websearch', label: '웹' }
+const TOGGLABLE_PAGES: { id: CenterMode; label: MessageId }[] = [
+  { id: 'scene', label: 'ui.scene' },
+  { id: 'director', label: 'ui.director' },
+  { id: 'library', label: 'ui.library' },
+  { id: 'websearch', label: 'ui.web' }
 ]
 
 function PageToggles(): React.JSX.Element {
@@ -223,7 +224,7 @@ function GenerationSection(): React.JSX.Element {
 
   return (
     <div className="divide-y divide-line">
-      <Row label={t('스트리밍 생성')} hint={t('생성 과정을 실시간 미리보기')}>
+      <Row label={t('ui.streamingGeneration')} hint={t('ui.livePreviewWhileGenerating')}>
         <Switch
           checked={streaming}
           onCheckedChange={(v) => {
@@ -232,10 +233,13 @@ function GenerationSection(): React.JSX.Element {
           }}
         />
       </Row>
-      <Row label={t('프롬프트 3분할')} hint={t('고정 / 가변 / 디테일 칸으로 나누기')}>
+      <Row label={t('ui.value3PartPromptSplit')} hint={t('ui.splitIntoFixedVariableDetailBoxes')}>
         <Switch checked={promptSplitEnabled} onCheckedChange={setPromptSplitEnabled} />
       </Row>
-      <Row label={t('생성 지연 — {0}초', (delay / 1000).toFixed(1))} hint={t('연속 생성 간격')}>
+      <Row
+        label={t('ui.generationDelayValueS', (delay / 1000).toFixed(1))}
+        hint={t('ui.intervalBetweenConsecutiveGenerations')}
+      >
         <Slider
           className="w-44"
           min={0}
@@ -246,7 +250,7 @@ function GenerationSection(): React.JSX.Element {
           onValueCommit={([v]) => void window.nais.invoke('gen:setDelay', { ms: v })}
         />
       </Row>
-      <Row label={t('완료 알림음')} hint={t('큐가 다 끝나면 알림음 재생')}>
+      <Row label={t('ui.completionSound')} hint={t('ui.playAChimeWhenTheQueueFinishes')}>
         <Switch
           checked={alertSound}
           onCheckedChange={(v) => {
@@ -257,8 +261,8 @@ function GenerationSection(): React.JSX.Element {
         />
       </Row>
       <Row
-        label={t('완료 알림 (시스템)')}
-        hint={t('다른 창을 보고 있을 때 macOS/Windows 알림 표시')}
+        label={t('ui.completionNotificationSystem')}
+        hint={t('ui.showAMacosWindowsNotificationWhenAnotherWindowIsFocused')}
       >
         <Switch
           checked={alertNative}
@@ -313,12 +317,12 @@ function SaveDirRow({
             if (r.dir) refresh()
           }}
         >
-          <FolderOpen size={14} /> {t('변경')}
+          <FolderOpen size={14} /> {t('ui.change')}
         </Button>
         {!isDefault && (
           <Button
             variant="ghost"
-            title={t('기본 폴더로')}
+            title={t('ui.resetToDefaultFolder')}
             onClick={async () => {
               await window.nais.invoke('settings:resetSaveDir', { target })
               refresh()
@@ -358,10 +362,8 @@ function StorageSection(): React.JSX.Element {
     <div className="flex flex-col gap-3">
       <div className="-mb-1 divide-y divide-line">
         <Row
-          label={t('자동 저장')}
-          hint={t(
-            '끄면 메인 생성을 파일로 저장하지 않음 (히스토리에 최근 20장만 임시 보관) · 씬 모드는 항상 저장'
-          )}
+          label={t('ui.autoSave')}
+          hint={t('ui.whenOffMainGenerationsAreNotSavedToFilesHistoryKeepsOnlyTheLast28457b8e')}
         >
           <Switch
             checked={autoSave}
@@ -371,7 +373,10 @@ function StorageSection(): React.JSX.Element {
             }}
           />
         </Row>
-        <Row label={t('날짜별 폴더')} hint={t('메인 저장 폴더 안을 YYYY-MM으로 정리')}>
+        <Row
+          label={t('ui.dateFolders')}
+          hint={t('ui.organizeTheMainSaveFolderIntoYyyyMmSubfolders')}
+        >
           <Switch
             checked={dateFolders}
             onCheckedChange={(v) => {
@@ -381,8 +386,8 @@ function StorageSection(): React.JSX.Element {
           />
         </Row>
         <Row
-          label={t('히스토리 삭제 시 파일도 삭제')}
-          hint={t('끄면 기록만 지우고 저장된 파일은 보존')}
+          label={t('ui.alsoDeleteFilesWhenDeletingHistory')}
+          hint={t('ui.whenOffOnlyTheHistoryEntryIsRemovedAndSavedFilesAreKept')}
         >
           <Switch
             checked={historyDeleteFile}
@@ -395,7 +400,7 @@ function StorageSection(): React.JSX.Element {
             }}
           />
         </Row>
-        <Row label={t('이미지 포맷')} hint={t('WEBP는 용량이 더 작음')}>
+        <Row label={t('ui.imageFormat')} hint={t('ui.webpFilesAreSmaller')}>
           <Select
             value={format}
             onValueChange={(v) => {
@@ -415,19 +420,19 @@ function StorageSection(): React.JSX.Element {
       </div>
       <SaveDirRow
         target="main"
-        label={t('메인 저장 폴더')}
-        hint={t('일반 생성 이미지가 이 폴더에 바로 쌓임')}
+        label={t('ui.mainSaveFolder')}
+        hint={t('ui.regularGenerationsAreSavedDirectlyIntoThisFolder')}
       />
       <SaveDirRow
         target="scene"
-        label={t('씬 저장 폴더')}
-        hint={t('이 폴더 아래 프리셋/씬 이름으로 정리됨')}
+        label={t('ui.sceneSaveFolder')}
+        hint={t('ui.organizedUnderThisFolderByPresetSceneName')}
       />
 
       <div className="mt-1 border-t border-line pt-3">
-        <p className="text-[13px] text-ink">{t('데이터 백업')}</p>
+        <p className="text-[13px] text-ink">{t('ui.dataBackup')}</p>
         <p className="mt-0.5 text-[11.5px] text-faint">
-          {t('라이브러리 전체 JSON (NAIS2 백업 호환)')}
+          {t('ui.fullLibraryJsonNais2BackupCompatible')}
         </p>
         <BackupButtons />
       </div>
@@ -444,28 +449,28 @@ function BackupButtons(): React.JSX.Element {
         className="gap-1.5"
         onClick={async () => {
           const r = await window.nais.invoke('backup:export', undefined)
-          if (r.saved) toast(t('내보내기 완료'), 'success')
+          if (r.saved) toast(t('ui.exportComplete'), 'success')
         }}
       >
-        <Upload size={14} /> {t('내보내기')}
+        <Upload size={14} /> {t('ui.export')}
       </Button>
       <Button
         variant="default"
         className="gap-1.5"
         onClick={async () => {
-          const ok = await askConfirm(t('데이터 불러오기'), {
-            message: t('데이터 불러오기로 기존 데이터가 유실될 수 있습니다. 계속할까요?'),
-            confirmLabel: t('불러오기'),
+          const ok = await askConfirm(t('ui.importData'), {
+            message: t('ui.importingDataMayOverwriteExistingDataContinue'),
+            confirmLabel: t('ui.import'),
             danger: true
           })
           if (!ok) return
           const r = await window.nais.invoke('backup:import', undefined)
           if ('canceled' in r) return
           if ('error' in r) {
-            toast(t('가져오기 오류: {0}', r.error), 'error')
+            toast(t('ui.importErrorValue', r.error), 'error')
             return
           }
-          toast(t(r.summary), 'success')
+          toast(r.summary, 'success')
           // 관련 스토어 새로고침
           void useCharactersStore.getState().load()
           void useFragmentsStore.getState().load()
@@ -477,7 +482,7 @@ function BackupButtons(): React.JSX.Element {
           if (r.needsPromptReload) void useGenerationStore.getState().hydrate()
         }}
       >
-        <Download size={14} /> {t('불러오기')}
+        <Download size={14} /> {t('ui.import')}
       </Button>
     </div>
   )
@@ -510,9 +515,9 @@ function ShortcutsSection(): React.JSX.Element {
   return (
     <div className="flex flex-col gap-1">
       <div className="mb-1 flex items-center justify-between">
-        <p className="text-[11.5px] text-faint">{t('항목을 클릭하고 새 키 조합을 누르세요.')}</p>
+        <p className="text-[11.5px] text-faint">{t('ui.clickAnItemThenPressANewKeyCombination')}</p>
         <Button size="sm" variant="ghost" className="gap-1" onClick={resetDefaults}>
-          <RotateCcw size={12} /> {t('기본값')}
+          <RotateCcw size={12} /> {t('ui.defaults')}
         </Button>
       </div>
       <div className="divide-y divide-line">
@@ -528,7 +533,7 @@ function ShortcutsSection(): React.JSX.Element {
                   : 'border-line bg-surface-2/60 text-muted hover:text-ink'
               )}
             >
-              {recording === action ? t('키 입력…') : formatCombo(bindings[action])}
+              {recording === action ? t('ui.pressKeys') : formatCombo(bindings[action])}
             </button>
           </div>
         ))}
@@ -592,13 +597,13 @@ function AccountSection(): React.JSX.Element {
       if (result.subscription) {
         useGenerationStore.getState().setSubscriptionTier(result.subscription.tier)
       }
-      setMessage(t('계정 추가됨 — {0}', result.subscription?.tier ?? '?'))
+      setMessage(t('ui.accountAddedValue', result.subscription?.tier ?? '?'))
       setDraft('')
       setLabel('')
       refresh()
     } else {
       setStatus('fail')
-      setMessage(t(result.error ?? '토큰 검증 실패'))
+      setMessage(result.error ?? t('ui.tokenValidationFailed'))
     }
   }
 
@@ -620,9 +625,9 @@ function AccountSection(): React.JSX.Element {
   }
 
   async function removeAccount(account: NaiAccountInfo): Promise<void> {
-    const ok = await askConfirm(t('“{0}” 계정을 삭제할까요?', account.label), {
-      message: t('저장된 API 토큰만 삭제되며 NovelAI 계정 자체에는 영향이 없습니다.'),
-      confirmLabel: t('삭제'),
+    const ok = await askConfirm(t('ui.deleteAccountValue', account.label), {
+      message: t('ui.onlyTheSavedApiTokenIsDeletedYourNovelaiAccountItselfIsUnaffected'),
+      confirmLabel: t('ui.delete'),
       danger: true
     })
     if (!ok) return
@@ -655,11 +660,9 @@ function AccountSection(): React.JSX.Element {
   return (
     <div className="flex min-h-full min-w-0 flex-col gap-3 overflow-x-hidden">
       <div className="min-w-0">
-        <p className="text-[13px] text-ink">{t('NAI 계정')}</p>
+        <p className="text-[13px] text-ink">{t('ui.naiAccount')}</p>
         <p className="mt-0.5 text-[11.5px] text-faint">
-          {t(
-            '토큰은 OS 키체인으로 암호화됩니다. V5 게이지가 0%가 되면 다음 Opus 계정으로 자동 전환합니다.'
-          )}
+          {t('ui.tokensAreEncryptedWithTheOsKeychainWhenTheV5GaugeReaches0TheNextfc0344e')}
         </p>
       </div>
 
@@ -667,7 +670,7 @@ function AccountSection(): React.JSX.Element {
         <Input
           className="w-28 shrink-0"
           value={label}
-          placeholder={t('계정 {0}', accounts.length + 1)}
+          placeholder={t('ui.accountValue', accounts.length + 1)}
           maxLength={60}
           onChange={(e) => setLabel(e.target.value)}
         />
@@ -684,7 +687,7 @@ function AccountSection(): React.JSX.Element {
           onKeyDown={(e) => e.key === 'Enter' && void addAccount()}
         />
         <Button variant="accent" disabled={status === 'checking'} onClick={() => void addAccount()}>
-          {status === 'checking' ? t('확인 중…') : t('추가')}
+          {status === 'checking' ? t('ui.checking') : t('ui.add')}
         </Button>
       </div>
       {status === 'ok' && <span className="text-[12px] text-accent">{message}</span>}
@@ -693,7 +696,7 @@ function AccountSection(): React.JSX.Element {
       <div className="min-w-0 space-y-1.5">
         {accounts.length === 0 ? (
           <div className="rounded-lg border border-dashed border-line p-4 text-center text-[11.5px] text-faint">
-            {t('등록된 계정이 없습니다.')}
+            {t('ui.noAccountsRegistered')}
           </div>
         ) : (
           accounts.map((account) => {
@@ -715,11 +718,11 @@ function AccountSection(): React.JSX.Element {
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="min-w-0 truncate text-[12.5px] font-medium text-ink">
-                      {t(account.label)}
+                      {account.label}
                     </span>
                     {account.active && (
                       <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[9.5px] text-accent">
-                        {t('사용 중')}
+                        {t('ui.active')}
                       </span>
                     )}
                     {account.tier && (
@@ -732,19 +735,19 @@ function AccountSection(): React.JSX.Element {
                   <p className="mt-1 text-[10.5px] text-muted">
                     {account.tier === 'opus'
                       ? percent === null
-                        ? t('V5 게이지 확인 불가')
+                        ? t('ui.v5GaugeUnavailable')
                         : account.usage?.isNegative
-                          ? t('V5 {0}% · 소진', percent)
+                          ? t('ui.v5ValueDepleted', percent)
                           : `V5 ${percent}%`
                       : account.tier
                         ? `Anlas ${account.anlas?.toLocaleString() ?? '—'}`
-                        : t('상태 확인 불가')}
+                        : t('ui.statusUnavailable')}
                   </p>
                 </button>
                 <Button
                   size="icon"
                   variant="ghost"
-                  title={revealed[account.id] ? t('토큰 숨기기') : t('토큰 보기')}
+                  title={revealed[account.id] ? t('ui.hideToken') : t('ui.showToken')}
                   onClick={() => void toggleReveal(account.id)}
                 >
                   {revealed[account.id] ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -754,7 +757,7 @@ function AccountSection(): React.JSX.Element {
                   variant="ghost"
                   className="hover:text-danger"
                   disabled={busyId !== null}
-                  title={t('계정 삭제')}
+                  title={t('ui.deleteAccount')}
                   onClick={() => void removeAccount(account)}
                 >
                   <Trash2 size={14} />
@@ -773,7 +776,7 @@ function AccountSection(): React.JSX.Element {
                 size={13}
                 className={opusUsage?.isNegative ? 'text-danger' : 'text-accent'}
               />
-              {t('V5 사용량')}
+              {t('ui.v5Usage')}
             </p>
             <span className="font-mono text-[15px] text-ink">
               {opusUsage ? `${displayOpusUsagePercent(opusUsage)}%` : '—'}
@@ -801,13 +804,13 @@ function AccountSection(): React.JSX.Element {
             {opusUsage
               ? opusUsage.isNegative
                 ? accounts.length > 1
-                  ? t('소진됨 · 다음 V5 생성 전에 사용 가능한 계정으로 전환합니다.')
-                  : t('소진됨 · 충전될 때까지 V5 생성에 Anlas를 사용합니다.')
+                  ? t('ui.depletedWillSwitchToAnAvailableAccountBeforeTheNextV5Generation')
+                  : t('ui.depletedV5GenerationsWillUseAnlasUntilItRecharges')
                 : t(
-                    '다음 1%까지 약 {0}시간',
+                    'ui.aboutValueHUntilTheNext1',
                     Math.max(0, opusUsage.timeUntilNextPercent / 3600).toFixed(1)
                   )
-              : t('사용량을 확인하고 있습니다.')}
+              : t('ui.checkingUsage')}
           </p>
         </div>
       )}
@@ -822,19 +825,19 @@ function AccountSection(): React.JSX.Element {
             <p className="font-mono text-[15px] text-ink">
               {anlasBalance !== null ? anlasBalance.toLocaleString() : '—'}
             </p>
-            <p className="text-[10.5px] text-faint">{t('현재 잔액')}</p>
+            <p className="text-[10.5px] text-faint">{t('ui.currentBalance')}</p>
           </div>
           <div>
             <p className="font-mono text-[15px] text-ink">
               {usage ? usage.today.toLocaleString() : '—'}
             </p>
-            <p className="text-[10.5px] text-faint">{t('오늘 사용')}</p>
+            <p className="text-[10.5px] text-faint">{t('ui.usedToday')}</p>
           </div>
           <div>
             <p className="font-mono text-[15px] text-ink">
               {usage ? usage.week.toLocaleString() : '—'}
             </p>
-            <p className="text-[10.5px] text-faint">{t('최근 7일')}</p>
+            <p className="text-[10.5px] text-faint">{t('ui.last7Days')}</p>
           </div>
         </div>
       </div>
@@ -859,22 +862,22 @@ function AboutSection(): React.JSX.Element {
       {/* 로고(흰색)라 라이트 모드에선 invert로 어둡게 */}
       <img src={nais3Logo} className="h-9 w-auto self-start dark:invert-0 invert" alt="NAIS3" />
       <p className="mt-1">NovelAI Image Studio 3</p>
-      <p className="font-mono text-[11.5px] text-faint">{t('버전 {0}', version || '…')}</p>
+      <p className="font-mono text-[11.5px] text-faint">{t('ui.versionValue', version || '…')}</p>
 
       {/* 업데이트 상태 */}
       <div className="mt-1">
         {updateStatus === 'available' ? (
           <Button variant="accent" className="gap-1.5" onClick={startUpdate}>
-            <Download size={14} /> {t('새 버전 {0} 업데이트', updateVersion ?? '')}
+            <Download size={14} /> {t('ui.updateToVersionValue', updateVersion ?? '')}
           </Button>
         ) : updateStatus === 'downloading' ? (
           <span className="text-[12px] text-accent">
-            {t('업데이트 다운로드 중 {0}%…', updatePercent)}
+            {t('ui.downloadingUpdateValue', updatePercent)}
           </span>
         ) : updateStatus === 'downloaded' ? (
-          <span className="text-[12px] text-accent">{t('업데이트 설치 — 곧 재시작됩니다')}</span>
+          <span className="text-[12px] text-accent">{t('ui.installingUpdateRestartingSoon')}</span>
         ) : (
-          <span className="text-[12px] text-faint">{t('최신 버전입니다')}</span>
+          <span className="text-[12px] text-faint">{t('ui.youReOnTheLatestVersion')}</span>
         )}
       </div>
 
@@ -921,7 +924,7 @@ export function SettingsDialog({
         aria-describedby={undefined}
         className="grid h-[62vh] max-w-[640px] grid-rows-[1fr] gap-0 overflow-hidden p-0"
       >
-        <DialogTitle className="sr-only">{t('설정')}</DialogTitle>
+        <DialogTitle className="sr-only">{t('ui.settings')}</DialogTitle>
         <Tabs
           value={section}
           onValueChange={(v) => setSection(v as SectionId)}
@@ -949,7 +952,7 @@ export function SettingsDialog({
             {/* 헤더 — 섹션명. 우측 상단 X가 이 영역 위에 놓여 본문과 겹치지 않는다 */}
             <div className="flex shrink-0 items-center border-b border-line px-6 py-3.5">
               <h2 className="text-[14px] font-semibold text-ink">
-                {t(NAV.find((n) => n.id === section)?.label ?? '')}
+                {t(NAV.find((n) => n.id === section)?.label ?? 'ui.settings')}
               </h2>
             </div>
             <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-5 no-scrollbar">

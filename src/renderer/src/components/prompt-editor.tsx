@@ -326,7 +326,7 @@ export function PromptEditor({
         style={{ caretColor: 'var(--ink)' }}
         spellCheck={false}
         value={value}
-        placeholder={placeholder ? t(placeholder) : undefined}
+        placeholder={placeholder}
         onChange={(e) => {
           onValueChange(e.target.value)
           refreshSuggestions(e.target.value, e.target.selectionStart)
@@ -368,7 +368,7 @@ export function PromptEditor({
           <input
             ref={findInputRef}
             className="w-28 bg-transparent font-mono text-[12px] text-ink outline-none placeholder:font-sans placeholder:text-faint"
-            placeholder={t('찾기')}
+            placeholder={t('ui.find')}
             value={query}
             onChange={(e) => {
               setQuery(e.target.value)
@@ -392,7 +392,7 @@ export function PromptEditor({
           </span>
           <button
             className="grid size-5 shrink-0 place-items-center rounded text-faint hover:bg-surface-2 hover:text-ink disabled:opacity-30"
-            title={t('이전 (Shift+Enter)')}
+            title={t('ui.previousShiftEnter')}
             disabled={hits.length === 0}
             onClick={() => step(-1)}
           >
@@ -400,7 +400,7 @@ export function PromptEditor({
           </button>
           <button
             className="grid size-5 shrink-0 place-items-center rounded text-faint hover:bg-surface-2 hover:text-ink disabled:opacity-30"
-            title={t('다음 (Enter)')}
+            title={t('ui.nextEnter')}
             disabled={hits.length === 0}
             onClick={() => step(1)}
           >
@@ -408,7 +408,7 @@ export function PromptEditor({
           </button>
           <button
             className="grid size-5 shrink-0 place-items-center rounded text-faint hover:bg-surface-2 hover:text-ink"
-            title={t('닫기 (Esc)')}
+            title={t('ui.closeEsc')}
             onClick={closeFind}
           >
             <X size={13} />
@@ -424,8 +424,12 @@ export function PromptEditor({
           )}
           title={
             tokens > tokenLimit
-              ? t('한도 초과 — {0}/{1} 토큰. 초과분은 잘려서 반영되지 않습니다', tokens, tokenLimit)
-              : t('{0}/{1} 토큰', tokens, tokenLimit)
+              ? t(
+                  'ui.overTheLimitValueValueTokensTheExcessIsCutOffAndNotApplied',
+                  tokens,
+                  tokenLimit
+                )
+              : t('ui.valueValueTokens', tokens, tokenLimit)
           }
         >
           {tokens}/{tokenLimit}

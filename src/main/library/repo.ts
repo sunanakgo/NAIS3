@@ -129,9 +129,9 @@ export function reorderImages(ids: number[]): void {
 export async function importViaDialog(stackId: number | null): Promise<number> {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
   const result = await dialog.showOpenDialog(win, {
-    title: t('라이브러리에 이미지 추가'),
+    title: t('ui.addImagesToLibrary'),
     properties: ['openFile', 'multiSelections'],
-    filters: [{ name: t('이미지'), extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
+    filters: [{ name: t('ui.image'), extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
   })
   if (result.canceled) return 0
   return importPaths(result.filePaths, stackId)
@@ -207,7 +207,7 @@ export async function exportImages(ids: number[], prefix?: string): Promise<numb
   if (ids.length === 0) return 0
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
   const result = await dialog.showOpenDialog(win, {
-    title: t('내보낼 폴더 선택'),
+    title: t('ui.chooseExportFolder'),
     properties: ['openDirectory', 'createDirectory']
   })
   if (result.canceled || !result.filePaths[0]) return 0

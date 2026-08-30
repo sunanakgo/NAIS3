@@ -278,7 +278,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   startInpaintFromPath: async (filePath) => {
     const res = await window.nais.invoke('images:readForSource', { filePath })
     if ('error' in res) {
-      toast(t(res.error), 'error')
+      toast(res.error, 'error')
       return
     }
     set({ inpaintTarget: { base64: res.base64, width: res.width, height: res.height } })
@@ -360,8 +360,8 @@ export function bindGenerationEvents(): () => void {
     if (errs.length === 0) return
     const uniq = [...new Set(errs)]
     if (errs.length === 1) toast(errs[0], 'error')
-    else if (uniq.length === 1) toast(t('{0}장 생성 실패 — {1}', errs.length, uniq[0]), 'error')
-    else toast(t('{0}장 생성 실패 (사유 {1}종)', errs.length, uniq.length), 'error')
+    else if (uniq.length === 1) toast(t('ui.valueImagesFailedValue', errs.length, uniq[0]), 'error')
+    else toast(t('ui.valueImagesFailedValueDistinctErrors', errs.length, uniq.length), 'error')
   }
   const reportFailure = (msg: string): void => {
     failBuffer.push(msg)
@@ -406,13 +406,13 @@ export function bindGenerationEvents(): () => void {
     const prevFailed = new Set(prev?.items.filter((i) => i.state === 'failed').map((i) => i.id))
     for (const item of queue.items) {
       if (item.state === 'failed' && !prevFailed.has(item.id)) {
-        reportFailure(t(item.error ?? '생성 실패'))
+        reportFailure(item.error ?? t('ui.generationFailed'))
       }
     }
     // 전이성 오류로 자동 재시도 중이면 배치당 한 번만 안내 (에러 토스트 대신)
     if (queue.items.some((i) => i.retrying) && !retryNoticeShown) {
       retryNoticeShown = true
-      toast(t('요청이 몰려 잠시 후 자동으로 재시도합니다'), 'info')
+      toast(t('ui.tooManyRequestsRetryingAutomaticallyInAMoment'), 'info')
     }
     // 방금 완료된 항목이 있으면 히스토리 갱신 + 중앙에 표시 (고정 보기 중엔 보기 유지)
     const prevDone = new Set(prev?.items.filter((i) => i.state === 'done').map((i) => i.id))
@@ -460,7 +460,7 @@ export function bindGenerationEvents(): () => void {
   })
   const offAccount = window.nais.on('nai:accountChanged', ({ reason, label }) => {
     if (reason === 'rotation') {
-      toast(t('V5 게이지가 소진되어 {0}으로 전환했습니다', label ?? t('다음 계정')), 'info')
+      toast(t('ui.v5GaugeDepletedSwitchedToValue', label ?? t('ui.nextAccount')), 'info')
     }
   })
   // The server's usage percentage recharges while idle. Refresh periodically so an

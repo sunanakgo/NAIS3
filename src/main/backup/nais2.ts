@@ -129,7 +129,7 @@ export function importNais2(data: Obj): Nais2ImportResult {
     const ps = state(data, 'nais2-presets')
     const presets = (Array.isArray(ps.presets) ? (ps.presets as Obj[]) : [])
       .map((p) => ({
-        name: String(p.name ?? t('가져온 프리셋')),
+        name: String(p.name ?? t('ui.importedPreset')),
         prompt: mergePrompt(p.basePrompt, p.additionalPrompt, p.detailPrompt),
         negative: removeComments(String(p.negativePrompt ?? '')).trim(),
         params: nais2PresetParams(p)
@@ -198,7 +198,7 @@ export function importNais2(data: Obj): Nais2ImportResult {
     if (Array.isArray(sc.presets)) {
       for (const p of sc.presets as Obj[]) {
         const scenes = (Array.isArray(p.scenes) ? (p.scenes as Obj[]) : []).map((s) => ({
-          name: String(s.name ?? t('씬')),
+          name: String(s.name ?? t('ui.scene')),
           prompt: String(s.scenePrompt ?? ''),
           width: Number(s.width) || 832,
           height: Number(s.height) || 1216
@@ -212,7 +212,7 @@ export function importNais2(data: Obj): Nais2ImportResult {
         const presetId = Number(
           db
             .prepare('INSERT INTO scene_presets (name, sort_order) VALUES (?, ?)')
-            .run(String(p.name ?? t('가져온 씬')), maxOrder + 1).lastInsertRowid
+            .run(String(p.name ?? t('ui.importedScenes')), maxOrder + 1).lastInsertRowid
         )
         scenes.forEach((s, i) => {
           db.prepare(

@@ -1,17 +1,18 @@
 import { Globe, Image, LayoutGrid, Library, Wand2, type LucideIcon } from 'lucide-react'
 import { motion } from 'motion/react'
+import type { MessageId } from '@shared/i18n'
 import { cn } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { useLayoutStore } from '../stores/layout-store'
 
 type Page = 'main' | 'scene' | 'director' | 'library' | 'websearch'
 
-const PAGES: { id: Page; label: string; icon: LucideIcon }[] = [
-  { id: 'main', label: '메인', icon: Image },
-  { id: 'scene', label: '씬', icon: LayoutGrid },
-  { id: 'director', label: '디렉터', icon: Wand2 },
-  { id: 'library', label: '라이브러리', icon: Library },
-  { id: 'websearch', label: '웹', icon: Globe }
+const PAGES: { id: Page; label: MessageId; icon: LucideIcon }[] = [
+  { id: 'main', label: 'ui.main', icon: Image },
+  { id: 'scene', label: 'ui.scene', icon: LayoutGrid },
+  { id: 'director', label: 'ui.director', icon: Wand2 },
+  { id: 'library', label: 'ui.library', icon: Library },
+  { id: 'websearch', label: 'ui.web', icon: Globe }
 ]
 
 /**

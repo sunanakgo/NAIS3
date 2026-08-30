@@ -34,20 +34,20 @@ export function SourceBanner(): React.JSX.Element | null {
       <div className="flex h-9 shrink-0 items-center gap-2 border-b border-line bg-surface-2/50 px-2.5">
         <Icon size={15} className={className} />
         <span className="text-[12.5px] font-medium text-ink">
-          {isInpaint ? t('인페인트 모드') : t('I2I 모드')}
+          {isInpaint ? t('ui.inpaintMode') : t('ui.i2iMode')}
         </span>
         <div className="flex-1" />
         {/* 마스크 재편집 (NAIS2와 동일 위치 — X 왼쪽). 기존에 칠한 영역을 그대로 불러와 다듬는다 */}
         <button
           className="grid size-6 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-ink"
-          title={isInpaint ? t('마스크 다시 편집') : t('마스크를 그려 인페인트로 전환')}
+          title={isInpaint ? t('ui.editMaskAgain') : t('ui.drawAMaskToSwitchToInpaint')}
           onClick={editSourceMask}
         >
           <Pencil size={14} />
         </button>
         <button
           className="grid size-6 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-ink"
-          title={t('소스 해제')}
+          title={t('ui.clearSource')}
           onClick={() => setSource(null)}
         >
           <X size={15} />

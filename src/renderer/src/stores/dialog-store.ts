@@ -45,7 +45,7 @@ export const useDialogStore = create<DialogState>((set, get) => ({
         confirm: {
           title,
           message: opts?.message,
-          confirmLabel: opts?.confirmLabel ?? t('확인'),
+          confirmLabel: opts?.confirmLabel ?? t('ui.ok'),
           danger: opts?.danger ?? false,
           resolve
         }

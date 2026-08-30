@@ -148,12 +148,12 @@ export const useCharactersStore = create<CharactersState>((set, get) => ({
     for (let i = 0; i < Math.min(chars.length, maxCharacters); i++) {
       const ch = chars[i]
       const { id } = await window.nais.invoke('chars:create', {
-        name: t('가져온 캐릭터 {0}', i + 1),
+        name: t('ui.importedCharacterValue', i + 1),
         folderId: null
       })
       const card: CharacterCard = {
         id,
-        name: t('가져온 캐릭터 {0}', i + 1),
+        name: t('ui.importedCharacterValue', i + 1),
         prompt: ch.prompt,
         negativePrompt: ch.negativePrompt,
         thumbnail: '',

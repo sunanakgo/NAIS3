@@ -119,7 +119,7 @@ export function duplicateCharacter(id: number): number {
        SELECT name || ?, prompt, negative_prompt, folder, thumbnail, settings_json, 0, center_x, center_y, folder_id, ?
        FROM character_prompts WHERE id = ?`
     )
-    .run(` ${t('복사')}`, max + 1, id)
+    .run(` ${t('ui.copy')}`, max + 1, id)
   return Number(info.lastInsertRowid)
 }
 
@@ -186,9 +186,9 @@ export function deleteFolder(id: number): void {
 export async function pickCharacterThumbnail(id: number): Promise<string | null> {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
   const result = await dialog.showOpenDialog(win, {
-    title: t('캐릭터 이미지 선택'),
+    title: t('ui.chooseCharacterImage'),
     properties: ['openFile'],
-    filters: [{ name: t('이미지'), extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }]
+    filters: [{ name: t('ui.image'), extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }]
   })
   if (result.canceled || result.filePaths.length === 0) return null
 

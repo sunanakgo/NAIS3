@@ -165,9 +165,9 @@ export function LibraryMode(): React.JSX.Element {
 
   async function confirmDelete(ids: number[]): Promise<void> {
     if (
-      await askConfirm(t('이미지 삭제'), {
-        message: t('{0}장을 라이브러리에서 삭제합니다. 복사본 파일도 함께 지워집니다.', ids.length),
-        confirmLabel: t('삭제'),
+      await askConfirm(t('ui.deleteImages'), {
+        message: t('ui.deletesValueImagesFromTheLibraryTheCopiedFilesWillBeRemovedToo', ids.length),
+        confirmLabel: t('ui.delete'),
         danger: true
       })
     )
@@ -222,14 +222,14 @@ export function LibraryMode(): React.JSX.Element {
         {currentStack ? (
           <>
             <Button size="sm" variant="ghost" className="gap-1" onClick={() => openStack(null)}>
-              <ArrowLeft size={15} /> {t('라이브러리')}
+              <ArrowLeft size={15} /> {t('ui.library')}
             </Button>
             <span className="text-[13.5px] font-semibold">{currentStack.name}</span>
             <button
               className="grid size-6 place-items-center rounded text-faint transition-colors hover:text-ink"
-              title={t('스택 이름 변경')}
+              title={t('ui.renameStack')}
               onClick={async () => {
-                const name = await askText(t('스택 이름'), currentStack.name)
+                const name = await askText(t('ui.stackName'), currentStack.name)
                 if (name) void renameStack(currentStack.id, name)
               }}
             >
@@ -239,7 +239,7 @@ export function LibraryMode(): React.JSX.Element {
         ) : (
           <>
             <Library size={15} className="text-accent" />
-            <span className="text-[13.5px] font-semibold">{t('라이브러리')}</span>
+            <span className="text-[13.5px] font-semibold">{t('ui.library')}</span>
           </>
         )}
         <span className="font-mono text-[11px] text-faint">{total}</span>
@@ -258,10 +258,10 @@ export function LibraryMode(): React.JSX.Element {
           }
           tip={
             cardOrientation === 'portrait'
-              ? t('세로 카드 (클릭: 가로)')
+              ? t('ui.portraitCardsClickLandscape')
               : cardOrientation === 'landscape'
-                ? t('가로 카드 (클릭: 정사각)')
-                : t('정사각 카드 (클릭: 세로)')
+                ? t('ui.landscapeCardsClickSquare')
+                : t('ui.squareCardsClickPortrait')
           }
           onClick={() =>
             setCardOrientation(
@@ -292,19 +292,19 @@ export function LibraryMode(): React.JSX.Element {
         {currentStack && (
           <IconBtn
             icon={<FileDown size={16} />}
-            tip={t('스택 전체 내보내기 ({0}_001…)', currentStack.name)}
+            tip={t('ui.exportEntireStackValue001', currentStack.name)}
             onClick={() => void exportStack(currentStack)}
           />
         )}
         <IconBtn
           icon={<CheckSquare size={16} />}
-          tip={t('편집 모드 (다중 선택)')}
+          tip={t('ui.editModeMultiSelect')}
           active={editMode}
           onClick={() => setEditMode(!editMode)}
         />
         <IconBtn
           icon={<Upload size={16} />}
-          tip={t('이미지 추가')}
+          tip={t('ui.addImages')}
           onClick={() => void importDialog()}
         />
       </div>
@@ -314,10 +314,8 @@ export function LibraryMode(): React.JSX.Element {
         {empty ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-faint">
             <ImagePlus size={44} strokeWidth={1.2} className="opacity-40" />
-            <p className="text-[14px] font-medium">{t('이미지를 추가하거나 드래그하세요')}</p>
-            <p className="text-[12px] opacity-60">
-              {t('히스토리 썸네일을 끌어다 놓을 수도 있어요')}
-            </p>
+            <p className="text-[14px] font-medium">{t('ui.addOrDragImagesHere')}</p>
+            <p className="text-[12px] opacity-60">{t('ui.youCanAlsoDropHistoryThumbnailsHere')}</p>
           </div>
         ) : (
           <DndContext
@@ -342,18 +340,18 @@ export function LibraryMode(): React.JSX.Element {
                       orientation={cardOrientation}
                       onOpen={() => openStack(stack)}
                       onRename={async () => {
-                        const name = await askText(t('스택 이름'), stack.name)
+                        const name = await askText(t('ui.stackName'), stack.name)
                         if (name) void renameStack(stack.id, name)
                       }}
                       onExport={() => void exportStack(stack)}
                       onUnstack={async () => {
                         if (
-                          await askConfirm(t('스택 해제'), {
+                          await askConfirm(t('ui.unstack'), {
                             message: t(
-                              '"{0}" 스택을 해제합니다. 이미지는 삭제되지 않고 미분류로 돌아갑니다.',
+                              'ui.unstackValueTheImagesAreNotDeletedAndReturnToUncategorized',
                               stack.name
                             ),
-                            confirmLabel: t('해제')
+                            confirmLabel: t('ui.clear')
                           })
                         )
                           void deleteStack(stack.id)
@@ -380,12 +378,13 @@ export function LibraryMode(): React.JSX.Element {
                         <ContextMenuSeparator />
                         {currentStack ? (
                           <ContextMenuItem onSelect={() => void moveToStack(idsWith(img.id), null)}>
-                            <Ungroup size={13} className="text-orange-400" /> {t('스택에서 빼기')}
+                            <Ungroup size={13} className="text-orange-400" />{' '}
+                            {t('ui.removeFromStack')}
                           </ContextMenuItem>
                         ) : (
                           <ContextMenuSub>
                             <ContextMenuSubTrigger>
-                              <Layers size={13} className="text-cyan-400" /> {t('스택에 추가')}
+                              <Layers size={13} className="text-cyan-400" /> {t('ui.addToStack')}
                             </ContextMenuSubTrigger>
                             <ContextMenuSubContent>
                               {stacks.map((s) => (
@@ -399,11 +398,15 @@ export function LibraryMode(): React.JSX.Element {
                               {stacks.length > 0 && <ContextMenuSeparator />}
                               <ContextMenuItem
                                 onSelect={async () => {
-                                  const name = await askText(t('스택 이름'), '', t('예: 표지 후보'))
+                                  const name = await askText(
+                                    t('ui.stackName'),
+                                    '',
+                                    t('ui.eGCoverCandidates')
+                                  )
                                   if (name) void createStackWith(name, idsWith(img.id))
                                 }}
                               >
-                                <Plus size={13} /> {t('새 스택…')}
+                                <Plus size={13} /> {t('ui.newStack')}
                               </ContextMenuItem>
                             </ContextMenuSubContent>
                           </ContextMenuSub>
@@ -442,12 +445,12 @@ export function LibraryMode(): React.JSX.Element {
       {/* 편집 모드 일괄 작업 바 */}
       {editMode && (
         <div className="flex items-center gap-2 border-t border-line bg-surface-2/60 px-3 py-2">
-          <span className="text-[12.5px] text-muted">{t('{0}개 선택', selection.size)}</span>
+          <span className="text-[12.5px] text-muted">{t('ui.valueSelected', selection.size)}</span>
           <Button size="sm" variant="ghost" onClick={selectAll}>
-            {t('전체 선택')}
+            {t('ui.selectAll')}
           </Button>
           <Button size="sm" variant="ghost" onClick={clearSelection}>
-            {t('선택 해제')}
+            {t('ui.deselectAll')}
           </Button>
           <div className="flex-1" />
           {currentStack ? (
@@ -458,7 +461,7 @@ export function LibraryMode(): React.JSX.Element {
               disabled={selection.size === 0}
               onClick={() => void unstackSelected()}
             >
-              <Ungroup size={13} /> {t('스택에서 빼기')}
+              <Ungroup size={13} /> {t('ui.removeFromStack')}
             </Button>
           ) : (
             <Button
@@ -467,11 +470,11 @@ export function LibraryMode(): React.JSX.Element {
               className="gap-1"
               disabled={selection.size < 2}
               onClick={async () => {
-                const name = await askText(t('스택 이름'), '', t('예: 표지 후보'))
+                const name = await askText(t('ui.stackName'), '', t('ui.eGCoverCandidates'))
                 if (name) void stackSelected(name)
               }}
             >
-              <Layers size={13} /> {t('스택 만들기')}
+              <Layers size={13} /> {t('ui.createStack')}
             </Button>
           )}
           <Button
@@ -479,10 +482,10 @@ export function LibraryMode(): React.JSX.Element {
             variant="ghost"
             className="gap-1"
             disabled={selection.size === 0}
-            title={t('선택한 이미지를 배치된 순서대로 001, 002… 파일명으로 폴더에 복사')}
+            title={t('ui.copyTheSelectedImagesToAFolderNamed001002InTheirArrangedOrder')}
             onClick={() => void exportSelected()}
           >
-            <FileDown size={13} /> {t('내보내기')}
+            <FileDown size={13} /> {t('ui.export')}
           </Button>
           <Button
             size="sm"
@@ -491,7 +494,7 @@ export function LibraryMode(): React.JSX.Element {
             disabled={selection.size === 0}
             onClick={() => void confirmDelete([...selection])}
           >
-            <Trash2 size={13} /> {t('삭제')}
+            <Trash2 size={13} /> {t('ui.delete')}
           </Button>
         </div>
       )}
@@ -499,9 +502,9 @@ export function LibraryMode(): React.JSX.Element {
       <DropOverlay
         show={dragOver}
         icon={ImagePlus}
-        label={t('여기 놓으면 라이브러리에 추가합니다')}
+        label={t('ui.dropHereToAddToTheLibrary')}
         sub={
-          currentStack ? t('"{0}" 스택에 추가', currentStack.name) : t('복사본으로 안전하게 보관')
+          currentStack ? t('ui.addToValueStack', currentStack.name) : t('ui.safelyStoredAsCopies')
         }
       />
 
@@ -637,14 +640,14 @@ function StackCard({
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onSelect={onRename}>
-          <Pencil size={13} /> {t('이름 변경')}
+          <Pencil size={13} /> {t('ui.rename')}
         </ContextMenuItem>
         <ContextMenuItem onSelect={onExport}>
-          <FileDown size={13} /> {t('내보내기 ({0}_001…)', stack.name)}
+          <FileDown size={13} /> {t('ui.exportValue001', stack.name)}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem danger onSelect={onUnstack}>
-          <Ungroup size={13} /> {t('스택 해제 (이미지는 유지)')}
+          <Ungroup size={13} /> {t('ui.unstackKeepsImages')}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

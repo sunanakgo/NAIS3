@@ -160,7 +160,7 @@ function FolderRowInner({
               size="sm"
               variant="ghost"
               className="h-7 w-7 p-0"
-              title={t('이 폴더에 추가')}
+              title={t('ui.addToThisFolder')}
               onClick={() => actions.addItem(folder.id)}
             >
               <Plus size={14} />
@@ -171,7 +171,7 @@ function FolderRowInner({
                   size="sm"
                   variant="ghost"
                   className="h-7 w-7 p-0"
-                  title={t('폴더 색상')}
+                  title={t('ui.folderColor')}
                   onPointerDown={(e) => e.stopPropagation()}
                 >
                   <Palette size={13} />
@@ -181,7 +181,7 @@ function FolderRowInner({
                 <div className="flex items-center gap-1">
                   <button
                     className="grid size-6 place-items-center rounded-md border border-line text-faint hover:text-ink"
-                    title={t('색 없음')}
+                    title={t('ui.noColor')}
                     onClick={() => actions.setColor(folder.id, null)}
                   >
                     <X size={13} />
@@ -204,7 +204,7 @@ function FolderRowInner({
               size="sm"
               variant="ghost"
               className="h-7 w-7 p-0"
-              title={t('이름 수정')}
+              title={t('ui.rename.d3f4cb8')}
               onClick={() => setEditing(true)}
             >
               <Pencil size={13} />
@@ -213,7 +213,7 @@ function FolderRowInner({
               size="sm"
               variant="ghost"
               className="h-7 w-7 p-0 hover:text-danger"
-              title={t('폴더 삭제 (항목은 미분류로)')}
+              title={t('ui.deleteFolderItemsBecomeUncategorized')}
               onClick={() => actions.remove(folder.id)}
             >
               <Trash2 size={13} />
@@ -223,7 +223,7 @@ function FolderRowInner({
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onSelect={() => actions.addItem(folder.id)}>
-          <Plus size={13} /> {t('이 폴더에 추가')}
+          <Plus size={13} /> {t('ui.addToThisFolder')}
         </ContextMenuItem>
         <ContextMenuItem
           onSelect={() => {
@@ -231,11 +231,11 @@ function FolderRowInner({
             setTimeout(() => setEditing(true), 0)
           }}
         >
-          <Pencil size={13} /> {t('이름 변경')}
+          <Pencil size={13} /> {t('ui.rename')}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem danger onSelect={() => actions.remove(folder.id)}>
-          <Trash2 size={13} /> {t('폴더 삭제 (항목은 미분류로)')}
+          <Trash2 size={13} /> {t('ui.deleteFolderItemsBecomeUncategorized')}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
@@ -256,7 +256,7 @@ function DividerRow(): React.JSX.Element {
       className="flex items-center gap-2 py-0.5"
     >
       <div className="h-px flex-1 bg-line" />
-      <span className="text-[10.5px] text-faint">{t('미분류')}</span>
+      <span className="text-[10.5px] text-faint">{t('ui.uncategorized')}</span>
       <div className="h-px flex-1 bg-line" />
     </div>
   )
@@ -429,7 +429,6 @@ export function FolderListView<T extends FolderListItem>({
   /** render 콜백이 item·expanded 외에 의존하는 외부 상태 — 바뀌면 memo된 카드 전체를 리렌더 */
   renderKey?: unknown
 }): React.JSX.Element {
-  const t = useT()
   const grid = renderTile != null && columns != null
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   // 폴더 드래그 중엔 소속 카드를 임시로 접는다 — "따라오는지 애매한" UX 제거
@@ -460,7 +459,7 @@ export function FolderListView<T extends FolderListItem>({
   }
 
   if (visible.length === 0) {
-    return <p className="mt-8 text-center text-[12px] text-faint">{t(emptyText)}</p>
+    return <p className="mt-8 text-center text-[12px] text-faint">{emptyText}</p>
   }
 
   return (

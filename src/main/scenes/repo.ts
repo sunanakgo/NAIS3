@@ -214,7 +214,7 @@ export function duplicateScene(id: number): number {
       )
       .run(
         s.preset_id,
-        t('{0} 복제', s.name),
+        t('ui.valueCopy', s.name),
         s.prompt,
         s.negative_prompt,
         s.width,
@@ -476,7 +476,7 @@ export async function exportScenesJson(presetId: number): Promise<boolean> {
     .all(presetId) as Row[]
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
   const result = await dialog.showSaveDialog(win, {
-    title: t('씬 내보내기'),
+    title: t('ui.exportScenes'),
     defaultPath: 'nais3-scenes.json',
     filters: [{ name: 'JSON', extensions: ['json'] }]
   })
@@ -495,7 +495,7 @@ export async function exportScenesJson(presetId: number): Promise<boolean> {
 export async function importScenesJson(presetId: number): Promise<number> {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
   const result = await dialog.showOpenDialog(win, {
-    title: t('씬 불러오기'),
+    title: t('ui.importScenes'),
     properties: ['openFile'],
     filters: [{ name: 'JSON', extensions: ['json'] }]
   })
@@ -524,7 +524,7 @@ export async function importScenesJson(presetId: number): Promise<number> {
     for (const s of scenes) {
       stmt.run(
         presetId,
-        s.name ?? t('씬'),
+        s.name ?? t('ui.scene'),
         s.prompt ?? s.scenePrompt ?? '', // NAIS2 파일은 scenePrompt
         s.negativePrompt ?? '',
         s.width ?? 832,
@@ -542,7 +542,7 @@ async function zipFiles(entries: ZipEntry[], defaultName: string): Promise<numbe
   if (entries.length === 0) return 0
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
   const result = await dialog.showSaveDialog(win, {
-    title: t('ZIP 내보내기'),
+    title: t('ui.exportZip'),
     defaultPath: defaultName,
     filters: [{ name: 'ZIP', extensions: ['zip'] }]
   })

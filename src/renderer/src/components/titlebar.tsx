@@ -41,7 +41,7 @@ function UpdateButton(): React.JSX.Element | null {
       <BarButton
         onClick={start}
         className="text-accent hover:text-accent"
-        title={t('업데이트 {0} 다운로드 후 자동 설치', version ?? '')}
+        title={t('ui.downloadUpdateValueAndInstallAutomatically', version ?? '')}
       >
         <Download size={15} />
       </BarButton>
@@ -49,14 +49,18 @@ function UpdateButton(): React.JSX.Element | null {
   }
   if (status === 'downloading') {
     return (
-      <BarButton className="text-accent" title={t('업데이트 다운로드 중 {0}%', percent)} disabled>
+      <BarButton
+        className="text-accent"
+        title={t('ui.downloadingUpdateValue.773cde6', percent)}
+        disabled
+      >
         <Loader2 size={15} className="animate-spin" />
       </BarButton>
     )
   }
   if (status === 'downloaded') {
     return (
-      <BarButton className="text-accent" title={t('업데이트 설치 — 재시작 중')} disabled>
+      <BarButton className="text-accent" title={t('ui.installingUpdateRestarting')} disabled>
         <Loader2 size={15} className="animate-spin" />
       </BarButton>
     )
@@ -78,7 +82,7 @@ function AnlasChips({
     <div className="no-drag mx-1 flex items-center gap-1">
       <span
         className="flex items-center gap-1 rounded-md bg-surface-2 px-2 py-0.5 font-mono text-[11.5px] text-muted"
-        title={t('Anlas 잔액 (생성할 때마다 갱신)')}
+        title={t('ui.anlasBalanceUpdatesAfterEachGeneration')}
       >
         <Coins size={12} className="text-[#c9a34f]" />
         {balance.toLocaleString()}
@@ -86,7 +90,7 @@ function AnlasChips({
       {cost > 0 && (
         <span
           className="rounded-md bg-danger px-2 py-0.5 font-mono text-[11.5px] font-medium text-white"
-          title={t('이번 생성에 소모될 Anlas (고해상도 · 캐릭터 레퍼런스 · 미인코딩 바이브 포함)')}
+          title={t('ui.anlasCostOfThisGenerationInclHighResolutionCharacterReferenceUneaa8754e')}
         >
           -{cost}
         </span>
@@ -107,8 +111,8 @@ function OpusUsageChip(): React.JSX.Element | null {
       className="no-drag flex items-center gap-1.5 rounded-md bg-surface-2 px-2 py-0.5 font-mono text-[11.5px] text-muted"
       title={
         usage.isNegative
-          ? t('V5 충전 게이지 소진 — 충전될 때까지 Anlas 사용')
-          : t('V5 Opus 충전 게이지 · 다음 1%까지 약 {0}시간', hours.toFixed(1))
+          ? t('ui.v5RechargeGaugeDepletedAnlasIsUsedUntilItRecharges')
+          : t('ui.v5OpusRechargeGaugeAboutValueHUntilTheNext1', hours.toFixed(1))
       }
     >
       <BatteryCharging size={12} className={usage.isNegative ? 'text-danger' : 'text-accent'} />
@@ -187,7 +191,7 @@ export function Titlebar(): React.JSX.Element {
         <PageNav />
       </div>
 
-      <BarButton onClick={toggleLeft} active={leftOpen} title={t('프롬프트 패널 접기/펴기')}>
+      <BarButton onClick={toggleLeft} active={leftOpen} title={t('ui.togglePromptPanel.6ab7472')}>
         <PanelLeft size={15} />
       </BarButton>
 
@@ -209,7 +213,11 @@ export function Titlebar(): React.JSX.Element {
       {isMac && <OpusUsageChip />}
       {isMac && <AnlasChips balance={anlasBalance} cost={anlasCost} />}
 
-      <BarButton onClick={toggleRight} active={rightOpen} title={t('히스토리 패널 접기/펴기')}>
+      <BarButton
+        onClick={toggleRight}
+        active={rightOpen}
+        title={t('ui.toggleHistoryPanel.b5c0fb9')}
+      >
         <PanelRight size={15} />
       </BarButton>
       {isMac && (
@@ -217,22 +225,22 @@ export function Titlebar(): React.JSX.Element {
           <ThemeToggle />
         </div>
       )}
-      <BarButton onClick={() => setSettingsOpen(true)} title={t('설정')}>
+      <BarButton onClick={() => setSettingsOpen(true)} title={t('ui.settings')}>
         <Settings size={15} />
       </BarButton>
 
       {!isMac && (
         <div className="no-drag ml-1 flex items-center">
-          <BarButton className="w-9" onClick={() => ctrl('minimize')} aria-label={t('최소화')}>
+          <BarButton className="w-9" onClick={() => ctrl('minimize')} aria-label={t('ui.minimize')}>
             <Minus size={15} />
           </BarButton>
-          <BarButton className="w-9" onClick={() => ctrl('maximize')} aria-label={t('최대화')}>
+          <BarButton className="w-9" onClick={() => ctrl('maximize')} aria-label={t('ui.maximize')}>
             <Square size={12} />
           </BarButton>
           <BarButton
             className="w-9 hover:bg-danger hover:text-white"
             onClick={() => ctrl('close')}
-            aria-label={t('닫기')}
+            aria-label={t('ui.close')}
           >
             <X size={15} />
           </BarButton>

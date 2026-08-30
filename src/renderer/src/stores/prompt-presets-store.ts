@@ -148,7 +148,7 @@ export const usePromptPresetsStore = create<PromptPresetsState>((set, get) => ({
       })
     } else {
       // 2) 전부 삭제됐으면 기본 프리셋을 새로 만들어 활성화 (빈 프롬프트)
-      const newId = await get().create(t('기본'), '', '')
+      const newId = await get().create(t('ui.default'), '', '')
       get().setActive(newId)
       useGenerationStore
         .getState()

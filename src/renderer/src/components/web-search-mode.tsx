@@ -98,26 +98,26 @@ export function WebSearchMode(): React.JSX.Element {
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface">
       {/* 주소창 + 네비게이션 */}
       <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
-        <NavBtn tip={t('뒤로')} disabled={!canBack} onClick={() => webviewRef.current?.goBack()}>
+        <NavBtn tip={t('ui.back')} disabled={!canBack} onClick={() => webviewRef.current?.goBack()}>
           <ArrowLeft size={15} />
         </NavBtn>
         <NavBtn
-          tip={t('앞으로')}
+          tip={t('ui.forward')}
           disabled={!canForward}
           onClick={() => webviewRef.current?.goForward()}
         >
           <ArrowRight size={15} />
         </NavBtn>
-        <NavBtn tip={t('새로고침')} onClick={() => webviewRef.current?.reload()}>
+        <NavBtn tip={t('ui.reload')} onClick={() => webviewRef.current?.reload()}>
           {loading ? <Loader2 size={15} className="animate-spin" /> : <RotateCw size={15} />}
         </NavBtn>
-        <NavBtn tip={t('홈 (Danbooru)')} onClick={() => navigate(HOME_URL)}>
+        <NavBtn tip={t('ui.homeDanbooru')} onClick={() => navigate(HOME_URL)}>
           <Home size={15} />
         </NavBtn>
         <Input
           className="h-8 flex-1 font-mono text-[12px]"
           value={inputUrl}
-          placeholder={t('URL 또는 태그 검색 (도메인이 아니면 단부루 태그로 검색)')}
+          placeholder={t('ui.urlOrTagSearchNonDomainsSearchDanbooruTags')}
           onChange={(e) => setInputUrl(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') navigate(inputUrl)
@@ -125,17 +125,17 @@ export function WebSearchMode(): React.JSX.Element {
         />
         {/* 줌 */}
         <div className="flex items-center gap-0.5 rounded-md bg-surface-2 p-0.5">
-          <NavBtn tip={t('축소')} onClick={() => changeZoom(zoom - 0.1)}>
+          <NavBtn tip={t('ui.zoomOut')} onClick={() => changeZoom(zoom - 0.1)}>
             <Minus size={13} />
           </NavBtn>
           <button
             className="min-w-11 text-center font-mono text-[11px] text-muted hover:text-ink"
-            title={t('100%로')}
+            title={t('ui.resetTo100')}
             onClick={() => changeZoom(1)}
           >
             {Math.round(zoom * 100)}%
           </button>
-          <NavBtn tip={t('확대')} onClick={() => changeZoom(zoom + 0.1)}>
+          <NavBtn tip={t('ui.zoomIn')} onClick={() => changeZoom(zoom + 0.1)}>
             <Plus size={13} />
           </NavBtn>
         </div>
@@ -149,12 +149,12 @@ export function WebSearchMode(): React.JSX.Element {
               className="rounded-full border border-line bg-surface-2/60 px-2.5 py-1 text-[12px] text-muted transition-colors hover:text-ink"
               onClick={() => navigate(link.url)}
             >
-              {t(link.name)}
+              {link.name}
             </button>
             {editLinks && (
               <button
                 className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-danger text-white"
-                title={t('삭제')}
+                title={t('ui.delete')}
                 onClick={() => removeQuickLink(i)}
               >
                 <X size={10} />
@@ -167,14 +167,14 @@ export function WebSearchMode(): React.JSX.Element {
           variant="ghost"
           className="h-7 gap-1 px-2 text-[12px]"
           onClick={async () => {
-            const input = await askText(t('퀵링크 추가'), '', t('https://... 또는 도메인'))
+            const input = await askText(t('ui.addQuickLink'), '', t('ui.httpsOrADomain'))
             if (!input?.trim()) return
             const linkUrl = toUrl(input)
-            const name = await askText(t('퀵링크 이름'), new URL(linkUrl).hostname)
+            const name = await askText(t('ui.quickLinkName'), new URL(linkUrl).hostname)
             if (name) addQuickLink({ name, url: linkUrl })
           }}
         >
-          <Plus size={13} /> {t('추가')}
+          <Plus size={13} /> {t('ui.add')}
         </Button>
         <div className="flex-1" />
         <Button
@@ -183,7 +183,7 @@ export function WebSearchMode(): React.JSX.Element {
           className={cn('h-7 px-2 text-[12px]', editLinks && 'text-accent')}
           onClick={() => setEditLinks(!editLinks)}
         >
-          {editLinks ? t('완료') : t('편집')}
+          {editLinks ? t('ui.done') : t('ui.edit')}
         </Button>
       </div>
 

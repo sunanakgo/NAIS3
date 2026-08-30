@@ -40,7 +40,7 @@ export const useFragmentsStore = create<FragmentsState>((set, get) => ({
   },
 
   create: async (folderId) => {
-    const { id } = await window.nais.invoke('frags:create', { name: t('새 조각'), folderId })
+    const { id } = await window.nais.invoke('frags:create', { name: t('ui.newFragment'), folderId })
     await get().load() // 이름 중복 처리(name-2 등)가 메인에서 일어나므로 재로드
     return id
   },

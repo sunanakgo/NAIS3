@@ -38,10 +38,10 @@ export function ResolutionPicker({
   const customPreview =
     w && h ? fitNaiGenerationResolution(Number(w), Number(h), lastEditedDimension) : null
 
-  const currentLabel =
-    RESOLUTIONS.find((r) => r.width === width && r.height === height)?.label ??
-    custom.find((r) => r.width === width && r.height === height)?.label ??
-    `${width}×${height}`
+  const currentPreset = RESOLUTIONS.find((r) => r.width === width && r.height === height)
+  const currentLabel = currentPreset
+    ? t(currentPreset.label)
+    : (custom.find((r) => r.width === width && r.height === height)?.label ?? `${width}×${height}`)
 
   const isCurrent = (rw: number, rh: number): boolean => rw === width && rh === height
 
@@ -55,9 +55,12 @@ export function ResolutionPicker({
       setW('')
       setH('')
       if (item.width !== nw || item.height !== nh)
-        toast(t('64 배수·3 Mi 픽셀 제한으로 보정됨 → {0}×{1}', item.width, item.height), 'info')
+        toast(
+          t('ui.adjustedToAMultipleOf64WithinThe3MiPixelLimitValueValue', item.width, item.height),
+          'info'
+        )
     } else {
-      toast(t('이미 있는 해상도입니다'), 'info')
+      toast(t('ui.thisResolutionAlreadyExists'), 'info')
     }
   }
 
@@ -71,7 +74,7 @@ export function ResolutionPicker({
             className
           )}
         >
-          <span className="min-w-0 flex-1 truncate text-left">{t(currentLabel)}</span>
+          <span className="min-w-0 flex-1 truncate text-left">{currentLabel}</span>
           <ChevronDown size={14} className="shrink-0 text-muted" />
         </button>
       </PopoverTrigger>
@@ -107,11 +110,11 @@ export function ResolutionPicker({
                   isCurrent(r.width, r.height) && 'font-semibold text-accent'
                 )}
               >
-                <span className="min-w-0 flex-1 truncate">{t(r.label)}</span>
+                <span className="min-w-0 flex-1 truncate">{r.label}</span>
                 {isCurrent(r.width, r.height) && <Check size={12} className="shrink-0" />}
               </button>
               <button
-                title={t('삭제')}
+                title={t('ui.delete')}
                 onClick={() => remove(i)}
                 className="grid size-6 shrink-0 place-items-center rounded text-faint opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
               >
@@ -129,7 +132,7 @@ export function ResolutionPicker({
               setW(e.target.value.replace(/[^0-9]/g, ''))
               setLastEditedDimension('width')
             }}
-            placeholder={t('가로')}
+            placeholder={t('ui.width')}
             inputMode="numeric"
             className="h-7 w-0 flex-1 rounded border border-line bg-paper px-1.5 text-center text-[12px] outline-none focus:border-accent/50"
           />
@@ -140,7 +143,7 @@ export function ResolutionPicker({
               setH(e.target.value.replace(/[^0-9]/g, ''))
               setLastEditedDimension('height')
             }}
-            placeholder={t('세로')}
+            placeholder={t('ui.height')}
             inputMode="numeric"
             onKeyDown={(e) => e.key === 'Enter' && doAdd()}
             className="h-7 w-0 flex-1 rounded border border-line bg-paper px-1.5 text-center text-[12px] outline-none focus:border-accent/50"
@@ -148,8 +151,8 @@ export function ResolutionPicker({
           <button
             title={
               customPreview
-                ? t('추가 (NovelAI 보정: {0}×{1})', customPreview.width, customPreview.height)
-                : t('추가')
+                ? t('ui.addNovelaiAdjustsToValueValue', customPreview.width, customPreview.height)
+                : t('ui.add')
             }
             onClick={doAdd}
             className="grid size-7 shrink-0 place-items-center rounded bg-accent text-paper hover:opacity-90"

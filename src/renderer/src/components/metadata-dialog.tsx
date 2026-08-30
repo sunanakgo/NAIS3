@@ -50,18 +50,20 @@ export function MetadataDialog(): React.JSX.Element {
       {/* max-h + 내부 스크롤 — 작은 창에서 다이얼로그가 화면을 넘어 버튼이 가려지는 것 방지 */}
       <DialogContent className="flex max-h-[85vh] max-w-[760px] flex-col p-0">
         <DialogTitle className="border-b border-line px-5 py-3.5 text-[15px]">
-          {t('이미지 메타데이터')}{' '}
-          <span className="text-[12px] font-normal text-faint">{t('— 체크한 항목만 적용')}</span>
+          {t('ui.imageMetadata')}{' '}
+          <span className="text-[12px] font-normal text-faint">
+            {t('ui.onlyCheckedItemsAreApplied')}
+          </span>
         </DialogTitle>
 
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-16 text-muted">
-            <Loader2 size={18} className="animate-spin" /> {t('읽는 중…')}
+            <Loader2 size={18} className="animate-spin" /> {t('ui.reading')}
           </div>
         ) : error ? (
           <div className="flex flex-col items-center gap-3 py-14 text-danger">
             <ImageOff size={30} strokeWidth={1.4} />
-            <p className="text-[13px]">{t(error)}</p>
+            <p className="text-[13px]">{error}</p>
           </div>
         ) : meta ? (
           <div className="flex min-h-0 flex-1 gap-4 overflow-y-auto p-5">
@@ -77,8 +79,14 @@ export function MetadataDialog(): React.JSX.Element {
                 )}
               </div>
               <div className="grid grid-cols-2 gap-1.5">
-                <Stat k="seed" label={t('시드')} value={meta.seed} sel={sel} toggle={toggle} />
-                <Stat k="steps" label={t('스텝')} value={meta.steps} sel={sel} toggle={toggle} />
+                <Stat k="seed" label={t('ui.seed')} value={meta.seed} sel={sel} toggle={toggle} />
+                <Stat
+                  k="steps"
+                  label={t('ui.steps')}
+                  value={meta.steps}
+                  sel={sel}
+                  toggle={toggle}
+                />
                 <Stat k="cfgScale" label="CFG" value={meta.cfgScale} sel={sel} toggle={toggle} />
                 <Stat
                   k="cfgRescale"
@@ -89,21 +97,21 @@ export function MetadataDialog(): React.JSX.Element {
                 />
                 <Stat
                   k="sampler"
-                  label={t('샘플러')}
+                  label={t('ui.sampler')}
                   value={meta.sampler}
                   sel={sel}
                   toggle={toggle}
                 />
                 <Stat
                   k="noiseSchedule"
-                  label={t('스케줄')}
+                  label={t('ui.schedule')}
                   value={meta.noiseSchedule}
                   sel={sel}
                   toggle={toggle}
                 />
                 <Stat
                   k="resolution"
-                  label={t('해상도')}
+                  label={t('ui.resolution')}
                   value={meta.width && meta.height ? `${meta.width}×${meta.height}` : undefined}
                   sel={sel}
                   toggle={toggle}
@@ -117,7 +125,7 @@ export function MetadataDialog(): React.JSX.Element {
                 />
                 <Stat
                   k="quality"
-                  label={t('퀄리티 태그')}
+                  label={t('ui.qualityTags')}
                   value={
                     meta.qualityToggle ? 'ON' : meta.qualityToggle === false ? 'OFF' : undefined
                   }
@@ -126,7 +134,7 @@ export function MetadataDialog(): React.JSX.Element {
                 />
                 <Stat
                   k="ucPreset"
-                  label={t('UC 프리셋')}
+                  label={t('ui.ucPreset')}
                   value={
                     meta.ucPreset != null
                       ? (UC_LABELS[meta.ucPreset] ?? `#${meta.ucPreset}`)
@@ -138,7 +146,7 @@ export function MetadataDialog(): React.JSX.Element {
                 {/* 모델은 표시만 (적용 대상 아님) */}
                 {meta.model && (
                   <div className="col-span-2 rounded-md border border-line bg-surface-2/40 px-2.5 py-1.5">
-                    <p className="text-[10.5px] text-faint">{t('모델')}</p>
+                    <p className="text-[10.5px] text-faint">{t('ui.model')}</p>
                     <p className="truncate font-mono text-[12.5px] text-ink">{meta.model}</p>
                   </div>
                 )}
@@ -152,7 +160,7 @@ export function MetadataDialog(): React.JSX.Element {
               ) : (
                 <Field
                   k="prompt"
-                  label={t('프롬프트')}
+                  label={t('ui.prompt')}
                   value={meta.prompt}
                   sel={sel}
                   toggle={toggle}
@@ -161,7 +169,7 @@ export function MetadataDialog(): React.JSX.Element {
               )}
               <Field
                 k="negativePrompt"
-                label={t('네거티브')}
+                label={t('ui.negative')}
                 value={meta.negativePrompt}
                 sel={sel}
                 toggle={toggle}
@@ -171,7 +179,7 @@ export function MetadataDialog(): React.JSX.Element {
                   <CheckLabel
                     checked={sel.characters}
                     onClick={() => toggle('characters')}
-                    label={t('캐릭터 {0}', meta.characterPrompts.length)}
+                    label={t('ui.characterValue', meta.characterPrompts.length)}
                   />
                   <div
                     className={cn(
@@ -183,11 +191,11 @@ export function MetadataDialog(): React.JSX.Element {
                       <div key={i} className="rounded-md border border-line bg-surface-2/40 p-2">
                         <div className="mb-0.5 flex items-center justify-between gap-2">
                           <p className="text-[10.5px] font-medium text-faint">
-                            {t('캐릭터 {0}', i + 1)}
+                            {t('ui.characterValue', i + 1)}
                           </p>
                           <CopyButton
                             value={c.prompt}
-                            label={t('캐릭터 {0} 프롬프트 복사', i + 1)}
+                            label={t('ui.copyCharacterValuePrompt', i + 1)}
                           />
                         </div>
                         {/* body의 user-select:none 때문에 <p>는 드래그 선택이 막힌다 — textarea여야 선택·스크롤 가능 */}
@@ -198,7 +206,7 @@ export function MetadataDialog(): React.JSX.Element {
                               <p className="text-[10.5px] font-medium text-faint">uc</p>
                               <CopyButton
                                 value={c.negativePrompt}
-                                label={t('캐릭터 {0} 네거티브 복사', i + 1)}
+                                label={t('ui.copyCharacterValueNegative', i + 1)}
                               />
                             </div>
                             <ReadonlyPrompt value={c.negativePrompt} className="h-10 text-[11px]" />
@@ -215,10 +223,10 @@ export function MetadataDialog(): React.JSX.Element {
 
         <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
           <Button variant="ghost" onClick={close}>
-            {t('닫기')}
+            {t('ui.close')}
           </Button>
           <Button variant="accent" disabled={!meta} onClick={() => applyToMain(sel)}>
-            {t('메인에 적용')}
+            {t('ui.applyToMain')}
           </Button>
         </div>
       </DialogContent>
@@ -243,13 +251,13 @@ function SplitPreview({
         <CheckLabel
           checked={sel.prompt}
           onClick={() => toggle('prompt')}
-          label={t('프롬프트 3분할')}
+          label={t('ui.value3PartPromptSplit')}
         />
       </div>
       <div className={cn('flex flex-1 flex-col gap-1.5', !sel.prompt && 'opacity-40')}>
-        <Part label={t('고정')} value={parts?.base ?? ''} />
-        <Part label={t('가변')} value={parts?.additional ?? ''} />
-        <Part label={t('디테일')} value={parts?.detail ?? ''} />
+        <Part label={t('ui.fixed')} value={parts?.base ?? ''} />
+        <Part label={t('ui.variable')} value={parts?.additional ?? ''} />
+        <Part label={t('ui.detail')} value={parts?.detail ?? ''} />
       </div>
     </div>
   )
@@ -264,7 +272,7 @@ function Part({ label, value }: { label: string; value: string }): React.JSX.Ele
     <div className="flex flex-1 flex-col rounded-md border border-line bg-surface-2/40 p-2">
       <div className="mb-1 flex items-center justify-between gap-2">
         <p className="text-[10.5px] font-medium text-faint">{label}</p>
-        <CopyButton value={value} label={t('{0} 복사', label)} />
+        <CopyButton value={value} label={t('ui.copyValue', label)} />
       </div>
       <ReadonlyPrompt value={value} className="min-h-24 flex-1 text-[12px]" />
     </div>
@@ -320,7 +328,7 @@ function Field({
       <div className="mb-1">
         <div className="flex items-center justify-between gap-2">
           <CheckLabel checked={sel[k]} onClick={() => toggle(k)} label={label} />
-          <CopyButton value={value} label={t('{0} 복사', label)} />
+          <CopyButton value={value} label={t('ui.copyValue', label)} />
         </div>
       </div>
       <ReadonlyPrompt
@@ -347,7 +355,7 @@ function ReadonlyPrompt({
     <textarea
       readOnly
       value={value}
-      placeholder={t('(없음)')}
+      placeholder={t('ui.none')}
       className={cn(
         'block w-full resize-none overflow-y-auto whitespace-pre-wrap break-words bg-transparent font-mono leading-relaxed text-ink outline-none placeholder:font-sans placeholder:text-faint',
         'cursor-text select-text',

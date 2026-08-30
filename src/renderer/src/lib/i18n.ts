@@ -1,6 +1,5 @@
 import { create } from 'zustand'
-import { EN } from '@shared/i18n/dict-en'
-import { isLang, translate, type Lang } from '@shared/i18n'
+import { isLang, translate, type Lang, type MessageId } from '@shared/i18n'
 
 interface LanguageState {
   lang: Lang
@@ -24,11 +23,11 @@ export const useLanguageStore = create<LanguageState>((set) => ({
 }))
 
 /**
- * 현재 언어로 번역. 키는 한국어 원문, {0} {1} 자리에 args 치환.
+ * Translate a stable message ID using the current language.
  * 컴포넌트 렌더 경로에서는 언어 변경 시 리렌더가 필요하므로 useT()를 쓴다.
  */
-export function t(key: string, ...args: (string | number)[]): string {
-  return translate(EN, useLanguageStore.getState().lang, key, args)
+export function t(id: MessageId, ...args: (string | number)[]): string {
+  return translate(useLanguageStore.getState().lang, id, args)
 }
 
 /** 언어 store를 구독해 언어 변경 시 리렌더되는 t */

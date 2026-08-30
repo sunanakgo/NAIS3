@@ -1,5 +1,5 @@
 import type { DirectorMethod, OpusUsageStatus } from './types'
-import { format } from './i18n'
+import { translate, type MessageId } from './i18n'
 
 export function displayOpusUsagePercent(usage: OpusUsageStatus): number {
   return usage.isNegative ? 0 : Math.max(0, usage.percent)
@@ -79,23 +79,23 @@ export function effectiveGenerationStrength(
 export function formatAnlasEstimate(
   estimate: AnlasEstimate,
   batchCount = 1,
-  // 공유 모듈은 i18n 런타임을 못 가져오므로 호출자가 t를 주입한다 (기본값 = 한국어 원문)
-  tr: (key: string, ...args: (string | number)[]) => string = (key, ...args) => format(key, args)
+  tr: (id: MessageId, ...args: (string | number)[]) => string = (id, ...args) =>
+    translate('ko', id, args)
 ): string {
   if (estimate.usesOpusUsage) {
     return batchCount > 1
-      ? tr('Opus V5 충전 게이지에서 차감 — 중간에 고갈되면 후속 이미지는 Anlas 사용')
-      : tr('Opus V5 충전 게이지에서 차감')
+      ? tr('ui.deductedFromTheOpusV5RechargeGaugeIfItRunsOutMidBatchRemainingIm3cf092f')
+      : tr('ui.deductedFromTheOpusV5RechargeGauge')
   }
-  if (estimate.free) return tr('무료 생성 (Opus · 1024² 이하 · 28스텝 이하)')
+  if (estimate.free) return tr('ui.freeGenerationOpusUpTo1024UpTo28Steps')
 
   const parts = [
-    estimate.generation > 0 ? tr('생성 {0}', estimate.generation) : '',
-    estimate.charRef > 0 ? tr('레퍼런스 {0}', estimate.charRef) : '',
-    estimate.vibeEncoding > 0 ? tr('바이브 인코딩 {0}', estimate.vibeEncoding) : '',
-    estimate.vibeGeneration > 0 ? tr('다중 바이브 {0}', estimate.vibeGeneration) : ''
+    estimate.generation > 0 ? tr('ui.generationValue', estimate.generation) : '',
+    estimate.charRef > 0 ? tr('ui.referenceValue.f70089a', estimate.charRef) : '',
+    estimate.vibeEncoding > 0 ? tr('ui.vibeEncodingValue', estimate.vibeEncoding) : '',
+    estimate.vibeGeneration > 0 ? tr('ui.multiVibeValue', estimate.vibeGeneration) : ''
   ].filter(Boolean)
-  return `${tr('예상 {0} Anlas', estimate.total)}${parts.length ? ` (${parts.join(', ')})` : ''}`
+  return `${tr('ui.estimatedValueAnlas', estimate.total)}${parts.length ? ` (${parts.join(', ')})` : ''}`
 }
 
 const VIBE_ENCODE_COST = 2

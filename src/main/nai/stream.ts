@@ -37,7 +37,7 @@ export async function readImageStream(
         while (buffer.length >= 4) {
           const length = (buffer[0] << 24) | (buffer[1] << 16) | (buffer[2] << 8) | buffer[3]
           if (length <= 0 || length > 50_000_000) {
-            throw new Error(t('잘못된 스트림 메시지 길이: {0}', length))
+            throw new Error(t('ui.invalidStreamMessageLengthValue', length))
           }
           if (buffer.length < 4 + length) break
 
@@ -50,7 +50,7 @@ export async function readImageStream(
           if (decoded.error || decoded.message) {
             apiError = String(decoded.error ?? decoded.message)
             await reader.cancel()
-            throw new Error(t('NAI 스트림 오류: {0}', apiError))
+            throw new Error(t('ui.naiStreamErrorValue', apiError))
           }
 
           const image = decoded.image
@@ -75,7 +75,7 @@ export async function readImageStream(
   }
 
   if (!finalImage) {
-    throw new Error(apiError ?? t('스트림에서 최종 이미지를 받지 못함'))
+    throw new Error(apiError ?? t('ui.noFinalImageReceivedFromStream'))
   }
   return finalImage
 }

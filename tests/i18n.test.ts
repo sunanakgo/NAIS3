@@ -1,19 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import { format, isLang, translate } from '../src/shared/i18n'
-import { EN } from '../src/shared/i18n/dict-en'
+import { EN } from '../src/shared/i18n/catalog-en'
+import { KO } from '../src/shared/i18n/catalog-ko'
 
 describe('i18n core', () => {
-  it('한국어 모드는 원문을 그대로 돌려준다 (기존 사용자 무영향)', () => {
-    expect(translate(EN, 'ko', '설정', [])).toBe('설정')
-    expect(translate(EN, 'ko', '{0}장', [3])).toBe('3장')
-    // 사전에 있는 키라도 ko에서는 절대 영어가 나오면 안 된다
-    for (const key of Object.keys(EN).slice(0, 50)) {
-      expect(translate(EN, 'ko', key, [])).toBe(key)
-    }
+  it('안정적인 메시지 ID로 언어별 카탈로그를 조회한다', () => {
+    expect(translate('ko', 'ui.settings', [])).toBe('설정')
+    expect(translate('en', 'ui.settings', [])).toBe('Settings')
+    expect(translate('ko', 'ui.valueImages', [3])).toBe('3장')
   })
 
-  it('사전에 없는 키는 한국어로 폴백한다', () => {
-    expect(translate(EN, 'en', '사전에 없는 문구', [])).toBe('사전에 없는 문구')
+  it('한국어와 영어 카탈로그의 메시지 ID가 완전히 일치한다', () => {
+    expect(Object.keys(EN).sort()).toEqual(Object.keys(KO).sort())
+  })
+
+  it('메시지 ID는 표시 언어와 분리된 stable ID다', () => {
+    for (const id of Object.keys(KO)) {
+      expect(id).toMatch(/^ui\.[A-Za-z0-9.]+$/)
+      expect(id).not.toMatch(/[가-힣]/)
+    }
   })
 
   it('영어 복수형 {0|a|b}는 1일 때만 단수', () => {
@@ -36,17 +41,17 @@ describe('i18n core', () => {
     expect(format('{0} {0|image|images}', [])).toBe('{0} {0|image|images}')
   })
 
-  it('한국어 키에는 복수형 문법이 없어 ko 경로에 영향이 없다', () => {
-    for (const key of Object.keys(EN)) expect(key).not.toMatch(/\{\d+\|/)
+  it('한국어 메시지에는 복수형 문법이 없어 ko 경로에 영향이 없다', () => {
+    for (const value of Object.values(KO)) expect(value).not.toMatch(/\{\d+\|/)
   })
 
-  it('사전 값의 플레이스홀더는 키와 일치한다', () => {
+  it('언어별 메시지의 플레이스홀더는 일치한다', () => {
     // 값은 같은 인덱스를 두 번 쓸 수 있다 ({0} + {0|scene|scenes}) — 집합으로 비교
     const slots = (s: string): string[] => [
       ...new Set([...s.matchAll(/\{(\d+)[|}]/g)].map((m) => m[1]))
     ]
-    for (const [key, value] of Object.entries(EN)) {
-      expect([key, slots(value).sort()]).toEqual([key, slots(key).sort()])
+    for (const id of Object.keys(KO) as (keyof typeof KO)[]) {
+      expect([id, slots(EN[id]).sort()]).toEqual([id, slots(KO[id]).sort()])
     }
   })
 

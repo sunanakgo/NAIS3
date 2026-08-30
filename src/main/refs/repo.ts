@@ -102,9 +102,9 @@ export function listCharRefs(): { folders: ListFolder[]; items: CharRefItem[] } 
 export async function addRefImages(kind: Kind, folderId: number | null): Promise<number> {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
   const result = await dialog.showOpenDialog(win, {
-    title: kind === 'vibe' ? t('바이브 이미지 추가') : t('레퍼런스 이미지 추가'),
+    title: kind === 'vibe' ? t('ui.addVibeImages') : t('ui.addReferenceImages'),
     properties: ['openFile', 'multiSelections'],
-    filters: [{ name: t('이미지'), extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
+    filters: [{ name: t('ui.image'), extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
   })
   if (result.canceled) return 0
 

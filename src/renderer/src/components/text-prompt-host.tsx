@@ -41,10 +41,10 @@ function TextPrompt(): React.JSX.Element {
         />
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="ghost" onClick={() => resolve(null)}>
-            {t('취소')}
+            {t('ui.cancel')}
           </Button>
           <Button variant="accent" disabled={!value.trim()} onClick={() => resolve(value.trim())}>
-            {t('확인')}
+            {t('ui.ok')}
           </Button>
         </div>
       </DialogContent>
@@ -68,7 +68,7 @@ function ConfirmPrompt(): React.JSX.Element {
         )}
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="ghost" onClick={() => resolve(false)}>
-            {t('아니오')}
+            {t('ui.no')}
           </Button>
           <Button
             variant={req?.danger ? 'danger' : 'accent'}

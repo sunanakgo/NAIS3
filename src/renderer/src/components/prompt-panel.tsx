@@ -14,6 +14,7 @@ import {
 import { AnimatePresence, motion } from 'motion/react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { effectiveGenerationStrength, estimateAnlas, formatAnlasEstimate } from '@shared/anlas'
+import type { MessageId } from '@shared/i18n'
 import { snapNaiResolution } from '@shared/nai-resolution'
 import {
   inpaintingModelFor,
@@ -276,7 +277,7 @@ export function PromptPanel(): React.JSX.Element {
           }
         >
           <CollapseHeader
-            label="프롬프트"
+            label="ui.prompt"
             collapsed={posCollapsed}
             onToggle={() => setPosCollapsed((v) => !v)}
             action={
@@ -298,7 +299,7 @@ export function PromptPanel(): React.JSX.Element {
                 value={request.prompt}
                 tokensOverride={tokenTotals.pos}
                 tokenLimit={tokenLimit}
-                placeholder={t('1girl, ...  (태그 자동완성 · <조각>)')}
+                placeholder={t('ui.value1girlTagAutocompleteFragment')}
                 onValueChange={(v) => patch({ prompt: v })}
               />
             ))}
@@ -323,7 +324,7 @@ export function PromptPanel(): React.JSX.Element {
           }
         >
           <CollapseHeader
-            label="네거티브"
+            label="ui.negative"
             collapsed={negCollapsed}
             onToggle={() => setNegCollapsed((v) => !v)}
           />
@@ -334,7 +335,7 @@ export function PromptPanel(): React.JSX.Element {
               value={request.negativePrompt}
               tokensOverride={tokenTotals.neg}
               tokenLimit={tokenLimit}
-              placeholder={t('UC 프리셋 뒤에 이어 붙습니다')}
+              placeholder={t('ui.appendedAfterTheUcPreset')}
               onValueChange={(v) => patch({ negativePrompt: v })}
             />
           )}
@@ -346,21 +347,21 @@ export function PromptPanel(): React.JSX.Element {
         <ToolButton
           active={charOverlayOpen}
           icon={<UsersRound size={14} />}
-          label="캐릭터"
+          label="ui.character"
           badge={activeChars}
           onClick={() => only('char')}
         />
         <ToolButton
           active={fragOverlayOpen}
           icon={<Puzzle size={14} />}
-          label="조각"
+          label="ui.fragments"
           badge={0}
           onClick={() => only('frag')}
         />
         <ToolButton
           active={vibeOverlayOpen}
           icon={<Layers size={14} />}
-          label="바이브"
+          label="ui.vibes"
           badge={capabilities.vibes ? enabledVibes : 0}
           disabled={!capabilities.vibes}
           onClick={() => only('vibe')}
@@ -368,7 +369,7 @@ export function PromptPanel(): React.JSX.Element {
         <ToolButton
           active={crefOverlayOpen}
           icon={<ImageUp size={14} />}
-          label="레퍼런스"
+          label="ui.reference"
           badge={capabilities.characterReferences ? enabledCrefs : 0}
           disabled={!capabilities.characterReferences}
           onClick={() => only('cref')}
@@ -381,7 +382,7 @@ export function PromptPanel(): React.JSX.Element {
           size="icon"
           variant="ghost"
           className="h-10 w-9 shrink-0"
-          title={t('생성 파라미터')}
+          title={t('ui.generationParameters')}
           onClick={() => setParamsOpen(true)}
         >
           <SlidersHorizontal size={16} />
@@ -417,7 +418,7 @@ export function PromptPanel(): React.JSX.Element {
         </div>
         {generating ? (
           <Button variant="danger" size="lg" className="flex-1" onClick={() => void cancelAll()}>
-            <Square size={14} /> {t('취소')} ({queueCount})
+            <Square size={14} /> {t('ui.cancel')} ({queueCount})
           </Button>
         ) : isScene ? (
           <Button
@@ -427,15 +428,15 @@ export function PromptPanel(): React.JSX.Element {
             disabled={sceneReserved === 0}
             title={
               sceneReserved === 0
-                ? t('씬에 예약(+)을 걸어야 생성할 수 있습니다')
-                : t('모든 프리셋의 예약 {0}장 생성 (프리셋 순서대로)', sceneReserved)
+                ? t('ui.queueScenesWithBeforeGenerating')
+                : t('ui.generateValueQueuedImagesAcrossAllPresetsInPresetOrder', sceneReserved)
             }
             onClick={() => void generateReserved()}
           >
-            {t('씬 생성')}
+            {t('ui.generateScenes')}
             {sceneReserved > 0 && (
               // 한글 '장'이 mono 폴백(Windows Consolas)에서 깨져 보여 기본 폰트(Pretendard) 사용
-              <span className="text-[12px] opacity-75">{t('{0}장', sceneReserved)}</span>
+              <span className="text-[12px] opacity-75">{t('ui.valueImages', sceneReserved)}</span>
             )}
           </Button>
         ) : (
@@ -446,7 +447,7 @@ export function PromptPanel(): React.JSX.Element {
             title={formatAnlasEstimate(anlas, batchCount, t)}
             onClick={() => void generate()}
           >
-            {t('생성')}
+            {t('ui.generate')}
           </Button>
         )}
       </div>
@@ -463,7 +464,7 @@ function CollapseHeader({
   onToggle,
   action
 }: {
-  label: string
+  label: MessageId
   collapsed: boolean
   onToggle: () => void
   action?: React.ReactNode
@@ -474,7 +475,7 @@ function CollapseHeader({
       <button
         onClick={onToggle}
         className="flex items-center gap-1 transition-colors hover:text-ink"
-        title={collapsed ? t('{0} 펼치기', t(label)) : t('{0} 접기', t(label))}
+        title={collapsed ? t('ui.expandValue', t(label)) : t('ui.collapseValue', t(label))}
       >
         <span>{t(label)}</span>
         {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
@@ -502,8 +503,8 @@ function TokenBadge({
       }
       title={
         over
-          ? t('한도 초과 — {0}/{1} 토큰. 초과분은 잘려서 반영되지 않습니다', tokens, limit)
-          : t('최종 프롬프트 {0}/{1} 토큰', tokens, limit)
+          ? t('ui.overTheLimitValueValueTokensTheExcessIsCutOffAndNotApplied', tokens, limit)
+          : t('ui.finalPromptValueValueTokens', tokens, limit)
       }
     >
       {tokens}/{limit}
@@ -514,10 +515,10 @@ function TokenBadge({
 type SplitPartKey = 'base' | 'additional' | 'detail'
 type SplitPromptParts = Record<SplitPartKey, string>
 
-const SPLIT_PARTS: { key: SplitPartKey; label: string; placeholder: string }[] = [
-  { key: 'base', label: '고정', placeholder: '항상 유지할 기본 프롬프트' },
-  { key: 'additional', label: '가변', placeholder: '매번 지우고 바꿀 프롬프트' },
-  { key: 'detail', label: '디테일', placeholder: '품질, 구도, 세부 묘사' }
+const SPLIT_PARTS: { key: SplitPartKey; label: MessageId; placeholder: MessageId }[] = [
+  { key: 'base', label: 'ui.fixed', placeholder: 'ui.basePromptToAlwaysKeep' },
+  { key: 'additional', label: 'ui.variable', placeholder: 'ui.promptToClearAndRewriteEachTime' },
+  { key: 'detail', label: 'ui.detail', placeholder: 'ui.qualityCompositionFineDetails' }
 ]
 
 const SPLIT_COLLAPSED_KEY = 'prompt_split_collapsed'
@@ -664,14 +665,15 @@ function SplitField({
   onToggle,
   onChange
 }: {
-  label: string
+  label: MessageId
   collapsed: boolean
   value: string
-  placeholder: string
+  placeholder: MessageId
   grow: number
   onToggle: () => void
   onChange: (value: string) => void
 }): React.JSX.Element {
+  const t = useT()
   return (
     <div
       className={'flex min-h-0 flex-col gap-1 ' + (collapsed ? 'flex-none' : 'min-h-9')}
@@ -683,7 +685,7 @@ function SplitField({
           className="min-h-0 flex-1"
           value={value}
           tokensOverride={null}
-          placeholder={placeholder}
+          placeholder={t(placeholder)}
           onValueChange={onChange}
         />
       )}
@@ -694,25 +696,31 @@ function SplitField({
 /** 프롬프트 문법 도움말 — ⓘ 팝오버 (주석·조각·순차·랜덤·가중치) */
 function SyntaxHelp(): React.JSX.Element {
   const t = useT()
-  const rows: { syntax: string; desc: string }[] = [
-    { syntax: '# 메모', desc: '#로 시작하는 줄은 주석 (전송 제외)' },
-    { syntax: '<이름>', desc: '조각 삽입 — 여러 줄이면 매 생성 랜덤 1줄' },
-    { syntax: '<*이름>', desc: '순차 선택 — 생성마다 다음 줄 (헤더 ↺로 리셋)' },
-    { syntax: '<a|b|c>', desc: '인라인 랜덤 — 셋 중 하나' },
-    { syntax: '1.3::태그::', desc: '강조 (1보다 크면 강함, 작으면 약함/음수 가능)' }
+  const rows: { syntax: MessageId; desc: MessageId }[] = [
+    { syntax: 'ui.note', desc: 'ui.linesStartingWithAreCommentsNotSent' },
+    {
+      syntax: 'ui.name.ae3fe07',
+      desc: 'ui.insertAFragmentWithMultipleLinesOneRandomLinePerGeneration'
+    },
+    {
+      syntax: 'ui.name.0ecf258',
+      desc: 'ui.sequentialNextLineEachGenerationResetWithInTheHeader'
+    },
+    { syntax: 'ui.inlineRandomSyntax', desc: 'ui.inlineRandomOneOfTheThree' },
+    { syntax: 'ui.value13Tag', desc: 'ui.weightAbove1StrongerBelow1WeakerNegativeAllowed' }
   ]
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
           className="grid size-5 place-items-center rounded text-faint transition-colors hover:text-ink"
-          title={t('프롬프트 문법 도움말')}
+          title={t('ui.promptSyntaxHelp')}
         >
           <Info size={13} />
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-2.5">
-        <p className="mb-1.5 text-[12px] font-semibold text-ink">{t('프롬프트 문법')}</p>
+        <p className="mb-1.5 text-[12px] font-semibold text-ink">{t('ui.promptSyntax')}</p>
         <div className="flex flex-col gap-1.5">
           {rows.map((r) => (
             <div key={r.syntax} className="flex flex-col gap-0.5">
@@ -738,7 +746,7 @@ function ToolButton({
 }: {
   active: boolean
   icon: React.ReactNode
-  label: string
+  label: MessageId
   badge: number
   onClick: () => void
   disabled?: boolean
@@ -751,7 +759,7 @@ function ToolButton({
         className="h-8 w-full min-w-0 gap-1 px-1.5 text-[12px]"
         onClick={onClick}
         disabled={disabled}
-        title={disabled ? t('선택한 모델에서는 아직 지원하지 않습니다') : undefined}
+        title={disabled ? t('ui.notYetSupportedByTheSelectedModel') : undefined}
       >
         {icon}
         <span className="min-w-0 truncate">{t(label)}</span>

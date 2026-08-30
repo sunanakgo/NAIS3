@@ -1,6 +1,5 @@
 import { app } from 'electron'
-import { EN } from '../shared/i18n/dict-en'
-import { isLang, translate, type Lang } from '../shared/i18n'
+import { isLang, translate, type Lang, type MessageId } from '../shared/i18n'
 import { getDb } from './db'
 import { getSetting, setSetting } from './db/settings'
 
@@ -17,8 +16,8 @@ function currentLang(): Lang {
 }
 
 /** 메인 프로세스용 번역 (다이얼로그 제목, 네이티브 UI, 업데이트 알림 등) */
-export function t(key: string, ...args: (string | number)[]): string {
-  return translate(EN, currentLang(), key, args)
+export function t(id: MessageId, ...args: (string | number)[]): string {
+  return translate(currentLang(), id, args)
 }
 
 /**

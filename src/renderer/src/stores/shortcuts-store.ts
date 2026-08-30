@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { MessageId } from '@shared/i18n'
 import { t } from '../lib/i18n'
 import { useCharactersStore } from './characters-store'
 import { useFragmentsStore } from './fragments-store'
@@ -23,20 +24,20 @@ export type ShortcutAction =
   | 'openParams'
   | 'resetFragmentCounters'
 
-export const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
-  generate: '생성 / 씬 생성',
-  toggleLeft: '프롬프트 패널 토글',
-  toggleRight: '히스토리 패널 토글',
-  openSettings: '설정 열기',
-  modeMain: '메인 모드',
-  modeScene: '씬 모드',
-  modeDirector: '디렉터 모드',
-  openCharacter: '캐릭터 열기',
-  openFragment: '조각 열기',
-  openVibe: '바이브 열기',
-  openCharRef: '레퍼런스 열기',
-  openParams: '생성 파라미터 열기',
-  resetFragmentCounters: '조각 순차 카운터 리셋'
+export const SHORTCUT_LABELS: Record<ShortcutAction, MessageId> = {
+  generate: 'ui.generateGenerateScenes',
+  toggleLeft: 'ui.togglePromptPanel',
+  toggleRight: 'ui.toggleHistoryPanel',
+  openSettings: 'ui.openSettings',
+  modeMain: 'ui.mainMode',
+  modeScene: 'ui.sceneMode',
+  modeDirector: 'ui.directorMode',
+  openCharacter: 'ui.openCharacters',
+  openFragment: 'ui.openFragments',
+  openVibe: 'ui.openVibes',
+  openCharRef: 'ui.openReferences',
+  openParams: 'ui.openGenerationParameters',
+  resetFragmentCounters: 'ui.resetSequentialFragmentCounters'
 }
 
 const DEFAULTS: Record<ShortcutAction, string> = {
@@ -139,7 +140,7 @@ function runAction(action: ShortcutAction): void {
       void useFragmentsStore
         .getState()
         .resetSequential()
-        .then(() => toast(t('조각 순차 카운터를 리셋했습니다'), 'success'))
+        .then(() => toast(t('ui.sequentialFragmentCountersReset'), 'success'))
       break
   }
 }

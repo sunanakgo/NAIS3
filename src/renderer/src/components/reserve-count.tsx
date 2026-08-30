@@ -64,7 +64,7 @@ export function ReserveCount({
     <button
       className={cn('cursor-text', className)}
       style={style}
-      title={title ? t('{0} — 클릭하면 직접 입력', t(title)) : t('클릭하면 직접 입력')}
+      title={title ? t('ui.valueClickToTypeAValue', title) : t('ui.clickToTypeAValue')}
       onClick={(e) => {
         e.stopPropagation()
         setDraft(String(value))

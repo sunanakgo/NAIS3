@@ -108,7 +108,7 @@ export function Lightbox({
       <span className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 font-mono text-[12px] text-white">
         {index + 1} / {filePaths.length}
         {allowLibraryAdd && (
-          <span className="ml-2 opacity-60">{t('휠 넘기기 · L 라이브러리 저장')}</span>
+          <span className="ml-2 opacity-60">{t('ui.scrollWheelToBrowseLToSaveToLibrary')}</span>
         )}
       </span>
     </div>,

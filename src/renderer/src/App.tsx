@@ -29,7 +29,6 @@ import { useLayoutStore } from './stores/layout-store'
 import { useThemeStore } from './stores/theme-store'
 
 export default function App(): React.JSX.Element {
-  const lang = useLanguageStore((s) => s.lang)
   const leftOpen = useLayoutStore((s) => s.leftOpen)
   const rightOpen = useLayoutStore((s) => s.rightOpen)
   const settingsOpen = useLayoutStore((s) => s.settingsOpen)
@@ -98,8 +97,7 @@ export default function App(): React.JSX.Element {
 
   return (
     <TooltipProvider>
-      {/* key=lang — 언어 변경 시 전체 리마운트로 모든 텍스트 즉시 갱신 */}
-      <div key={lang} className="flex h-screen flex-col bg-paper">
+      <div className="flex h-screen flex-col bg-paper">
         <Titlebar />
         <div className="flex min-h-0 flex-1 gap-3 px-3 pb-3">
           <AnimatePresence initial={false}>

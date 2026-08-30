@@ -1,13 +1,14 @@
 import { Monitor, Moon, Sun } from 'lucide-react'
+import type { MessageId } from '@shared/i18n'
 import { cn } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { useThemeStore, type Theme } from '../stores/theme-store'
 import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group'
 
-const MODES: { mode: Theme; Icon: typeof Sun; label: string }[] = [
-  { mode: 'light', Icon: Sun, label: '라이트' },
-  { mode: 'dark', Icon: Moon, label: '다크' },
-  { mode: 'system', Icon: Monitor, label: '시스템 설정 따름' }
+const MODES: { mode: Theme; Icon: typeof Sun; label: MessageId }[] = [
+  { mode: 'light', Icon: Sun, label: 'ui.light' },
+  { mode: 'dark', Icon: Moon, label: 'ui.dark' },
+  { mode: 'system', Icon: Monitor, label: 'ui.followSystemSetting' }
 ]
 
 export function ThemeToggle(): React.JSX.Element {
@@ -23,7 +24,7 @@ export function ThemeToggle(): React.JSX.Element {
         if (v) setTheme(v as Theme)
       }}
       className="inline-flex rounded-md bg-surface-2 p-0.5"
-      aria-label={t('색상 모드')}
+      aria-label={t('ui.colorMode')}
     >
       {MODES.map(({ mode, Icon, label }) => (
         <ToggleGroupItem

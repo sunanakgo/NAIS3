@@ -98,7 +98,7 @@ export function PromptPresetBar(): React.JSX.Element {
       <PopoverTrigger asChild>
         <button className="no-drag flex h-8 w-full items-center gap-1.5 rounded-md border border-line bg-surface-2/50 px-2.5 text-[13px] font-medium hover:bg-surface-2">
           <span className="min-w-0 flex-1 truncate text-left">
-            {active?.name ?? t('프롬프트 프리셋')}
+            {active?.name ?? t('ui.promptPresets')}
           </span>
           <ChevronDown size={14} className="shrink-0 text-muted" />
         </button>
@@ -106,9 +106,7 @@ export function PromptPresetBar(): React.JSX.Element {
       <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-1">
         <div className="max-h-72 overflow-y-auto overflow-x-hidden no-scrollbar">
           {presets.length === 0 ? (
-            <p className="px-2 py-3 text-center text-[12px] text-faint">
-              {t('저장된 프리셋 없음')}
-            </p>
+            <p className="px-2 py-3 text-center text-[12px] text-faint">{t('ui.noSavedPresets')}</p>
           ) : (
             // 드래그로 순서 변경
             <SortableList ids={presets.map((p) => p.id)} onReorder={(ids) => void reorder(ids)}>
@@ -126,22 +124,20 @@ export function PromptPresetBar(): React.JSX.Element {
                   <button
                     className="shrink-0 rounded p-1 text-faint opacity-0 hover:text-ink group-hover:opacity-100"
                     onClick={async () => {
-                      const name = await askText(t('프리셋 이름'), p.name)
+                      const name = await askText(t('ui.presetName'), p.name)
                       if (name) void update(p.id, { name })
                     }}
-                    title={t('이름 변경')}
+                    title={t('ui.rename')}
                   >
                     <Pencil size={12} />
                   </button>
                   <button
                     className="shrink-0 rounded p-1 text-faint opacity-0 hover:text-danger group-hover:opacity-100"
                     onClick={async () => {
-                      if (
-                        await askConfirm(t('"{0}" 프리셋을 삭제할까요?', p.name), { danger: true })
-                      )
+                      if (await askConfirm(t('ui.deletePresetValue', p.name), { danger: true }))
                         void remove(p.id)
                     }}
-                    title={t('삭제')}
+                    title={t('ui.delete')}
                   >
                     <Trash2 size={12} />
                   </button>
@@ -154,7 +150,7 @@ export function PromptPresetBar(): React.JSX.Element {
         <button
           className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-accent hover:bg-surface-2"
           onClick={async () => {
-            const name = await askText(t('새 프리셋 이름'), t('새 프리셋'))
+            const name = await askText(t('ui.newPresetName'), t('ui.newPreset'))
             if (!name?.trim()) return
             const id = await create(
               name.trim(),
@@ -168,7 +164,7 @@ export function PromptPresetBar(): React.JSX.Element {
             setOpen(false)
           }}
         >
-          <Plus size={14} /> {t('새 프리셋')}
+          <Plus size={14} /> {t('ui.newPreset')}
         </button>
       </PopoverContent>
     </Popover>

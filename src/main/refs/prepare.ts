@@ -37,7 +37,7 @@ export async function prepareVibes(
       })
       if (!res.ok) {
         const text = await res.text().catch(() => '')
-        throw new Error(t('바이브 인코딩 실패 {0}: {1}', res.status, text.slice(0, 200)))
+        throw new Error(t('ui.vibeEncodingFailedValueValue', res.status, text.slice(0, 200)))
       }
       encoded = Buffer.from(await res.arrayBuffer()).toString('base64')
       const packed = putVibeEncoding(row.encoded, row.encodedIe, model, row.infoExtracted, encoded)

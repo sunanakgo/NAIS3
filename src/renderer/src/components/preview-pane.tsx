@@ -126,12 +126,12 @@ export function PreviewPane(): React.JSX.Element {
       ) : generating ? (
         <div className="flex flex-col items-center gap-3 text-muted">
           <Loader2 size={38} className="animate-spin text-accent" strokeWidth={2} />
-          <span className="text-[13px]">{t('생성 준비 중…')}</span>
+          <span className="text-[13px]">{t('ui.preparingToGenerate')}</span>
         </div>
       ) : (
         <div className="flex flex-col items-center gap-2 text-faint">
           <ImageIcon size={40} strokeWidth={1.2} />
-          <span className="text-[13px]">{t('생성된 이미지가 여기 표시됩니다')}</span>
+          <span className="text-[13px]">{t('ui.generatedImagesWillAppearHere')}</span>
         </div>
       )}
 
@@ -148,7 +148,7 @@ export function PreviewPane(): React.JSX.Element {
             </div>
           )}
           <span className="font-mono text-[11px] text-muted">
-            {preparing ? t('준비 중') : `${progress?.stepIx}/${progress?.totalSteps}`}
+            {preparing ? t('ui.preparing') : `${progress?.stepIx}/${progress?.totalSteps}`}
           </span>
           <Eta startAt={genStartAt} avgMs={avgDurationMs} />
         </div>
@@ -170,8 +170,8 @@ export function PreviewPane(): React.JSX.Element {
               )}
               title={
                 seedLocked && requestSeed === info.seed
-                  ? t('시드 고정됨 — 클릭하면 해제')
-                  : t('클릭하면 이 시드로 고정')
+                  ? t('ui.seedLockedClickToUnlock')
+                  : t('ui.clickToLockThisSeed')
               }
               onClick={() => {
                 if (seedLocked && requestSeed === info.seed) {
@@ -196,8 +196,8 @@ export function PreviewPane(): React.JSX.Element {
       <DropOverlay
         show={dragOver}
         icon={ImageIcon}
-        label={t('여기 놓으면 메타데이터를 불러옵니다')}
-        sub={t('프롬프트·설정을 확인하고 선택 적용')}
+        label={t('ui.dropHereToLoadMetadata')}
+        sub={t('ui.reviewPromptSettingsAndApplySelectively')}
       />
     </div>
   )
@@ -222,7 +222,7 @@ function Eta({
   const sec = Math.ceil(remaining / 1000)
   return (
     <span className="border-l border-line pl-2.5 font-mono text-[11px] text-faint">
-      {sec > 0 ? t('~{0}초', sec) : t('곧 완료')}
+      {sec > 0 ? t('ui.valueS', sec) : t('ui.almostDone')}
     </span>
   )
 }

@@ -276,7 +276,7 @@ export function PromptPanel(): React.JSX.Element {
           }
         >
           <CollapseHeader
-            label="프롬프트"
+            label={t('프롬프트')}
             collapsed={posCollapsed}
             onToggle={() => setPosCollapsed((v) => !v)}
             action={
@@ -323,7 +323,7 @@ export function PromptPanel(): React.JSX.Element {
           }
         >
           <CollapseHeader
-            label="네거티브"
+            label={t('네거티브')}
             collapsed={negCollapsed}
             onToggle={() => setNegCollapsed((v) => !v)}
           />
@@ -346,21 +346,21 @@ export function PromptPanel(): React.JSX.Element {
         <ToolButton
           active={charOverlayOpen}
           icon={<UsersRound size={14} />}
-          label="캐릭터"
+          label={t('캐릭터')}
           badge={activeChars}
           onClick={() => only('char')}
         />
         <ToolButton
           active={fragOverlayOpen}
           icon={<Puzzle size={14} />}
-          label="조각"
+          label={t('조각')}
           badge={0}
           onClick={() => only('frag')}
         />
         <ToolButton
           active={vibeOverlayOpen}
           icon={<Layers size={14} />}
-          label="바이브"
+          label={t('바이브')}
           badge={capabilities.vibes ? enabledVibes : 0}
           disabled={!capabilities.vibes}
           onClick={() => only('vibe')}
@@ -368,7 +368,7 @@ export function PromptPanel(): React.JSX.Element {
         <ToolButton
           active={crefOverlayOpen}
           icon={<ImageUp size={14} />}
-          label="레퍼런스"
+          label={t('레퍼런스')}
           badge={capabilities.characterReferences ? enabledCrefs : 0}
           disabled={!capabilities.characterReferences}
           onClick={() => only('cref')}
@@ -560,6 +560,7 @@ function SplitPromptFields({
   parts: SplitPromptParts
   onChange: (patch: Partial<SplitPromptParts>) => void
 }): React.JSX.Element {
+  const t = useT()
   const containerRef = useRef<HTMLDivElement>(null)
   const [collapsed, setCollapsed] = useState(loadSplitCollapsed)
   const [sizes, setSizes] = useState(loadSplitSizes)
@@ -635,7 +636,7 @@ function SplitPromptFields({
               label={part.label}
               collapsed={isCollapsed}
               value={parts[part.key]}
-              placeholder={part.placeholder}
+              placeholder={t(part.placeholder)}
               grow={sizes[part.key] / (openTotal || 1)}
               onToggle={() => togglePart(part.key)}
               onChange={(value) => onChange({ [part.key]: value })}

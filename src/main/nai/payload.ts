@@ -160,8 +160,9 @@ export function buildGenerateImagePayload(
     }))
     .filter((c) => c.enabled && c.prompt.trim())
     .slice(0, capabilities.maxCharacters)
+  const useCoords = req.useCoords && activeChars.length >= 2
   const center = (c: (typeof activeChars)[number]): { x: number; y: number } =>
-    req.useCoords ? (c.center ?? { x: 0.5, y: 0.5 }) : { x: 0.5, y: 0.5 }
+    useCoords ? (c.center ?? { x: 0.5, y: 0.5 }) : { x: 0.5, y: 0.5 }
 
   return {
     action: opts.i2i ? (opts.i2i.maskBase64 ? 'infill' : 'img2img') : 'generate',
@@ -233,7 +234,7 @@ export function buildGenerateImagePayload(
             })
           }
         : {}),
-      use_coords: req.useCoords,
+      use_coords: useCoords,
       normalize_reference_strength_multiple: true,
       // 인페인트는 strength를 여기로 (NAIS2: inpaintImg2ImgStrength = userStrength 0.7)
       inpaintImg2ImgStrength: opts.i2i?.maskBase64 ? opts.i2i.strength : 1,
@@ -246,7 +247,7 @@ export function buildGenerateImagePayload(
             centers: [center(c)]
           }))
         },
-        use_coords: req.useCoords,
+        use_coords: useCoords,
         use_order: true
       },
       v4_negative_prompt: {

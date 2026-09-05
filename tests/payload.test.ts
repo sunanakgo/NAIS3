@@ -61,6 +61,44 @@ describe('payload builder', () => {
     expect(p.parameters.negative_prompt).not.toMatch(/^nsfw, /)
   })
 
+  it('V5는 인용된 한글을 품질 태그 뒤의 Auto Text 블록으로 전달한다', () => {
+    const p = buildGenerateImagePayload({
+      ...baseRequest,
+      prompt: '간판에 "텍스트"',
+      model: 'nai-diffusion-5-curated',
+      qualityToggle: true
+    })
+    const expected = '간판에 "텍스트", very aesthetic, masterpiece, no text, teXt: 텍스트'
+    expect(p.input).toBe(expected)
+    expect(
+      (p.parameters.v4_prompt as { caption: { base_caption: string } }).caption.base_caption
+    ).toBe(expected)
+  })
+
+  it('V5 Auto Text는 활성 캐릭터 프롬프트의 인용문도 포함한다', () => {
+    const p = buildGenerateImagePayload({
+      ...baseRequest,
+      prompt: 'two people',
+      model: 'nai-diffusion-5-full',
+      qualityToggle: false,
+      characterPrompts: [
+        { prompt: 'saying "왼쪽"', negativePrompt: '', enabled: true },
+        { prompt: 'saying "제외"', negativePrompt: '', enabled: false },
+        { prompt: 'saying "오른쪽"', negativePrompt: '', enabled: true }
+      ]
+    })
+    expect(p.input).toBe('two people, teXt: 왼쪽\n\n오른쪽')
+  })
+
+  it('V4.5 프롬프트에는 V5 Auto Text 변환을 적용하지 않는다', () => {
+    const p = buildGenerateImagePayload({
+      ...baseRequest,
+      prompt: '간판에 "텍스트"',
+      qualityToggle: false
+    })
+    expect(p.input).toBe('간판에 "텍스트"')
+  })
+
   it('V5 투명 배경은 태그·straight alpha·서버 힌트를 함께 보낸다', () => {
     const p = buildGenerateImagePayload(
       { ...baseRequest, model: 'nai-diffusion-5-curated', qualityToggle: true },

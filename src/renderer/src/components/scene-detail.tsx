@@ -1,6 +1,7 @@
 import { ArrowLeft, Loader2, Minus, Play, Plus, Star, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Scene } from '@shared/types'
+import { promptTokenLimit } from '@shared/nai-models'
 import { imageUrl } from '../lib/constants'
 import { ResolutionPicker } from './resolution-picker'
 import { useGenerationStore } from '../stores/generation-store'
@@ -39,6 +40,8 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
   const source = useGenerationStore((s) => s.source)
   const basePrompt = useGenerationStore((s) => s.request.prompt)
   const baseNegative = useGenerationStore((s) => s.request.negativePrompt)
+  const model = useGenerationStore((s) => s.request.model)
+  const tokenLimit = promptTokenLimit(model)
   const charItems = useCharactersStore((s) => s.items)
   const previewPng = useGenerationStore((s) => s.previewPng)
   const generatingSceneId = useGenerationStore(
@@ -88,13 +91,15 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
     const negText = appendPrompt(baseNegative, scene.negativePrompt)
     const negTexts = negText.trim() ? [negText] : []
     if (posTexts.length === 0 && negTexts.length === 0) {
-      setSceneTokens({ pos: null, neg: null })
-      return
+      const timer = setTimeout(() => setSceneTokens({ pos: null, neg: null }))
+      return () => clearTimeout(timer)
     }
+    let cancelled = false
     const timer = setTimeout(() => {
       void window.nais
-        .invoke('tokens:count', { texts: [...posTexts, ...negTexts] })
+        .invoke('tokens:count', { texts: [...posTexts, ...negTexts], model })
         .then(({ counts }) => {
+          if (cancelled) return
           const sum = (a: number[]): number | null =>
             a.length === 0 ? null : a.reduce((x, y) => x + y, 0)
           setSceneTokens({
@@ -102,9 +107,15 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
             neg: sum(counts.slice(posTexts.length))
           })
         })
+        .catch(() => {
+          if (!cancelled) setSceneTokens({ pos: null, neg: null })
+        })
     }, 250)
-    return () => clearTimeout(timer)
-  }, [basePrompt, baseNegative, scene.prompt, scene.negativePrompt, charItems])
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [basePrompt, baseNegative, scene.prompt, scene.negativePrompt, charItems, model])
 
   // ESC로 씬 목록으로 (라이트박스가 열려 있으면 라이트박스만 닫힘)
   useEffect(() => {
@@ -213,6 +224,7 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
             onValueChange={(v) => void update(scene.id, { prompt: v })}
             placeholder={t('씬 프롬프트')}
             tokensOverride={sceneTokens.pos}
+            tokenLimit={tokenLimit}
             className="h-32 max-h-[520px] min-h-24 resize-y"
           />
           <PromptEditor
@@ -221,6 +233,7 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
             placeholder={t('씬 네거티브 프롬프트')}
             negative
             tokensOverride={sceneTokens.neg}
+            tokenLimit={tokenLimit}
             className="h-20 max-h-96 min-h-16 resize-y"
           />
         </div>

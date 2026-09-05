@@ -200,6 +200,8 @@ export const EN: Record<string, string> = {
   '전체 해제': 'Disable All',
   '기본 프롬프트 + 캐릭터 프롬프트 합산 (512 토큰 공유)':
     'Base prompt + character prompts combined (shared 512 tokens)',
+  '기본 프롬프트 + 캐릭터 프롬프트 합산 ({0} 토큰 공유)':
+    'Base prompt + character prompts combined (shared {0} tokens)',
   "끄면 AI's Choice (NAI가 위치 결정)": "Off = AI's Choice (NAI decides positions)",
   '위치 지정': 'Set positions',
   '이름·프롬프트 검색': 'Search name or prompt',

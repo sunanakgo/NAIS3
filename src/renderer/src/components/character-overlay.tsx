@@ -16,7 +16,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { CharacterCard } from '@shared/types'
-import { canEnableAnotherCharacter, isV5Model, modelCapabilities } from '@shared/nai-models'
+import { canEnableAnotherCharacter, modelCapabilities, promptTokenLimit } from '@shared/nai-models'
 import { cn } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { applyClickSelection, useSelectAllShortcut } from '../lib/edit-selection'
@@ -84,6 +84,7 @@ export function CharacterOverlay(): React.JSX.Element {
   const model = useGenerationStore((s) => s.request.model)
   const patch = useGenerationStore((s) => s.patchRequest)
   const maxCharacters = modelCapabilities(model).maxCharacters
+  const tokenLimit = promptTokenLimit(model)
 
   const [search, setSearch] = useState('')
   const [expandedId, setExpandedId] = useState<number | null>(null)
@@ -157,7 +158,7 @@ export function CharacterOverlay(): React.JSX.Element {
     setSelected(new Set())
   }
 
-  // 기본 프롬프트 + 캐릭터 프롬프트가 512 토큰을 합산 공유 (공홈 실측)
+  // 기본 프롬프트 + 캐릭터 프롬프트가 모델별 토큰 한도를 합산 공유 (공홈 실측)
   const basePrompt = useGenerationStore((s) => s.request.prompt)
   const positiveTexts = useMemo(
     () =>
@@ -169,17 +170,25 @@ export function CharacterOverlay(): React.JSX.Element {
   )
   const [charTokens, setCharTokens] = useState<number | null>(null)
   useEffect(() => {
-    if (isV5Model(model) || positiveTexts.length === 0) {
+    if (positiveTexts.length === 0) {
       const timer = setTimeout(() => setCharTokens(null))
       return () => clearTimeout(timer)
     }
+    let cancelled = false
     const timer = setTimeout(() => {
-      void window.nais.invoke('tokens:count', { texts: positiveTexts }).then(({ counts }) => {
-        // 공홈은 캡션별 EOS를 각각 포함해 그대로 합산
-        setCharTokens(counts.reduce((a, b) => a + b, 0))
-      })
+      void window.nais
+        .invoke('tokens:count', { texts: positiveTexts, model })
+        .then(({ counts }) => {
+          if (!cancelled) setCharTokens(counts.reduce((a, b) => a + b, 0))
+        })
+        .catch(() => {
+          if (!cancelled) setCharTokens(null)
+        })
     }, 300)
-    return () => clearTimeout(timer)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
   }, [model, positiveTexts])
 
   // 편집 모드 헤더 — 선택 전용 행 (스위치/좌표 등 상호작용 제거)
@@ -316,6 +325,8 @@ export function CharacterOverlay(): React.JSX.Element {
       <PromptEditor
         className="h-40 max-h-[520px] min-h-20 resize-y bg-surface-2"
         value={char.prompt}
+        tokenModel={model}
+        tokenLimit={tokenLimit}
         placeholder="girl, ..."
         onValueChange={(v) => updateCard(char.id, { prompt: v })}
       />
@@ -323,6 +334,8 @@ export function CharacterOverlay(): React.JSX.Element {
         negative
         className="h-24 max-h-96 min-h-14 resize-y bg-surface-2"
         value={char.negativePrompt}
+        tokenModel={model}
+        tokenLimit={tokenLimit}
         placeholder={t('캐릭터 네거티브')}
         onValueChange={(v) => updateCard(char.id, { negativePrompt: v })}
       />
@@ -366,15 +379,15 @@ export function CharacterOverlay(): React.JSX.Element {
             {t('전체 해제')}
           </Button>
         )}
-        {!isV5Model(model) && charTokens !== null && (
+        {charTokens !== null && (
           <span
             className={cn(
               'font-mono text-[10.5px]',
-              charTokens > 512 ? 'text-danger' : 'text-faint'
+              charTokens > tokenLimit ? 'text-danger' : 'text-faint'
             )}
-            title={t('기본 프롬프트 + 캐릭터 프롬프트 합산 (512 토큰 공유)')}
+            title={t('기본 프롬프트 + 캐릭터 프롬프트 합산 ({0} 토큰 공유)', tokenLimit)}
           >
-            {charTokens}/512
+            {charTokens}/{tokenLimit}
           </span>
         )}
         <div className="flex-1" />

@@ -124,7 +124,7 @@ import {
 import { exportAll, importAll } from './backup/repo'
 import { importNais2 } from './backup/nais2'
 import { startUpdateDownload } from './updater'
-import { countTokens } from './nai/tokenizer'
+import { countPromptTokens } from './nai/token-counter'
 import {
   addRefImages,
   collapseRefFolder,
@@ -519,12 +519,15 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   })
 
   handle('tags:search', ({ query, limit }) => ({ items: searchTags(query, limit) }))
-  handle('tokens:count', ({ texts }) => {
+  handle('tokens:count', async ({ texts, model }) => {
     // 토큰 수는 실제 전송본 기준 — 조각(<이름>)·주석을 치환/제거한 결과로 센다.
     // rng 고정(항상 첫 줄)이라 결정적이고, peek이라 <*이름> 순차 카운터를 소모하지 않는다.
     const src = fragmentSource()
+    const processed = texts.map((text) =>
+      processWildcards(removeComments(text), src, () => 0, true)
+    )
     return {
-      counts: texts.map((t) => countTokens(processWildcards(removeComments(t), src, () => 0, true)))
+      counts: await countPromptTokens(processed, model)
     }
   })
 

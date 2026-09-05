@@ -474,8 +474,8 @@ export interface IpcInvokeMap {
     req: { query: string; limit?: number }
     res: { items: { tag: string; count: number; type: string }[] }
   }
-  /** T5 토큰 카운트 (V4.5 한도 512, EOS 포함 — NAI 웹과 동일 방식) */
-  'tokens:count': { req: { texts: string[] }; res: { counts: number[] } }
+  /** 모델별 토큰 카운트 (V5=Qwen 3.5, 이전 모델=T5) */
+  'tokens:count': { req: { texts: string[]; model: string }; res: { counts: number[] } }
   /** 히스토리 이미지를 i2i/인페인트 소스로 읽기 */
   'images:readForSource': {
     req: { filePath: string }

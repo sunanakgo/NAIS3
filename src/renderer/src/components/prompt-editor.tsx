@@ -49,6 +49,7 @@ export function PromptEditor({
   className,
   negative = false,
   tokensOverride,
+  tokenModel,
   tokenLimit = 512
 }: {
   value: string
@@ -58,6 +59,8 @@ export function PromptEditor({
   negative?: boolean
   /** 외부에서 합산한 토큰 수 (기본+캐릭터 합산 등). undefined면 자체 카운트, null이면 숨김 */
   tokensOverride?: number | null
+  /** 자체 카운트에 사용할 모델. 생략하면 자체 카운트를 숨김 */
+  tokenModel?: string
   tokenLimit?: number
 }): React.JSX.Element {
   const t = useT()
@@ -74,22 +77,31 @@ export function PromptEditor({
 
   const ranges = useMemo(() => highlightRanges(value), [value])
 
-  // 토큰 카운트 (V4.5 = T5, 한도 512 — NAI 웹과 동일: 원문 기준, 가중치 문법 제거 후)
+  // 토큰 카운트 (V5=Qwen 3.5, 이전 모델=T5 — 주석·조각 전처리는 메인 IPC에서 적용)
   const [ownTokens, setOwnTokens] = useState<number | null>(null)
   const external = tokensOverride !== undefined
   useEffect(() => {
     if (external) return
-    if (!value.trim()) {
-      setOwnTokens(null)
-      return
+    if (!tokenModel || !value.trim()) {
+      const timer = setTimeout(() => setOwnTokens(null))
+      return () => clearTimeout(timer)
     }
+    let cancelled = false
     const timer = setTimeout(() => {
       void window.nais
-        .invoke('tokens:count', { texts: [value] })
-        .then(({ counts }) => setOwnTokens(counts[0]))
+        .invoke('tokens:count', { texts: [value], model: tokenModel })
+        .then(({ counts }) => {
+          if (!cancelled) setOwnTokens(counts[0])
+        })
+        .catch(() => {
+          if (!cancelled) setOwnTokens(null)
+        })
     }, 250)
-    return () => clearTimeout(timer)
-  }, [value, external])
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [value, external, tokenModel])
   const tokens = external ? tokensOverride : ownTokens
 
   // 세로 스크롤바가 생기면 textarea 콘텐츠 폭이 줄어 줄바꿈이 달라진다 —
@@ -112,7 +124,6 @@ export function PromptEditor({
     const observer = new ResizeObserver(syncScroll)
     observer.observe(ta)
     return () => observer.disconnect()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // 찾기 (Ctrl/Cmd+F) — 대소문자 무시, 일치 전부 하이라이트 + Enter로 순회

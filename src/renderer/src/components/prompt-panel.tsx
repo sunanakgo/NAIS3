@@ -15,12 +15,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { effectiveGenerationStrength, estimateAnlas, formatAnlasEstimate } from '@shared/anlas'
 import { snapNaiResolution } from '@shared/nai-resolution'
-import {
-  inpaintingModelFor,
-  isV5Model,
-  modelCapabilities,
-  promptTokenLimit
-} from '@shared/nai-models'
+import { inpaintingModelFor, modelCapabilities, promptTokenLimit } from '@shared/nai-models'
 import { useT } from '../lib/i18n'
 import { useCharactersStore } from '../stores/characters-store'
 import { useFragmentsStore } from '../stores/fragments-store'
@@ -134,23 +129,19 @@ export function PromptPanel(): React.JSX.Element {
     [charItems]
   )
   useEffect(() => {
-    // V5 uses Qwen rather than the bundled V4.5 T5 tokenizer. Hide the count until
-    // the matching Qwen tokenizer is bundled; showing a T5 count would be misleading.
-    if (isV5Model(request.model)) {
-      const timer = setTimeout(() => setTokenTotals({ pos: null, neg: null }))
-      return () => clearTimeout(timer)
-    }
     const posTexts = [request.prompt, ...enabledChars.map((c) => c.prompt)].filter((t) => t.trim())
     const negTexts = [request.negativePrompt].filter((t) => t.trim())
     if (posTexts.length === 0 && negTexts.length === 0) {
       const timer = setTimeout(() => setTokenTotals({ pos: null, neg: null }))
       return () => clearTimeout(timer)
     }
+    let cancelled = false
     const timer = setTimeout(() => {
       void window.nais
-        .invoke('tokens:count', { texts: [...posTexts, ...negTexts] })
+        .invoke('tokens:count', { texts: [...posTexts, ...negTexts], model: request.model })
         .then(({ counts }) => {
-          // 공홈은 캡션별 EOS를 각각 포함해 그대로 합산한다 (빈 칸 = 1토큰인 이유)
+          if (cancelled) return
+          // 캡션별로 센 결과를 그대로 합산한다 (T5만 각 캡션에 EOS 포함).
           const sum = (arr: number[]): number | null =>
             arr.length === 0 ? null : arr.reduce((a, b) => a + b, 0)
           setTokenTotals({
@@ -158,8 +149,14 @@ export function PromptPanel(): React.JSX.Element {
             neg: sum(counts.slice(posTexts.length))
           })
         })
+        .catch(() => {
+          if (!cancelled) setTokenTotals({ pos: null, neg: null })
+        })
     }, 250)
-    return () => clearTimeout(timer)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
   }, [request.model, request.prompt, request.negativePrompt, enabledChars])
 
   const anlas = useMemo(

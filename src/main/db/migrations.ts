@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3'
+import { seedDefaultDanbooruFragments } from '../fragments/defaults'
 
 /**
  * 버전드 마이그레이션. 배열 인덱스+1 = 적용 후 user_version.
@@ -337,5 +338,10 @@ export const migrations: ((db: Database.Database) => void)[] = [
          WHERE folder_id IS NOT NULL AND folder_id NOT IN (SELECT id FROM ${folders});`
       )
     }
+  },
+
+  // v18: lightweight Danbooru-based defaults. Existing fragments win on name collisions.
+  (db) => {
+    seedDefaultDanbooruFragments(db)
   }
 ]

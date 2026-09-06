@@ -35,6 +35,8 @@ import { DropOverlay } from './drop-overlay'
 import { MosaicEditor } from './mosaic-editor'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Slider } from './ui/slider'
+import { MaskWorkspace } from './mask-workspace'
+import { ZoomableImageStage } from './image-viewport'
 
 type Opt = 'colorize' | 'emotion' | undefined
 const TOOLS: {
@@ -105,6 +107,11 @@ export function DirectorMode(): React.JSX.Element {
   const [mosaic, setMosaic] = useState<{ base64: string; width: number; height: number } | null>(
     null
   )
+  const [inpaint, setInpaint] = useState<{
+    base64: string
+    width: number
+    height: number
+  } | null>(null)
 
   const source = stack.length > 0 ? stack[stack.length - 1] : null
   const isResult = stack.length > 1 // 툴이 한 번 이상 적용된 상태
@@ -114,24 +121,27 @@ export function DirectorMode(): React.JSX.Element {
 
   // 예상 Anlas — 업스케일과 augment-image 디렉터 툴은 서로 다른 공식 계산식을 쓴다.
   const tier = useGenerationStore((s) => s.subscriptionTier)
-  const [toolCosts, setToolCosts] = useState<{
-    upscale: number
-    backgroundRemoval: number
-    standardAugment: number
+  const [sourceInfo, setSourceInfo] = useState<{
+    source: string
+    dimensions: { width: number; height: number }
+    costs: { upscale: number; backgroundRemoval: number; standardAugment: number }
   } | null>(null)
+  const sourceDims = sourceInfo?.source === source ? sourceInfo.dimensions : null
+  const toolCosts = sourceInfo?.source === source ? sourceInfo.costs : null
   useEffect(() => {
-    if (!source) {
-      setToolCosts(null)
-      return
-    }
+    if (!source) return
     let alive = true
     void imageDims(source).then(({ width, height }) => {
       if (!alive) return
       const isOpus = tier === 'opus'
-      setToolCosts({
-        upscale: directorToolCost(width, height, isOpus),
-        backgroundRemoval: directorAugmentCost('bg-removal', width, height, isOpus),
-        standardAugment: directorAugmentCost('lineart', width, height, isOpus)
+      setSourceInfo({
+        source,
+        dimensions: { width, height },
+        costs: {
+          upscale: directorToolCost(width, height, isOpus),
+          backgroundRemoval: directorAugmentCost('bg-removal', width, height, isOpus),
+          standardAugment: directorAugmentCost('lineart', width, height, isOpus)
+        }
       })
     })
     return () => {
@@ -140,14 +150,25 @@ export function DirectorMode(): React.JSX.Element {
   }, [source, tier])
 
   // i2i/인페인트로 보내고 메인 페이지로 전환 (현재 이미지 사용)
-  async function sendToMain(mode: 'i2i' | 'inpaint'): Promise<void> {
+  async function sendToMain(): Promise<void> {
     if (!source) return
-    const { width, height } = await imageDims(source)
-    if (mode === 'i2i') {
-      useGenerationStore.getState().setSource({ imageBase64: source, width, height })
-    } else {
-      useGenerationStore.getState().startInpaintFromImage(source, width, height)
-    }
+    const { width, height } = sourceDims ?? (await imageDims(source))
+    useGenerationStore.getState().setSource({ imageBase64: source, width, height })
+    useLayoutStore.getState().setCenterMode('main')
+  }
+
+  async function beginInpaint(): Promise<void> {
+    if (!source) return
+    const { width, height } = sourceDims ?? (await imageDims(source))
+    setInpaint({ base64: source, width, height })
+  }
+
+  function applyInpaint(maskBase64: string): void {
+    if (!inpaint) return
+    const generation = useGenerationStore.getState()
+    generation.startInpaintFromImage(inpaint.base64, inpaint.width, inpaint.height)
+    generation.confirmInpaint(maskBase64)
+    setInpaint(null)
     useLayoutStore.getState().setCenterMode('main')
   }
 
@@ -195,51 +216,39 @@ export function DirectorMode(): React.JSX.Element {
           if (file?.type.startsWith('image/')) loadFile(file)
         }}
       >
-        {shown ? (
+        {inpaint ? (
+          <MaskWorkspace
+            className="absolute inset-0"
+            imageBase64={inpaint.base64}
+            width={inpaint.width}
+            height={inpaint.height}
+            onConfirm={applyInpaint}
+            onCancel={() => setInpaint(null)}
+          />
+        ) : shown ? (
           <>
-            <img
-              src={shown}
-              className="h-full w-full object-contain p-2"
-              draggable={false}
-              alt=""
-            />
-            {isResult && (
-              <span className="absolute left-3 top-3 rounded-full bg-accent px-2.5 py-0.5 text-[11px] font-medium text-white">
-                {t('결과')}
-              </span>
+            {sourceDims ? (
+              <ZoomableImageStage src={shown} width={sourceDims.width} height={sourceDims.height}>
+                {isResult && (
+                  <span className="absolute left-3 top-3 rounded-full bg-accent px-2.5 py-0.5 text-[11px] font-medium text-white">
+                    {t('결과')}
+                  </span>
+                )}
+                <DirectorImageControls
+                  isResult={isResult}
+                  clear={clear}
+                  undo={undo}
+                  openFile={() => fileRef.current?.click()}
+                />
+              </ZoomableImageStage>
+            ) : (
+              <img
+                src={shown}
+                className="h-full w-full object-contain p-2"
+                draggable={false}
+                alt=""
+              />
             )}
-            {/* 하단 컨트롤 */}
-            <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full border border-line bg-paper/85 p-1 backdrop-blur">
-              <Button
-                size="icon"
-                variant="ghost"
-                className="rounded-full"
-                title={t('지우기')}
-                onClick={clear}
-              >
-                <X size={16} />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="rounded-full"
-                title={t('되돌리기 (이전 이미지)')}
-                disabled={!isResult}
-                onClick={undo}
-              >
-                <Undo2 size={16} />
-              </Button>
-              <div className="mx-0.5 h-5 w-px bg-line" />
-              <Button
-                size="icon"
-                variant="ghost"
-                className="rounded-full"
-                title={t('다른 이미지 열기')}
-                onClick={() => fileRef.current?.click()}
-              >
-                <Upload size={16} />
-              </Button>
-            </div>
           </>
         ) : (
           <div
@@ -304,24 +313,29 @@ export function DirectorMode(): React.JSX.Element {
             color="text-indigo-400"
             label="I2I"
             desc={t('이 이미지로 img2img (메인으로)')}
-            disabled={!source}
-            onRun={() => sendToMain('i2i')}
+            disabled={!source || Boolean(inpaint)}
+            onRun={() => sendToMain()}
           />
           <SendToMainCard
             icon={Layers}
             color="text-pink-400"
             label={t('인페인트')}
-            desc={t('마스크 칠해 부분 재생성 (메인으로)')}
-            disabled={!source}
-            onRun={() => sendToMain('inpaint')}
+            desc={
+              inpaint ? t('캔버스에서 마스크 편집 중') : t('캔버스에서 마스크를 칠해 부분 재생성')
+            }
+            disabled={!source || Boolean(inpaint)}
+            onRun={() => beginInpaint()}
           />
           <div className="!my-3 h-px bg-line" />
-          <UpscaleCard disabled={!source || loading} cost={toolCosts?.upscale ?? null} />
+          <UpscaleCard
+            disabled={!source || loading || Boolean(inpaint)}
+            cost={toolCosts?.upscale ?? null}
+          />
           {TOOLS.map((tool) => (
             <ToolCard
               key={tool.method}
               tool={tool}
-              disabled={!source || loading}
+              disabled={!source || loading || Boolean(inpaint)}
               cost={
                 tool.method === 'bg-removal'
                   ? (toolCosts?.backgroundRemoval ?? null)
@@ -336,7 +350,7 @@ export function DirectorMode(): React.JSX.Element {
             color="text-orange-400"
             label={t('모자이크')}
             desc={t('브러시로 칠해 픽셀화 (로컬·무료)')}
-            disabled={!source || loading}
+            disabled={!source || loading || Boolean(inpaint)}
             onRun={() => {
               if (!source) return
               void imageDims(source).then((dims) => setMosaic({ base64: source, ...dims }))
@@ -348,7 +362,7 @@ export function DirectorMode(): React.JSX.Element {
             color="text-teal-400"
             label={t('작가 태그 분석')}
             desc={t('그림체 닮은 작가 태그 추출 (Kaloscope·무료)')}
-            disabled={!source || loading}
+            disabled={!source || loading || Boolean(inpaint)}
             onRun={() => {
               if (source) void useArtistTagsStore.getState().show({ base64: source })
             }}
@@ -368,6 +382,53 @@ export function DirectorMode(): React.JSX.Element {
           onCancel={() => setMosaic(null)}
         />
       )}
+    </div>
+  )
+}
+
+function DirectorImageControls({
+  isResult,
+  clear,
+  undo,
+  openFile
+}: {
+  isResult: boolean
+  clear: () => void
+  undo: () => void
+  openFile: () => void
+}): React.JSX.Element {
+  const t = useT()
+  return (
+    <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-full border border-line bg-paper/85 p-1 backdrop-blur">
+      <Button
+        size="icon"
+        variant="ghost"
+        className="rounded-full"
+        title={t('지우기')}
+        onClick={clear}
+      >
+        <X size={16} />
+      </Button>
+      <Button
+        size="icon"
+        variant="ghost"
+        className="rounded-full"
+        title={t('되돌리기 (이전 이미지)')}
+        disabled={!isResult}
+        onClick={undo}
+      >
+        <Undo2 size={16} />
+      </Button>
+      <div className="mx-0.5 h-5 w-px bg-line" />
+      <Button
+        size="icon"
+        variant="ghost"
+        className="rounded-full"
+        title={t('다른 이미지 열기')}
+        onClick={openFile}
+      >
+        <Upload size={16} />
+      </Button>
     </div>
   )
 }

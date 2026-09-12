@@ -23,6 +23,6 @@ const api = {
   }
 }
 
-export type NaisApi = typeof api
+export type NaisApi = typeof api & { runtime?: 'browser' }
 
 contextBridge.exposeInMainWorld('nais', api)

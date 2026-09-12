@@ -180,36 +180,12 @@ export async function augmentImage(
   return Buffer.from(await zip.file(entry)!.async('nodebuffer'))
 }
 
-export const UPSCALE_MODEL = 'nai-diffusion-5-curated'
-export const UPSCALE_SCALE = 2
+export { UPSCALE_MODEL, UPSCALE_SCALE } from './upscale-request'
+import { upscaleRequest } from './upscale-request'
 
 /** V5 Curated 기반 2x 업스케일. 현재 생성 모델과 무관한 공통 전용 모델을 사용한다. */
 export async function upscaleImage(token: string, imageBase64: string): Promise<Buffer> {
-  const body = new FormData()
-  body.append('image', new Blob([Buffer.from(imageBase64, 'base64')], { type: 'image/png' }))
-  body.append(
-    'request',
-    new Blob(
-      [
-        JSON.stringify({
-          image: 'image',
-          model: UPSCALE_MODEL,
-          declared_blur_sigma: 0
-        })
-      ],
-      { type: 'application/json' }
-    )
-  )
-
-  const res = await fetch(ENDPOINTS.upscale, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token.trim()}`,
-      'x-correlation-id': Math.random().toString(36).slice(2, 8),
-      'x-initiated-at': new Date().toISOString()
-    },
-    body
-  })
+  const res = await fetch(ENDPOINTS.upscale, upscaleRequest(token, imageBase64))
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new NaiHttpError(

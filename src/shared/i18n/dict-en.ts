@@ -3,6 +3,9 @@
  * {0}, {1} 자리에 런타임 인자가 치환된다. 매핑이 없으면 한국어로 폴백.
  */
 export const EN: Record<string, string> = {
+  '브라우저 작업 데이터 JSON (API 토큰 제외)': 'Browser workspace JSON (API tokens excluded)',
+  '개발용 브라우저 프로필에 토큰을 저장합니다. 생성에는 선택한 계정을 사용합니다.':
+    'Tokens are stored in the development browser profile. Generation uses the selected account.',
   '계정 1': 'Account 1',
   '계정 2': 'Account 2',
   '계정 3': 'Account 3',

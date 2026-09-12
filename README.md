@@ -47,6 +47,7 @@ NAIS3는 NAIS2의 후속작으로, NovelAI 이미지 생성을 빠르고 안정�
 ```bash
 pnpm install      # 의존성 설치
 pnpm run dev      # 개발 모드 실행
+pnpm run dev:web  # 브라우저 개발 모드 (127.0.0.1:5173)
 pnpm run build    # 타입체크 + 빌드
 pnpm test         # 테스트
 
@@ -54,6 +55,11 @@ pnpm test         # 테스트
 pnpm run build:mac    # macOS (.dmg)
 pnpm run build:win    # Windows (.exe)
 ```
+
+브라우저 개발 모드는 Electron과 별도의 IndexedDB 작업 공간을 사용합니다.
+API 토큰은 개발용 브라우저 프로필에 저장되며, 작업 데이터 JSON 백업에는 포함되지 않습니다.
+브라우저 백업은 브라우저 모드에서 복원하며, 복원 시 현재 등록된 계정은 유지됩니다.
+씬/조각 ZIP 처리 및 내장 웹뷰는 Electron 전용입니다.
 
 ## 문의 · 후원
 

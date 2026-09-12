@@ -193,6 +193,15 @@ export function Titlebar(): React.JSX.Element {
 
       <UpdateButton />
 
+      {import.meta.env.DEV && (
+        <span
+          className="no-drag ml-1 rounded-md border border-accent/40 bg-accent-soft px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-[0.14em] text-accent"
+          title="Development mode"
+        >
+          DEV
+        </span>
+      )}
+
       {/* Windows는 우측에 창 컨트롤(─ □ ✕)이 있어 테마·Anlas를 좌측에 배치 */}
       {!isMac && (
         <>

@@ -442,7 +442,9 @@ function StorageSection(): React.JSX.Element {
       <div className="mt-1 border-t border-line pt-3">
         <p className="text-[13px] text-ink">{t('데이터 백업')}</p>
         <p className="mt-0.5 text-[11.5px] text-faint">
-          {t('라이브러리 전체 JSON (NAIS2 백업 호환)')}
+          {window.nais.runtime === 'browser'
+            ? t('브라우저 작업 데이터 JSON (API 토큰 제외)')
+            : t('라이브러리 전체 JSON (NAIS2 백업 호환)')}
         </p>
         <BackupButtons />
       </div>
@@ -672,9 +674,11 @@ function AccountSection(): React.JSX.Element {
       <div className="min-w-0">
         <p className="text-[13px] text-ink">{t('NAI 계정')}</p>
         <p className="mt-0.5 text-[11.5px] text-faint">
-          {t(
-            '토큰은 OS 키체인으로 암호화됩니다. V5 게이지가 0%가 되면 다음 Opus 계정으로 자동 전환합니다.'
-          )}
+          {window.nais.runtime === 'browser'
+            ? t('개발용 브라우저 프로필에 토큰을 저장합니다. 생성에는 선택한 계정을 사용합니다.')
+            : t(
+                '토큰은 OS 키체인으로 암호화됩니다. V5 게이지가 0%가 되면 다음 Opus 계정으로 자동 전환합니다.'
+              )}
         </p>
       </div>
 

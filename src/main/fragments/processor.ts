@@ -11,6 +11,8 @@
  * NAIS2와 다른 점: 재귀 깊이 가드(10) 추가 — 자기 참조 조각의 무한 루프 방지.
  */
 
+import { normalizeFragmentPath } from '../../shared/fragment-path'
+
 export interface FragmentSource {
   /** path("폴더/이름" 또는 "이름")로 조각 줄 목록 조회. 없으면 null */
   getLines: (path: string) => string[] | null
@@ -21,14 +23,6 @@ const sequentialCounters = new Map<string, number>()
 
 export function resetSequentialCounters(): void {
   sequentialCounters.clear()
-}
-
-function normalizePath(path: string): string {
-  // 슬래시 주변 공백 허용: <폴더 / 이름> → 폴더/이름
-  return path
-    .trim()
-    .toLowerCase()
-    .replace(/\s*\/\s*/g, '/')
 }
 
 function processFileWildcards(
@@ -56,7 +50,7 @@ function processFileWildcards(
 
     // 순차 모드: <*이름>
     const isSequential = trimmed.startsWith('*')
-    const path = normalizePath(isSequential ? trimmed.slice(1) : trimmed)
+    const path = normalizeFragmentPath(isSequential ? trimmed.slice(1) : trimmed)
     if (!path) return match
 
     const lines = source.getLines(path)

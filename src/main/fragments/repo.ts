@@ -6,6 +6,7 @@ import type { CharacterOrderEntry, Fragment, ListFolder } from '../../shared/typ
 import { getDb } from '../db'
 import { t } from '../i18n'
 import type { FragmentSource } from './processor'
+import { normalizeFragmentPath } from '../../shared/fragment-path'
 
 interface Row {
   id: number
@@ -170,9 +171,9 @@ export function fragmentSource(): FragmentSource {
   for (const f of items) {
     const lines = contentToLines(f.content)
     // 참조 측(normalizePath)과 동일하게 trim — 이름/폴더에 공백이 섞여도 <이름>과 매칭되게
-    byPath.set(f.name.trim().toLowerCase(), lines)
+    byPath.set(normalizeFragmentPath(f.name), lines)
     const folder = f.folderId != null ? folderName.get(f.folderId) : null
-    if (folder) byPath.set(`${folder.trim()}/${f.name.trim()}`.toLowerCase(), lines)
+    if (folder) byPath.set(normalizeFragmentPath(`${folder}/${f.name}`), lines)
   }
   return { getLines: (path) => byPath.get(path) ?? null }
 }
@@ -219,7 +220,7 @@ export async function exportAllFragmentsZip(): Promise<number> {
   const zip = new JSZip()
   const used = new Map<string, number>()
   for (const r of rows) {
-    let safe = r.name.replace(/[/\\:*?"<>|]/g, '_') || 'fragment'
+    const safe = r.name.replace(/[/\\:*?"<>|]/g, '_') || 'fragment'
     const n = used.get(safe) ?? 0
     used.set(safe, n + 1)
     zip.file(`${n > 0 ? `${safe}-${n}` : safe}.txt`, r.content)

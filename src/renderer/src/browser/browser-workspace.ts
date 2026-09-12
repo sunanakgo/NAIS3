@@ -1,4 +1,5 @@
 import type { BrowserState } from './browser-db'
+import { normalizeFragmentPath } from '@shared/fragment-path'
 import type { FragmentSource } from '../../../main/fragments/processor'
 
 const WORKSPACE_KEYS = [
@@ -64,14 +65,14 @@ export function browserFragmentSource(state: BrowserState): FragmentSource {
   const folders = new Map(state.fragmentFolders.map((folder) => [folder.id, folder.name]))
   const paths = new Map<string, string[]>()
   for (const fragment of state.fragments) {
-    const name = fragment.name.trim().toLowerCase()
+    const name = normalizeFragmentPath(fragment.name)
     const lines = fragment.content
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => line && !line.startsWith('#'))
     paths.set(name, lines)
     const folder = fragment.folderId == null ? null : folders.get(fragment.folderId)
-    if (folder) paths.set(`${folder.trim().toLowerCase()}/${name}`, lines)
+    if (folder) paths.set(normalizeFragmentPath(`${folder}/${name}`), lines)
   }
   return { getLines: (path) => paths.get(path) ?? null }
 }

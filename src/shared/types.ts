@@ -432,7 +432,15 @@ export interface IpcInvokeMap {
     req: { casts: { castId: string; request: GenerationRequest }[]; seedLocked: boolean }
     res: { ids: string[] }
   }
-  'queue:enqueue': { req: { request: GenerationRequest; count: number }; res: { ids: string[] } }
+  'queue:enqueue': {
+    req: {
+      request: GenerationRequest
+      count: number
+      /** When provided, each queue item independently samples one candidate. */
+      randomCharacterPrompts?: CharacterPromptInput[]
+    }
+    res: { ids: string[] }
+  }
   'queue:cancel': { req: { ids: string[] }; res: void }
   'queue:status': { req: void; res: QueueStatus }
   'images:list': {

@@ -262,7 +262,9 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   handle('scenes:enqueueReserved', (request) => ({
     ids: enqueueReservedScenes(ctx.queue, request)
   }))
-  handle('queue:enqueue', ({ request, count }) => ({ ids: ctx.queue.enqueue(request, count) }))
+  handle('queue:enqueue', ({ request, count, randomCharacterPrompts }) => ({
+    ids: ctx.queue.enqueue(request, count, randomCharacterPrompts)
+  }))
   handle('queue:cancel', ({ ids }) => {
     ctx.queue.cancel(ids)
   })

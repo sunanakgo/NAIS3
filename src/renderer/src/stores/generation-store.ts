@@ -8,7 +8,7 @@ import type {
 } from '@shared/types'
 import { queueDoneAlert } from '../lib/completion-alert'
 import { t } from '../lib/i18n'
-import { enabledCharacters } from './characters-store'
+import { enabledCharacters, randomCharacterCandidates } from './characters-store'
 import { useVibesStore } from './refs-store'
 import { toast } from './toast-store'
 
@@ -218,6 +218,12 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
       center: c.center,
       enabled: true as const
     }))
+    const randomCharacterPrompts = randomCharacterCandidates().map((c) => ({
+      prompt: c.prompt,
+      negativePrompt: c.negativePrompt,
+      center: c.center,
+      enabled: true as const
+    }))
     const src = get().source
     const finalRequest = {
       ...baseRequest,
@@ -243,7 +249,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     set({ previewPng: null, progress: null, viewingFilePath: null })
     await window.nais.invoke('queue:enqueue', {
       request: finalRequest,
-      count: batchCount
+      count: batchCount,
+      ...(randomCharacterPrompts.length > 0 ? { randomCharacterPrompts } : {})
     })
   },
 

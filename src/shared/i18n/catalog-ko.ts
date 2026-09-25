@@ -208,6 +208,12 @@ export const KO = {
   'ui.characterNegative': '캐릭터 네거티브',
   'ui.close': '닫기',
   'ui.character': '캐릭터',
+  'ui.randomCharacter': '랜덤 캐릭터',
+  'ui.chooseRandomCharacterCandidatesShiftClickToSelectARange':
+    '후보 선택 · Shift+클릭으로 범위 선택',
+  'ui.randomCall': '랜덤 호출',
+  'ui.randomlyActivatedValue': '랜덤 캐릭터 "{0}" 활성화',
+  'ui.emptyPromptCharactersCannotBeSelected': '프롬프트가 비어 있는 캐릭터는 선택할 수 없습니다',
   'ui.activeCharactersValueValue': '활성 캐릭터 {0}/{1}',
   'ui.disableAllActiveCharacters': '활성 캐릭터 전체 해제',
   'ui.disableAll': '전체 해제',

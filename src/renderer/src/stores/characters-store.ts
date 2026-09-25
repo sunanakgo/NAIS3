@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { CharacterCard, CharacterCardPatch, ListFolder } from '@shared/types'
+import { planRandomCharacterActivation } from '@shared/random-character'
 import { canonicalize, moveRow, toOrderEntries } from '../lib/folder-list'
 import { t } from '../lib/i18n'
 
@@ -13,6 +14,8 @@ interface CharactersState {
   items: CharacterCard[]
   loaded: boolean
   overlayOpen: boolean
+  /** Candidate range from the last random call; retained only for this renderer session. */
+  randomCandidateIds: number[]
   toggleOverlay: () => void
   setOverlayOpen: (open: boolean) => void
   load: () => Promise<void>
@@ -20,6 +23,8 @@ interface CharactersState {
   updateCard: (id: number, patch: CharacterCardPatch, maxCharacters?: number) => void
   /** 활성 캐릭터 전체 해제 */
   disableAll: () => void
+  /** 선택한 후보 중 한 명을 뽑아 단독 활성화 */
+  activateRandom: (candidateIds: ReadonlySet<number>) => CharacterCard | null
   removeCard: (id: number) => void
   duplicateCard: (id: number) => Promise<void>
   pickThumbnail: (id: number) => Promise<void>
@@ -42,6 +47,7 @@ export const useCharactersStore = create<CharactersState>((set, get) => ({
   items: [],
   loaded: false,
   overlayOpen: false,
+  randomCandidateIds: [],
   toggleOverlay: () => set({ overlayOpen: !get().overlayOpen }),
   setOverlayOpen: (overlayOpen) => set({ overlayOpen }),
 
@@ -77,16 +83,36 @@ export const useCharactersStore = create<CharactersState>((set, get) => ({
       ).length
       if (enabledCount >= maxCharacters) return
     }
-    set({ items: get().items.map((c) => (c.id === id ? { ...c, ...patch } : c)) })
+    set({
+      items: get().items.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+      ...(patch.enabled === undefined ? {} : { randomCandidateIds: [] })
+    })
     void window.nais.invoke('chars:update', { id, patch })
   },
 
   disableAll: () => {
     const enabled = get().items.filter((c) => c.enabled)
-    if (!enabled.length) return
-    set({ items: get().items.map((c) => (c.enabled ? { ...c, enabled: false } : c)) })
+    set({
+      items: get().items.map((c) => (c.enabled ? { ...c, enabled: false } : c)),
+      randomCandidateIds: []
+    })
     for (const c of enabled)
       void window.nais.invoke('chars:update', { id: c.id, patch: { enabled: false } })
+  },
+
+  activateRandom: (candidateIds) => {
+    const plan = planRandomCharacterActivation(get().items, candidateIds)
+    if (!plan.picked) return null
+    set({
+      items: plan.items,
+      randomCandidateIds: plan.items
+        .filter((item) => candidateIds.has(item.id) && item.prompt.trim())
+        .map((item) => item.id)
+    })
+    for (const change of plan.changed) {
+      void window.nais.invoke('chars:update', { id: change.id, patch: { enabled: change.enabled } })
+    }
+    return plan.picked
   },
 
   removeCard: (id) => {
@@ -187,4 +213,11 @@ export const useCharactersStore = create<CharactersState>((set, get) => ({
 /** 생성에 포함될 캐릭터 (정규 순서 = v4 use_order 순서) */
 export function enabledCharacters(): CharacterCard[] {
   return useCharactersStore.getState().items.filter((c) => c.enabled && c.prompt.trim())
+}
+
+/** Usable characters from the most recently activated random candidate range. */
+export function randomCharacterCandidates(): CharacterCard[] {
+  const { items, randomCandidateIds } = useCharactersStore.getState()
+  const ids = new Set(randomCandidateIds)
+  return items.filter((item) => ids.has(item.id) && item.prompt.trim())
 }

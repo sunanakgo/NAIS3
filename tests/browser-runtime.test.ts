@@ -163,4 +163,46 @@ describe('browser runtime regressions', () => {
     expect(generated.map((item) => item.request.prompt.trim())).toEqual(['first', 'second'])
     expect(generated[0].request.characterPrompts[0].prompt).toMatch(/^(first|second)$/)
   })
+
+  it('chooses a random character independently for each queued browser generation', async () => {
+    const generated: { request: { characterPrompts: { prompt: string }[] } }[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: RequestInit) => {
+        const body = JSON.parse(String(init.body))
+        if (url.endsWith('/generate')) {
+          generated.push(body)
+          return Response.json({ base64: 'YQ==', payloadJson: '{}', vibeEncodings: [] })
+        }
+        return Response.json({ anlas: 100, tier: 'opus' })
+      })
+    )
+    const random = vi.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(0.9)
+    await api.invoke('gen:setDelay', { ms: 0 })
+
+    const { ids } = await api.invoke('queue:enqueue', {
+      request: {
+        ...DEFAULT_REQUEST,
+        seed: 42,
+        characterPrompts: [{ prompt: 'previous', negativePrompt: '', enabled: true }]
+      },
+      count: 2,
+      randomCharacterPrompts: [
+        { prompt: 'alpha', negativePrompt: '', enabled: true },
+        { prompt: 'beta', negativePrompt: '', enabled: true }
+      ]
+    })
+    await vi.waitFor(async () => {
+      const status = await api.invoke('queue:status', undefined)
+      expect(
+        status.items.filter((item) => ids.includes(item.id)).map((item) => item.state)
+      ).toEqual(['done', 'done'])
+    })
+
+    expect(generated.map((item) => item.request.characterPrompts[0].prompt)).toEqual([
+      'alpha',
+      'beta'
+    ])
+    random.mockRestore()
+  })
 })

@@ -208,6 +208,12 @@ export const ZH_CN = {
   'ui.characterNegative': '角色负面提示词',
   'ui.close': '关闭',
   'ui.character': '角色',
+  'ui.randomCharacter': '随机角色',
+  'ui.chooseRandomCharacterCandidatesShiftClickToSelectARange':
+    '选择候选角色 · Shift+点击可选择范围',
+  'ui.randomCall': '随机召唤',
+  'ui.randomlyActivatedValue': '已启用随机角色“{0}”',
+  'ui.emptyPromptCharactersCannotBeSelected': '无法选择提示词为空的角色',
   'ui.activeCharactersValueValue': '启用角色 {0}/{1}',
   'ui.disableAllActiveCharacters': '停用全部角色',
   'ui.disableAll': '全部停用',

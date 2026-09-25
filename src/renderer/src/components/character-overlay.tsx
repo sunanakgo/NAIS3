@@ -2,6 +2,7 @@ import {
   CheckSquare,
   Copy,
   Crosshair,
+  Dices,
   FolderPlus,
   ImageOff,
   ImagePlus,
@@ -23,6 +24,7 @@ import { applyClickSelection, useSelectAllShortcut } from '../lib/edit-selection
 import { buildDisplayRows } from '../lib/folder-list'
 import { useCharactersStore } from '../stores/characters-store'
 import { useGenerationStore } from '../stores/generation-store'
+import { toast } from '../stores/toast-store'
 import { askConfirm, askText } from '../stores/dialog-store'
 import { FolderListView } from './folder-list-view'
 import { PromptEditor } from './prompt-editor'
@@ -70,6 +72,7 @@ export function CharacterOverlay(): React.JSX.Element {
   const createCard = useCharactersStore((s) => s.createCard)
   const updateCard = useCharactersStore((s) => s.updateCard)
   const disableAll = useCharactersStore((s) => s.disableAll)
+  const activateRandom = useCharactersStore((s) => s.activateRandom)
   const removeCard = useCharactersStore((s) => s.removeCard)
   const duplicateCard = useCharactersStore((s) => s.duplicateCard)
   const pickThumbnail = useCharactersStore((s) => s.pickThumbnail)
@@ -87,13 +90,15 @@ export function CharacterOverlay(): React.JSX.Element {
 
   const [search, setSearch] = useState('')
   const [expandedId, setExpandedId] = useState<number | null>(null)
-  // 편집 모드 — 다중 선택 (일반 클릭=교체, Ctrl=토글, Shift=구간, Ctrl+A=전체)
-  const [editMode, setEditMode] = useState(false)
+  // 편집/랜덤 후보 모드 — 클릭=토글, Shift=구간, Ctrl+A=현재 목록 전체
+  const [selectionMode, setSelectionMode] = useState<'edit' | 'random' | null>(null)
+  const editMode = selectionMode === 'edit'
+  const randomMode = selectionMode === 'random'
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [bulkPromptOpen, setBulkPromptOpen] = useState(false)
   const anchorRef = useRef<number | null>(null)
-  const toggleEditMode = (): void => {
-    setEditMode((v) => !v)
+  const toggleSelectionMode = (mode: 'edit' | 'random'): void => {
+    setSelectionMode((current) => (current === mode ? null : mode))
     setSelected(new Set())
     setExpandedId(null)
     anchorRef.current = null
@@ -136,9 +141,23 @@ export function CharacterOverlay(): React.JSX.Element {
     () => rows.flatMap((r) => (r.type === 'item' && !r.hidden ? [r.item.id] : [])),
     [rows]
   )
-  useSelectAllShortcut(editMode, () => setSelected(new Set(visibleIds)))
-  const selectItem = (id: number, e: React.MouseEvent): void =>
-    setSelected((prev) => applyClickSelection(prev, visibleIds, id, e, anchorRef))
+  const usableIds = useMemo(
+    () => new Set(items.filter((item) => item.prompt.trim()).map((item) => item.id)),
+    [items]
+  )
+  const selectableIds = randomMode ? visibleIds.filter((id) => usableIds.has(id)) : visibleIds
+  useSelectAllShortcut(selectionMode !== null, () => setSelected(new Set(selectableIds)))
+  const selectItem = (id: number, e: React.MouseEvent): void => {
+    if (!selectableIds.includes(id)) return
+    setSelected((prev) => applyClickSelection(prev, selectableIds, id, e, anchorRef))
+  }
+
+  const callRandomCharacter = (): void => {
+    const picked = activateRandom(selected)
+    if (!picked) return
+    const label = picked.name.trim() || picked.prompt.trim().slice(0, 40)
+    toast(t('ui.randomlyActivatedValue', label), 'success')
+  }
 
   const bulkDelete = async (): Promise<void> => {
     if (
@@ -182,12 +201,17 @@ export function CharacterOverlay(): React.JSX.Element {
     return () => clearTimeout(timer)
   }, [model, positiveTexts])
 
-  // 편집 모드 헤더 — 선택 전용 행 (스위치/좌표 등 상호작용 제거)
-  const renderHeaderEdit = (char: CharacterCard): React.ReactNode => {
+  // 선택 모드 헤더 — 스위치/좌표 등 편집 상호작용 제거
+  const renderHeaderSelection = (char: CharacterCard): React.ReactNode => {
     const checked = selected.has(char.id)
+    const unavailable = randomMode && !char.prompt.trim()
     return (
       <div
-        className="flex h-10 cursor-pointer select-none items-center gap-2 px-2"
+        className={cn(
+          'flex h-10 select-none items-center gap-2 px-2',
+          unavailable ? 'cursor-not-allowed opacity-45' : 'cursor-pointer'
+        )}
+        title={unavailable ? t('ui.emptyPromptCharactersCannotBeSelected') : undefined}
         onClick={(e) => selectItem(char.id, e)}
       >
         <span
@@ -407,9 +431,17 @@ export function CharacterOverlay(): React.JSX.Element {
         </Button>
         <Button
           size="sm"
+          variant={randomMode ? 'accent' : 'ghost'}
+          title={t('ui.randomCharacter')}
+          onClick={() => toggleSelectionMode('random')}
+        >
+          <Dices size={14} />
+        </Button>
+        <Button
+          size="sm"
           variant={editMode ? 'accent' : 'ghost'}
           title={t('ui.editModeMultiSelectClickToToggleShiftClickForRangeCtrlAForAll')}
-          onClick={toggleEditMode}
+          onClick={() => toggleSelectionMode('edit')}
         >
           <CheckSquare size={14} />
         </Button>
@@ -422,6 +454,37 @@ export function CharacterOverlay(): React.JSX.Element {
           <Plus size={13} /> {t('ui.character')}
         </Button>
       </div>
+
+      {/* 랜덤 후보 선택 바 — 선택 범위를 유지한 채 여러 번 다시 뽑을 수 있다 */}
+      {randomMode && (
+        <div className="flex flex-wrap items-center gap-1 border-b border-line pb-2 text-[12px]">
+          <span className="text-muted">
+            {t('ui.chooseRandomCharacterCandidatesShiftClickToSelectARange')}
+          </span>
+          <span className="text-muted">{t('ui.valueItems', selected.size)}</span>
+          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set(selectableIds))}>
+            {t('ui.all')}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={selected.size === 0}
+            onClick={() => setSelected(new Set())}
+          >
+            {t('ui.clear')}
+          </Button>
+          <div className="flex-1" />
+          <Button
+            size="sm"
+            variant="accent"
+            className="gap-1"
+            disabled={selected.size === 0}
+            onClick={callRandomCharacter}
+          >
+            <Dices size={12} /> {t('ui.randomCall')}
+          </Button>
+        </div>
+      )}
 
       {/* 편집 모드 일괄 작업 바 — 검색 아래 */}
       {editMode && (
@@ -473,9 +536,11 @@ export function CharacterOverlay(): React.JSX.Element {
         <FolderListView
           rows={rows}
           searching={searching}
-          expandedId={editMode ? null : expandedId}
+          expandedId={selectionMode ? null : expandedId}
           // 헤더가 item 밖 상태(좌표 토글/편집 선택)에 의존 — 바뀌면 카드 리렌더
-          renderKey={editMode ? selected : useCoords}
+          renderKey={
+            selectionMode ? `${selectionMode}:${Array.from(selected).join(',')}` : useCoords
+          }
           folderActions={{
             rename: renameFolder,
             toggleCollapse,
@@ -487,12 +552,12 @@ export function CharacterOverlay(): React.JSX.Element {
           itemClassName={(char) =>
             cn(
               'transition-colors hover:border-muted/60', // F2: 호버 강조
-              editMode
+              selectionMode
                 ? selected.has(char.id) && 'border-accent ring-1 ring-accent/40'
                 : char.enabled && 'border-accent/60 bg-accent-soft' // F3: 활성 강조
             )
           }
-          renderHeader={editMode ? renderHeaderEdit : renderHeader}
+          renderHeader={selectionMode ? renderHeaderSelection : renderHeader}
           renderExpanded={renderExpanded}
           itemContextMenu={(char) => (
             <>

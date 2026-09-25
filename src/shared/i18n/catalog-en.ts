@@ -214,6 +214,12 @@ export const EN = {
   'ui.characterNegative': 'Character negative',
   'ui.close': 'Close',
   'ui.character': 'Character',
+  'ui.randomCharacter': 'Random character',
+  'ui.chooseRandomCharacterCandidatesShiftClickToSelectARange':
+    'Choose candidates · Shift-click to select a range',
+  'ui.randomCall': 'Random call',
+  'ui.randomlyActivatedValue': 'Activated random character "{0}"',
+  'ui.emptyPromptCharactersCannotBeSelected': 'Characters with an empty prompt cannot be selected',
   'ui.activeCharactersValueValue': 'Active characters {0}/{1}',
   'ui.disableAllActiveCharacters': 'Disable all active characters',
   'ui.disableAll': 'Disable All',

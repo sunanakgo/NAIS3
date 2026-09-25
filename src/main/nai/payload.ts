@@ -161,13 +161,11 @@ export function buildGenerateImagePayload(
     }))
     .filter((c) => c.enabled && c.prompt.trim())
     .slice(0, capabilities.maxCharacters)
-  // V5 웹의 Auto Text: 따옴표 속 문구를 마지막 `teXt:` 블록으로 반복해 문자 렌더링에 전달한다.
-  // 품질 태그의 `no text` 뒤에 와야 하며, input과 v4_prompt.base_caption은 같은 값을 써야 한다.
-  const prompt = v5
-    ? applyAutoText(promptWithQuality, activeChars, req.useCoords)
-    : promptWithQuality
+  const useCoords = req.useCoords && activeChars.length >= 2
+  // Auto Text must use the same effective positioning mode as the payload centers.
+  const prompt = v5 ? applyAutoText(promptWithQuality, activeChars, useCoords) : promptWithQuality
   const center = (c: (typeof activeChars)[number]): { x: number; y: number } =>
-    req.useCoords ? (c.center ?? { x: 0.5, y: 0.5 }) : { x: 0.5, y: 0.5 }
+    useCoords ? (c.center ?? { x: 0.5, y: 0.5 }) : { x: 0.5, y: 0.5 }
 
   return {
     action: opts.i2i ? (opts.i2i.maskBase64 ? 'infill' : 'img2img') : 'generate',
@@ -239,7 +237,7 @@ export function buildGenerateImagePayload(
             })
           }
         : {}),
-      use_coords: req.useCoords,
+      use_coords: useCoords,
       normalize_reference_strength_multiple: true,
       // 인페인트는 strength를 여기로 (NAIS2: inpaintImg2ImgStrength = userStrength 0.7)
       inpaintImg2ImgStrength: opts.i2i?.maskBase64 ? opts.i2i.strength : 1,
@@ -252,7 +250,7 @@ export function buildGenerateImagePayload(
             centers: [center(c)]
           }))
         },
-        use_coords: req.useCoords,
+        use_coords: useCoords,
         use_order: true
       },
       v4_negative_prompt: {

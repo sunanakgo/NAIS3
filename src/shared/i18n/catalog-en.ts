@@ -1,6 +1,25 @@
 import type { MessageCatalog } from './catalog-ko'
 
 export const EN = {
+  'ui.decreasePositionGridCount': 'Decrease number of {0}',
+  'ui.increasePositionGridCount': 'Increase number of {0}',
+  'ui.positioningRequiresTwoCharacters': 'Positioning requires at least two active characters',
+  'ui.v5FreePositionEditor': 'V5 freeform character positioning',
+  'ui.arrangeCharacters': 'Arrange',
+  'ui.v5CharacterPositionEditor': 'V5 character position editor',
+  'ui.characterPositionInstructions':
+    'Select a character, then click the desired position on the output canvas. You can also drag or use the arrow keys.',
+  'ui.characterPositionCanvas': 'Position canvas for {0}',
+  'ui.selectedCharacter': 'Selected character',
+  'ui.noActiveCharacterPrompts': 'No active character prompts.',
+  'ui.positionGuideNone': 'None',
+  'ui.positionGuideThirds': 'Thirds',
+  'ui.positionGuideGoldenRatio': 'Golden ratio',
+  'ui.positionGuideGrid': 'Grid',
+  'ui.positionGridColumns': 'Columns',
+  'ui.positionGridRows': 'Rows',
+  'ui.finishPositionEditing': 'Done',
+  'ui.positionGridCount': 'Number of {0}',
   'ui.decreaseBatchCount': 'Decrease batch count',
   'ui.batchCount': 'Batch count',
   'ui.increaseBatchCount': 'Increase batch count',

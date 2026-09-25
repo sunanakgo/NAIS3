@@ -1,6 +1,25 @@
 import type { MessageCatalog } from './catalog-ko'
 
 export const ZH_CN = {
+  'ui.decreasePositionGridCount': '减少{0}数',
+  'ui.increasePositionGridCount': '增加{0}数',
+  'ui.positioningRequiresTwoCharacters': '至少需要两个启用的角色才能设置位置',
+  'ui.v5FreePositionEditor': 'V5 角色自由位置编辑',
+  'ui.arrangeCharacters': '布局',
+  'ui.v5CharacterPositionEditor': 'V5 角色位置编辑器',
+  'ui.characterPositionInstructions':
+    '选择角色后，点击输出画布上的目标位置。也可以拖动或使用方向键。',
+  'ui.characterPositionCanvas': '{0}的位置画布',
+  'ui.selectedCharacter': '所选角色',
+  'ui.noActiveCharacterPrompts': '没有启用的角色提示词。',
+  'ui.positionGuideNone': '无',
+  'ui.positionGuideThirds': '三等分',
+  'ui.positionGuideGoldenRatio': '黄金比例',
+  'ui.positionGuideGrid': '网格',
+  'ui.positionGridColumns': '列',
+  'ui.positionGridRows': '行',
+  'ui.finishPositionEditing': '完成位置编辑',
+  'ui.positionGridCount': '{0}数',
   'ui.decreaseBatchCount': '减少批次数量',
   'ui.batchCount': '批次数量',
   'ui.increaseBatchCount': '增加批次数量',

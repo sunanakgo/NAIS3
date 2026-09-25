@@ -135,7 +135,8 @@ export function PreviewPane(): React.JSX.Element {
         </div>
       )}
 
-      {generating && !viewingFilePath && (
+      {/* A batch retains the previous result path; only a user-pinned view hides progress. */}
+      {generating && !viewPinned && (
         <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-line bg-paper/85 px-4 py-1.5 backdrop-blur">
           {preparing ? (
             <Loader2 size={14} className="animate-spin text-accent" />

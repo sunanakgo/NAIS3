@@ -30,7 +30,7 @@
     "build:unpack": "pnpm run build && electron-builder --dir",
     "build:win": "pnpm run build && electron-builder --win",
     "build:mac": "pnpm run build && electron-builder --mac",
-    "build:linux": "electron-vite build && electron-builder --linux",
+    "build:linux": "pnpm run build && electron-builder --linux",
     "test": "vitest run && pnpm run test:db",
     "test:db": "node scripts/run-db-tests.mjs",
     "i18n:check": "vitest run tests/i18n.test.ts tests/i18n-source.test.ts tests/i18n-renderer.test.ts",

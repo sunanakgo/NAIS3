@@ -8,13 +8,20 @@ import { extractAll, extractFile } from '@electron/asar'
 const [platform = process.platform, arch = process.arch, suppliedDirectory] = process.argv.slice(2)
 assert.equal(platform, process.platform, 'Run the packaged app on its target OS')
 assert.equal(arch, process.arch, 'Run the packaged app on its target architecture')
-const directory = resolve(
-  suppliedDirectory ??
-    (platform === 'win32' ? 'dist/win-unpacked' : arch === 'arm64' ? 'dist/mac-arm64' : 'dist/mac')
-)
+const defaultDirectory = {
+  win32: 'dist/win-unpacked',
+  darwin: arch === 'arm64' ? 'dist/mac-arm64' : 'dist/mac',
+  linux: arch === 'x64' ? 'dist/linux-unpacked' : `dist/linux-${arch}-unpacked`
+}[platform]
+assert.ok(suppliedDirectory ?? defaultDirectory, `Unsupported platform: ${platform}`)
+const directory = resolve(suppliedDirectory ?? defaultDirectory)
 const app = platform === 'darwin' ? join(directory, 'NAIS3.app', 'Contents') : directory
 const resources = join(app, platform === 'darwin' ? 'Resources' : 'resources')
-const executable = platform === 'darwin' ? join(app, 'MacOS', 'NAIS3') : join(app, 'NAIS3.exe')
+const executable = {
+  win32: join(app, 'NAIS3.exe'),
+  darwin: join(app, 'MacOS', 'NAIS3'),
+  linux: join(app, 'nais3')
+}[platform]
 const asar = join(resources, 'app.asar')
 const { version } = JSON.parse(readFileSync('package.json', 'utf8'))
 const packaged = JSON.parse(extractFile(asar, 'package.json').toString('utf8'))

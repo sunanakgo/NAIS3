@@ -48,6 +48,10 @@ jobs:
             script: build:mac
             platform: darwin
             arch: x64
+          - os: ubuntu-latest
+            script: build:linux
+            platform: linux
+            arch: x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -60,7 +64,7 @@ jobs:
           node -e "if (process.arch !== '${{ matrix.arch }}') throw new Error('Unexpected runner architecture: ' + process.arch)"
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
-      # Both package scripts include typecheck. pnpm forwards these flags without an extra --.
+      # All package scripts include typecheck. pnpm forwards these flags without an extra --.
       - run: pnpm run ${{ matrix.script }} --publish never
       - if: runner.os == 'macOS'
         run: node scripts/verify-macos-native-deps.mjs
@@ -75,6 +79,8 @@ jobs:
             dist/latest.yml
             dist/*.dmg
             dist/*-mac.zip
+            dist/*.AppImage
+            dist/latest-linux.yml
           if-no-files-found: error
 
   release:

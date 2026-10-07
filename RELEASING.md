@@ -15,12 +15,12 @@ the matching tag `v1.0.26`. The Release workflow builds **drafts only**.
 
 The tag workflow checks the tag/app version and release notes, and refuses to
 modify an already published release. Builds run separately on Windows x64,
-Mac ARM64, and Mac Intel x64. Every platform runs tests and typechecking, packages
+Mac ARM64, Mac Intel x64, and Linux x64. Every platform runs tests and typechecking, packages
 with `--publish never`, and exercises the shipped SQLite/sharp dependencies with
 the packaged Electron executable in Node mode.
 
 Mac builds additionally verify native module architecture. Each platform validates
-its assets; the final aggregation must contain exactly these seven files:
+its assets; the final aggregation must contain exactly these nine files:
 
 - `latest.yml`
 - `nais3-<version>-setup.exe`
@@ -29,9 +29,11 @@ its assets; the final aggregation must contain exactly these seven files:
 - `nais3-<version>-arm64-mac.zip`
 - `nais3-<version>-x64.dmg`
 - `nais3-<version>-x64-mac.zip`
+- `latest-linux.yml`
+- `nais3-<version>-x86_64.AppImage`
 
-The validator checks Windows metadata version, file paths, sizes, and SHA-512,
-and Mac ZIP bundle paths, identifiers, and versions. Run it locally against the
+The validator checks Windows and Linux update metadata version, file paths, sizes,
+and SHA-512, the AppImage header, and Mac ZIP bundle paths, identifiers, and versions. Run it locally against the
 downloaded draft files with `node scripts/verify-release.mjs assets all <directory>`.
 
 ## Review and publish

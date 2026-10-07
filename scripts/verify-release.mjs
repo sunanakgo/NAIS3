@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { readFile, readdir, stat } from 'node:fs/promises'
+import { open, readFile, readdir, stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import JSZip from 'jszip'
@@ -21,7 +21,8 @@ export function expectedAssets(version, target = 'all') {
       `nais3-${version}-setup.exe.blockmap`
     ],
     'darwin-arm64': [`nais3-${version}-arm64.dmg`, `nais3-${version}-arm64-mac.zip`],
-    'darwin-x64': [`nais3-${version}-x64.dmg`, `nais3-${version}-x64-mac.zip`]
+    'darwin-x64': [`nais3-${version}-x64.dmg`, `nais3-${version}-x64-mac.zip`],
+    'linux-x64': ['latest-linux.yml', `nais3-${version}-x86_64.AppImage`]
   }
   assert.ok(target === 'all' || Object.hasOwn(platforms, target), `Unsupported target: ${target}`)
   return target === 'all' ? Object.values(platforms).flat() : platforms[target]
@@ -40,7 +41,9 @@ export async function verifyAssets(directory, version, target = 'all') {
     target === 'all'
       ? names
       : names.filter(
-          (name) => /(?:\.exe(?:\.blockmap)?|\.dmg|-mac\.zip)$/.test(name) || name === 'latest.yml'
+          (name) =>
+            /(?:\.exe(?:\.blockmap)?|\.dmg|-mac\.zip|\.AppImage)$/.test(name) ||
+            /^latest(?:-linux)?\.yml$/.test(name)
         )
   assert.deepEqual(publicNames.sort(), [...expected].sort(), 'Unexpected or missing release assets')
   for (const name of expected) {
@@ -48,19 +51,42 @@ export async function verifyAssets(directory, version, target = 'all') {
     assert.ok(file.isFile() && file.size > 0, `Empty or invalid asset: ${name}`)
   }
 
-  if (expected.includes('latest.yml')) {
-    const installer = `nais3-${version}-setup.exe`
+  const feeds = [
+    ['latest.yml', `nais3-${version}-setup.exe`, 'Windows'],
+    ['latest-linux.yml', `nais3-${version}-x86_64.AppImage`, 'Linux']
+  ]
+  for (const [feed, installer, label] of feeds.filter(([feed]) => expected.includes(feed))) {
     const file = join(directory, installer)
-    const metadata = parse(await readFile(join(directory, 'latest.yml'), 'utf8'))
-    assert.equal(metadata.version, version, 'Windows update version mismatch')
-    assert.equal(metadata.path, installer, 'Windows update path mismatch')
-    assert.equal(metadata.files?.length, 1, 'Expected exactly one Windows installer')
-    assert.equal(metadata.files[0].url, installer, 'Windows update URL mismatch')
-    assert.equal(metadata.files[0].size, (await stat(file)).size, 'Windows installer size mismatch')
+    const metadata = parse(await readFile(join(directory, feed), 'utf8'))
+    assert.equal(metadata.version, version, `${label} update version mismatch`)
+    assert.equal(metadata.path, installer, `${label} update path mismatch`)
+    assert.equal(metadata.files?.length, 1, `Expected exactly one ${label} installer`)
+    assert.equal(metadata.files[0].url, installer, `${label} update URL mismatch`)
+    assert.equal(
+      metadata.files[0].size,
+      (await stat(file)).size,
+      `${label} installer size mismatch`
+    )
     const hash = await hashFile(file)
-    assert.equal(metadata.sha512, hash, 'Windows installer checksum mismatch')
-    assert.equal(metadata.files[0].sha512, hash, 'Windows update file checksum mismatch')
-    assert.ok(Number.isFinite(Date.parse(metadata.releaseDate)), 'Missing Windows release date')
+    assert.equal(metadata.sha512, hash, `${label} installer checksum mismatch`)
+    assert.equal(metadata.files[0].sha512, hash, `${label} update file checksum mismatch`)
+    assert.ok(Number.isFinite(Date.parse(metadata.releaseDate)), `Missing ${label} release date`)
+  }
+
+  for (const name of expected.filter((name) => name.endsWith('.AppImage'))) {
+    // Type 2 AppImage: an ELF executable with the "AI\x02" marker at offset 8.
+    const header = Buffer.alloc(11)
+    const handle = await open(join(directory, name))
+    try {
+      await handle.read(header, 0, header.length, 0)
+    } finally {
+      await handle.close()
+    }
+    assert.ok(header.subarray(0, 4).equals(Buffer.from('\x7fELF', 'latin1')), `Not an ELF: ${name}`)
+    assert.ok(
+      header.subarray(8, 11).equals(Buffer.from('AI\x02', 'latin1')),
+      `Not an AppImage: ${name}`
+    )
   }
 
   for (const name of expected.filter((name) => name.endsWith('-mac.zip'))) {

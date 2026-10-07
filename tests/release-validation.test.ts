@@ -33,14 +33,11 @@ async function macZip(arch: string, bundleVersion = version): Promise<void> {
   )
 }
 
-beforeEach(async () => {
-  directory = await mkdtemp(join(tmpdir(), 'nais3-release-test-'))
-  for (const name of expectedAssets(version)) await writeFile(join(directory, name), 'fixture data')
-  const installer = `nais3-${version}-setup.exe`
+async function updateFeed(feed: string, installer: string): Promise<void> {
   const bytes = await readFile(join(directory, installer))
   const sha512 = createHash('sha512').update(bytes).digest('base64')
   await writeFile(
-    join(directory, 'latest.yml'),
+    join(directory, feed),
     stringify({
       version,
       path: installer,
@@ -49,6 +46,21 @@ beforeEach(async () => {
       files: [{ url: installer, sha512, size: bytes.length }]
     })
   )
+}
+
+const appImage = `nais3-${version}-x86_64.AppImage`
+// ELF magic, then the type 2 AppImage marker at offset 8.
+const appImageHeader = Buffer.from('\x7fELF\x02\x01\x01\x00AI\x02', 'latin1')
+
+beforeEach(async () => {
+  directory = await mkdtemp(join(tmpdir(), 'nais3-release-test-'))
+  for (const name of expectedAssets(version)) await writeFile(join(directory, name), 'fixture data')
+  await writeFile(
+    join(directory, appImage),
+    Buffer.concat([appImageHeader, Buffer.from('fixture data')])
+  )
+  await updateFeed('latest.yml', `nais3-${version}-setup.exe`)
+  await updateFeed('latest-linux.yml', appImage)
   await macZip('arm64')
   await macZip('x64')
 })
@@ -66,8 +78,25 @@ describe('release validation gates', () => {
     expect(() => verifyVersion('1.0.26-rc.1', 'v1.0.26-rc.1')).toThrow()
   })
 
-  it('accepts the complete seven-file release contract', async () => {
-    expect(await verifyAssets(directory, version)).toHaveLength(7)
+  it('accepts the complete nine-file release contract', async () => {
+    expect(await verifyAssets(directory, version)).toHaveLength(9)
+  })
+
+  it('rejects a non-AppImage file and a stale Linux update feed', async () => {
+    await writeFile(join(directory, appImage), 'fixture data')
+    await updateFeed('latest-linux.yml', appImage)
+    await expect(verifyAssets(directory, version)).rejects.toThrow('Not an ELF')
+    await writeFile(
+      join(directory, appImage),
+      Buffer.from('\x7fELF\x02\x01\x01\x00\x00\x00\x00', 'latin1')
+    )
+    await updateFeed('latest-linux.yml', appImage)
+    await expect(verifyAssets(directory, version)).rejects.toThrow('Not an AppImage')
+    await writeFile(
+      join(directory, appImage),
+      Buffer.concat([appImageHeader, Buffer.from('modified')])
+    )
+    await expect(verifyAssets(directory, version)).rejects.toThrow('Linux installer')
   })
 
   it('blocks missing files and unexpected public assets', async () => {

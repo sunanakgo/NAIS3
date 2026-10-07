@@ -51,6 +51,14 @@ mac:
 dmg:
   artifactName: ${name}-${version}-${arch}.${ext}
   writeUpdateInfo: false # dmg는 수동 설치용 — 업데이트 정보 미생성
+linux:
+  icon: build/icon.png
+  executableName: nais3
+  category: Graphics
+  # AppImage 이름에 아키텍처 명시 (x64 → x86_64). 차등 업데이트용 blockmap은 AppImage 내부에 포함됨
+  artifactName: ${name}-${version}-${arch}.${ext}
+  target:
+    - AppImage # electron-updater 자동 업데이트를 지원하는 유일한 리눅스 포맷
 npmRebuild: false
 publish:
   provider: github

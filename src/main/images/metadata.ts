@@ -1,5 +1,5 @@
 import { gunzipSync, inflateSync } from 'zlib'
-import sharp from 'sharp'
+import sharp from '../sharp'
 import type { ImageMetadata } from '../../shared/types'
 import { QUALITY_TAGS_SUFFIX, UC_PRESETS_V45_FULL } from '../../shared/nai-presets'
 

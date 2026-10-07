@@ -1,6 +1,6 @@
 import { BrowserWindow, dialog } from 'electron'
 import { readFileSync } from 'fs'
-import sharp from 'sharp'
+import sharp from '../sharp'
 import type {
   CharacterCard,
   CharacterCardPatch,

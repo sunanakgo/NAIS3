@@ -1,5 +1,5 @@
 import { readFileSync } from 'fs'
-import sharp from 'sharp'
+import sharp from '../sharp'
 import type { CharacterReferenceOptions, VibeOptions } from '../nai/payload'
 import { ENDPOINTS } from '../nai/endpoints'
 import { t } from '../i18n'

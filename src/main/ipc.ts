@@ -157,7 +157,7 @@ import {
 } from './images/storage'
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'fs'
 import { basename } from 'path'
-import sharp from 'sharp'
+import sharp from './sharp'
 import { verifyToken } from './nai/client'
 import { t } from './i18n'
 import type { GenerationQueue } from './queue/generation-queue'

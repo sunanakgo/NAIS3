@@ -806,7 +806,7 @@ function ToolButton({
       </Button>
       {badge > 0 && (
         // 우측 상단에 겹치는 알림 배지 (붉은 원)
-        <span className="pointer-events-none absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 font-mono text-[10px] font-medium text-white shadow">
+        <span className="pointer-events-none absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 font-mono text-[10px] font-medium text-on-danger shadow">
           {badge}
         </span>
       )}

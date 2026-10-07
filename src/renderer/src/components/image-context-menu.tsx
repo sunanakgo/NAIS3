@@ -51,17 +51,17 @@ export function ImageContextMenu({
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onSelect={() => void setI2iSource(filePath)}>
-          <ImageIcon size={13} className="text-indigo-400" /> I2I
+          <ImageIcon size={13} className="text-hue-indigo" /> I2I
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => void startInpaint(filePath)}>
-          <Layers size={13} className="text-pink-400" /> {t('ui.inpaint')}
+          <Layers size={13} className="text-hue-pink" /> {t('ui.inpaint')}
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => void openInDirector(filePath)}>
-          <Wand2 size={13} className="text-violet-400" /> {t('ui.openInDirectorTools')}
+          <Wand2 size={13} className="text-hue-violet" /> {t('ui.openInDirectorTools')}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onSelect={() => void showMeta({ filePath })}>
-          <FileText size={13} className="text-sky-400" /> {t('ui.viewMetadata')}
+          <FileText size={13} className="text-hue-sky" /> {t('ui.viewMetadata')}
         </ContextMenuItem>
         <ContextMenuItem
           onSelect={async () => {
@@ -69,21 +69,21 @@ export function ImageContextMenu({
             if (copied) toast(t('ui.copiedToClipboard'), 'success')
           }}
         >
-          <Copy size={13} className="text-teal-400" /> {t('ui.copyImage')}
+          <Copy size={13} className="text-hue-teal" /> {t('ui.copyImage')}
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => void window.nais.invoke('images:saveAs', { filePath })}>
-          <Download size={13} className="text-emerald-400" /> {t('ui.saveAs')}
+          <Download size={13} className="text-hue-emerald" /> {t('ui.saveAs')}
         </ContextMenuItem>
         <ContextMenuItem
           onSelect={() => void window.nais.invoke('images:showInFolder', { filePath })}
         >
-          <FolderOpen size={13} className="text-amber-400" /> {t('ui.showInFileExplorer')}
+          <FolderOpen size={13} className="text-hue-amber" /> {t('ui.showInFileExplorer')}
         </ContextMenuItem>
         {!hideLibraryAdd && (
           <>
             <ContextMenuSeparator />
             <ContextMenuItem onSelect={() => void addToLibrary([filePath])}>
-              <Library size={13} className="text-fuchsia-400" /> {t('ui.addToLibrary')}
+              <Library size={13} className="text-hue-fuchsia" /> {t('ui.addToLibrary')}
             </ContextMenuItem>
           </>
         )}

@@ -333,7 +333,7 @@ export function DirectorMode(): React.JSX.Element {
             {sourceDims ? (
               <ZoomableImageStage src={shown} width={sourceDims.width} height={sourceDims.height}>
                 {isResult && (
-                  <span className="absolute left-3 top-3 rounded-full bg-accent px-2.5 py-0.5 text-[11px] font-medium text-white">
+                  <span className="absolute left-3 top-3 rounded-full bg-accent px-2.5 py-0.5 text-[11px] font-medium text-on-accent">
                     {t('ui.result')}
                   </span>
                 )}
@@ -583,7 +583,7 @@ function CostChip({ cost }: { cost: number | null }): React.JSX.Element | null {
   const t = useT()
   if (cost == null) return null
   return cost === 0 ? (
-    <span className="shrink-0 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-500">
+    <span className="shrink-0 rounded bg-success/15 px-1.5 py-0.5 text-[10px] font-medium text-success">
       {t('ui.free')}
     </span>
   ) : (

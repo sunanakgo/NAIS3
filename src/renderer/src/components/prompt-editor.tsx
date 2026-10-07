@@ -36,10 +36,10 @@ function formatCount(count: number): string {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  artist: 'text-[#e05c50]',
-  character: 'text-[#5c9e6e]',
-  copyright: 'text-[#b07fd8]',
-  meta: 'text-[#c9a34f]'
+  artist: 'text-tag-artist',
+  character: 'text-tag-character',
+  copyright: 'text-tag-copyright',
+  meta: 'text-tag-meta'
 }
 
 export function PromptEditor({
@@ -318,7 +318,7 @@ export function PromptEditor({
               {value.slice(i === 0 ? 0 : hits[i - 1] + query.length, start)}
               <span
                 style={{
-                  background: i === current ? 'rgba(233,150,50,0.85)' : 'rgba(233,200,50,0.4)',
+                  background: i === current ? 'var(--search-hit-current)' : 'var(--search-hit)',
                   borderRadius: 3
                 }}
               >
@@ -494,7 +494,7 @@ export function PromptEditor({
                 }}
               >
                 {s.kind === 'frag' ? (
-                  <span className="truncate text-[#5cbe7d]">{`<${s.path}>`}</span>
+                  <span className="truncate text-tag-fragment">{`<${s.path}>`}</span>
                 ) : (
                   <>
                     <span className={cn('min-w-0 flex-1 truncate', TYPE_COLORS[s.type])}>

@@ -297,7 +297,7 @@ function CheckLabel({
       <span
         className={cn(
           'grid size-4 place-items-center rounded border transition-colors',
-          checked ? 'border-accent bg-accent text-white' : 'border-line bg-surface'
+          checked ? 'border-accent bg-accent text-on-accent' : 'border-line bg-surface'
         )}
       >
         {checked && <Check size={11} strokeWidth={3} />}
@@ -406,7 +406,7 @@ function Stat({
       <span
         className={cn(
           'grid size-4 shrink-0 place-items-center rounded border transition-colors',
-          checked ? 'border-accent bg-accent text-white' : 'border-line bg-surface'
+          checked ? 'border-accent bg-accent text-on-accent' : 'border-line bg-surface'
         )}
       >
         {checked && <Check size={11} strokeWidth={3} />}

@@ -153,7 +153,7 @@ export function WebSearchMode(): React.JSX.Element {
             </button>
             {editLinks && (
               <button
-                className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-danger text-white"
+                className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-danger text-on-danger"
                 title={t('ui.delete')}
                 onClick={() => removeQuickLink(i)}
               >

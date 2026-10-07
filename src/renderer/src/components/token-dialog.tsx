@@ -987,7 +987,7 @@ function AccountSection(): React.JSX.Element {
       {/* Anlas 사용량 — 잔액 스냅샷 간 감소분 합산 */}
       <div className="min-w-0 rounded-lg border border-line bg-surface-2/50 p-3">
         <p className="mb-2 flex items-center gap-1.5 text-[12.5px] font-medium text-ink">
-          <Coins size={13} className="text-[#c9a34f]" /> Anlas
+          <Coins size={13} className="text-anlas" /> Anlas
         </p>
         <div className="grid grid-cols-3 gap-2 text-center">
           <div>

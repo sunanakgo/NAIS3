@@ -154,8 +154,8 @@ export function CharacterPositionCanvas({
                 'grid place-items-center rounded-full border font-semibold shadow-md transition-[transform,background-color,box-shadow] duration-100',
                 compact ? 'size-6 text-[10.5px]' : 'size-7 text-[11px]',
                 dragging || highlighted || lastId === char.id
-                  ? 'border-paper bg-accent text-paper'
-                  : 'border-line bg-surface text-muted group-hover:border-paper group-hover:bg-accent group-hover:text-paper',
+                  ? 'border-paper bg-accent text-on-accent'
+                  : 'border-line bg-surface text-muted group-hover:border-paper group-hover:bg-accent group-hover:text-on-accent',
                 dragging || highlighted
                   ? 'scale-110 ring-2 ring-accent/45'
                   : 'group-hover:scale-110 group-focus-visible:ring-2 group-focus-visible:ring-accent/60'

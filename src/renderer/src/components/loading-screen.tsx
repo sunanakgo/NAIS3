@@ -8,7 +8,7 @@ import nais3Icon from '../assets/nais3-icon.svg'
 export function LoadingScreen(): React.JSX.Element {
   return (
     <motion.div
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0f0f10]"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-brand-paper"
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
@@ -24,7 +24,7 @@ export function LoadingScreen(): React.JSX.Element {
       {/* 로딩 진행 바 (인디터미네이트) */}
       <div className="mt-8 h-[3px] w-40 overflow-hidden rounded-full bg-white/10">
         <motion.div
-          className="h-full w-1/3 rounded-full bg-[#eb9550]"
+          className="h-full w-1/3 rounded-full bg-brand-accent"
           animate={{ x: ['-100%', '350%'] }}
           transition={{ duration: 1.1, ease: 'easeInOut', repeat: Infinity }}
         />

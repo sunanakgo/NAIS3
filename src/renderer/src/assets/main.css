@@ -21,7 +21,46 @@
   --line: #e3e3e6;
   --accent: #c2610a;
   --accent-soft: rgba(194, 97, 10, 0.13);
-  --danger: #a85a52;
+  /* Status and on-* colors are recomputed for contrast by buildWhimsTokens per preset */
+  --on-accent: #000000;
+  --danger: #864842;
+  --on-danger: #ffffff;
+  --success: #395f45;
+  --warning: #6b592a;
+  --info: #3f5a6e;
+
+  /* Fixed UI colors independent of the preset — define them here instead of hardcoding */
+  --brand-paper: #0f0f10; /* loading splash: always dark so the white logo shows */
+  --brand-accent: #eb9550;
+  --anlas: #c9a34f;
+  --favorite: oklch(82.8% 0.189 84.429);
+  --search-hit: rgba(233, 200, 50, 0.4);
+  --search-hit-current: rgba(233, 150, 50, 0.85);
+  /* Danbooru tag kind colors (autocomplete) */
+  --tag-artist: #e05c50;
+  --tag-character: #5c9e6e;
+  --tag-copyright: #b07fd8;
+  --tag-meta: #c9a34f;
+  --tag-fragment: #5cbe7d;
+  /* Prompt highlights (weight up/down, comment lines) — alpha set via color-mix */
+  --weight-up: rgb(233 94 80);
+  --weight-down: rgb(96 145 235);
+  --comment-mark: rgb(128 128 136);
+
+  /* Icon/chip identity hues — 600 tones light (for contrast), 400 dark */
+  --hue-orange: oklch(64.6% 0.222 41.116);
+  --hue-amber: oklch(66.6% 0.179 58.318);
+  --hue-emerald: oklch(59.6% 0.145 163.225);
+  --hue-teal: oklch(60% 0.118 184.704);
+  --hue-cyan: oklch(60.9% 0.126 221.723);
+  --hue-sky: oklch(58.8% 0.158 241.966);
+  --hue-indigo: oklch(51.1% 0.262 276.966);
+  --hue-violet: oklch(54.1% 0.281 293.009);
+  --hue-purple: oklch(55.8% 0.288 302.321);
+  --hue-fuchsia: oklch(59.1% 0.293 322.896);
+  --hue-pink: oklch(59.2% 0.249 0.584);
+  --hue-rose: oklch(58.6% 0.253 17.585);
+
   --font-ui:
     'Pretendard Variable', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI Variable',
     'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
@@ -45,7 +84,30 @@
   --line: #252528;
   --accent: #eb9550;
   --accent-soft: rgba(235, 149, 80, 0.14);
-  --danger: #c47a72;
+  --on-accent: #000000;
+  --danger: #d0958e;
+  --on-danger: #000000;
+  --success: #84ac8e;
+  --warning: #c4b184;
+  --info: #8fa4b5;
+}
+
+/* Dark mode 400 tones. Image badges (.on-image, dark translucent backdrop)
+   use them in light mode too */
+[data-theme='dark'],
+.on-image {
+  --hue-orange: oklch(75% 0.183 55.934);
+  --hue-amber: oklch(82.8% 0.189 84.429);
+  --hue-emerald: oklch(76.5% 0.177 163.223);
+  --hue-teal: oklch(77.7% 0.152 181.912);
+  --hue-cyan: oklch(78.9% 0.154 211.53);
+  --hue-sky: oklch(74.6% 0.16 232.661);
+  --hue-indigo: oklch(67.3% 0.182 276.935);
+  --hue-violet: oklch(70.2% 0.183 293.541);
+  --hue-purple: oklch(71.4% 0.203 305.504);
+  --hue-fuchsia: oklch(74% 0.238 322.16);
+  --hue-pink: oklch(71.8% 0.202 349.761);
+  --hue-rose: oklch(71.2% 0.194 13.428);
 }
 
 @theme inline {
@@ -58,7 +120,33 @@
   --color-line: var(--line);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
   --color-danger: var(--danger);
+  --color-on-danger: var(--on-danger);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-brand-paper: var(--brand-paper);
+  --color-brand-accent: var(--brand-accent);
+  --color-anlas: var(--anlas);
+  --color-favorite: var(--favorite);
+  --color-tag-artist: var(--tag-artist);
+  --color-tag-character: var(--tag-character);
+  --color-tag-copyright: var(--tag-copyright);
+  --color-tag-meta: var(--tag-meta);
+  --color-tag-fragment: var(--tag-fragment);
+  --color-hue-orange: var(--hue-orange);
+  --color-hue-amber: var(--hue-amber);
+  --color-hue-emerald: var(--hue-emerald);
+  --color-hue-teal: var(--hue-teal);
+  --color-hue-cyan: var(--hue-cyan);
+  --color-hue-sky: var(--hue-sky);
+  --color-hue-indigo: var(--hue-indigo);
+  --color-hue-violet: var(--hue-violet);
+  --color-hue-purple: var(--hue-purple);
+  --color-hue-fuchsia: var(--hue-fuchsia);
+  --color-hue-pink: var(--hue-pink);
+  --color-hue-rose: var(--hue-rose);
   --font-sans: var(--font-ui);
   --font-mono: var(--font-mono);
   --radius-DEFAULT: var(--radius);

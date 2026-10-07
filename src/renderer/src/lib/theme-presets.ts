@@ -1,4 +1,4 @@
-import { mixHex } from './color'
+import { contrastRatio, ensureContrast, mixHex, readableOn } from './color'
 
 export type ThemeMode = 'dark' | 'light'
 
@@ -26,17 +26,34 @@ export function buildWhimsTokens(palette: Palette, mode: ThemeMode): Record<stri
   const dark = mode === 'dark'
   const m = (amount: number): string => mixHex(palette.neutral, palette.ink, amount)
   const dim = (amount: number): string => mixHex(palette.ink, palette.neutral, amount)
+  const surface = m(dark ? 0.045 : 0.035)
+  const surface2 = m(dark ? 0.095 : 0.08)
+  // Status colors double as body text, so they meet 4.5:1 on every surface and 15% chip.
+  // Low-contrast themes whose body text (ink) is already below 4.5:1 only require ink's level.
+  // Only lightness is nudged, toward white/black rather than ink, to preserve the hue.
+  const surfaces = [palette.neutral, surface, surface2]
+  const inkContrast = Math.min(...surfaces.map((bg) => contrastRatio(palette.ink, bg)))
+  const target = Math.min(4.5, inkContrast)
+  const readable = (color: string): string =>
+    ensureContrast(color, surfaces, dark ? '#ffffff' : '#000000', target, 0.15)
+  const danger = readable(palette.error)
 
   return {
     '--paper': palette.neutral,
-    '--surface': m(dark ? 0.045 : 0.035),
-    '--surface-2': m(dark ? 0.095 : 0.08),
+    '--surface': surface,
+    '--surface-2': surface2,
     '--ink': palette.ink,
     '--muted': dim(dark ? 0.42 : 0.46),
     '--faint': dim(dark ? 0.62 : 0.58),
     '--line': m(dark ? 0.14 : 0.16),
     '--accent': palette.primary,
     '--accent-soft': `color-mix(in srgb, ${palette.primary} ${dark ? 18 : 13}%, transparent)`,
+    '--on-accent': readableOn(palette.primary),
+    '--danger': danger,
+    '--on-danger': readableOn(danger),
+    '--success': readable(palette.success),
+    '--warning': readable(palette.warning),
+    '--info': readable(palette.info),
     '--dialogue': palette.primary,
     '--dialogue-bg': `color-mix(in srgb, ${palette.primary} 16%, transparent)`,
     '--quote': palette.warning,

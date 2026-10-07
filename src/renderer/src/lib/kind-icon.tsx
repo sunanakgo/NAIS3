@@ -22,24 +22,24 @@ import { useT } from './i18n'
 type KindMeta = { Icon: LucideIcon; className: string; label: MessageId }
 
 const KIND_MAP: Record<string, KindMeta> = {
-  t2i: { Icon: ImageIcon, className: 'text-amber-500', label: 'ui.t2i' },
-  i2i: { Icon: Layers, className: 'text-indigo-400', label: 'ui.i2i' },
-  inpaint: { Icon: Paintbrush, className: 'text-pink-400', label: 'ui.inpaint' },
-  upscale: { Icon: Maximize2, className: 'text-purple-400', label: 'ui.upscale' },
-  scene: { Icon: Film, className: 'text-emerald-400', label: 'ui.scene' },
-  director: { Icon: Wand2, className: 'text-fuchsia-400', label: 'ui.director' },
-  'bg-removal': { Icon: Eraser, className: 'text-rose-400', label: 'ui.removeBg' },
-  lineart: { Icon: PenTool, className: 'text-sky-400', label: 'ui.lineArt' },
-  sketch: { Icon: Pencil, className: 'text-amber-400', label: 'ui.sketch' },
-  colorize: { Icon: Droplets, className: 'text-emerald-400', label: 'ui.colorize' },
-  emotion: { Icon: Smile, className: 'text-fuchsia-400', label: 'ui.emotion' },
-  declutter: { Icon: Sparkles, className: 'text-violet-400', label: 'ui.declutter' },
+  t2i: { Icon: ImageIcon, className: 'text-hue-amber', label: 'ui.t2i' },
+  i2i: { Icon: Layers, className: 'text-hue-indigo', label: 'ui.i2i' },
+  inpaint: { Icon: Paintbrush, className: 'text-hue-pink', label: 'ui.inpaint' },
+  upscale: { Icon: Maximize2, className: 'text-hue-purple', label: 'ui.upscale' },
+  scene: { Icon: Film, className: 'text-hue-emerald', label: 'ui.scene' },
+  director: { Icon: Wand2, className: 'text-hue-fuchsia', label: 'ui.director' },
+  'bg-removal': { Icon: Eraser, className: 'text-hue-rose', label: 'ui.removeBg' },
+  lineart: { Icon: PenTool, className: 'text-hue-sky', label: 'ui.lineArt' },
+  sketch: { Icon: Pencil, className: 'text-hue-amber', label: 'ui.sketch' },
+  colorize: { Icon: Droplets, className: 'text-hue-emerald', label: 'ui.colorize' },
+  emotion: { Icon: Smile, className: 'text-hue-fuchsia', label: 'ui.emotion' },
+  declutter: { Icon: Sparkles, className: 'text-hue-violet', label: 'ui.declutter' },
   'declutter-keep-bubbles': {
     Icon: MessageSquareText,
-    className: 'text-violet-300',
+    className: 'text-hue-violet/70',
     label: 'ui.declutter.85446fc'
   },
-  mosaic: { Icon: Grid3x3, className: 'text-orange-400', label: 'ui.mosaic' }
+  mosaic: { Icon: Grid3x3, className: 'text-hue-orange', label: 'ui.mosaic' }
 }
 
 export function kindMeta(kind: string): KindMeta {
@@ -52,7 +52,7 @@ export function KindBadge({ kind, size = 12 }: { kind: string; size?: number }):
   const { Icon, className, label } = kindMeta(kind)
   return (
     <span
-      className="pointer-events-none absolute bottom-1 left-1 grid place-items-center rounded bg-black/55 p-0.5 backdrop-blur-sm"
+      className="pointer-events-none absolute bottom-1 left-1 grid place-items-center on-image rounded bg-black/55 p-0.5 backdrop-blur-sm"
       title={t(label)}
     >
       <Icon size={size} className={className} />

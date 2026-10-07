@@ -1,5 +1,6 @@
 import { Minus, Pencil, Plus, X } from 'lucide-react'
 import { effectiveGenerationStrength } from '@shared/anlas'
+import { MASK_PAINT_RGB } from '../lib/color'
 import { kindMeta } from '../lib/kind-icon'
 import { useT } from '../lib/i18n'
 import { useGenerationStore } from '../stores/generation-store'
@@ -67,7 +68,7 @@ export function SourceBanner(): React.JSX.Element | null {
           <div
             className="pointer-events-none absolute inset-0"
             style={{
-              backgroundColor: 'rgba(233, 94, 80, 0.55)',
+              backgroundColor: `rgba(${MASK_PAINT_RGB}, 0.55)`,
               maskImage: `url(data:image/png;base64,${source.maskBase64})`,
               maskSize: 'contain',
               maskRepeat: 'no-repeat',

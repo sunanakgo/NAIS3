@@ -385,13 +385,13 @@ export function LibraryMode(): React.JSX.Element {
                         <ContextMenuSeparator />
                         {currentStack ? (
                           <ContextMenuItem onSelect={() => void moveToStack(idsWith(img.id), null)}>
-                            <Ungroup size={13} className="text-orange-400" />{' '}
+                            <Ungroup size={13} className="text-hue-orange" />{' '}
                             {t('ui.removeFromStack')}
                           </ContextMenuItem>
                         ) : (
                           <ContextMenuSub>
                             <ContextMenuSubTrigger>
-                              <Layers size={13} className="text-cyan-400" /> {t('ui.addToStack')}
+                              <Layers size={13} className="text-hue-cyan" /> {t('ui.addToStack')}
                             </ContextMenuSubTrigger>
                             <ContextMenuSubContent>
                               {stacks.map((s) => (
@@ -573,7 +573,7 @@ function ImageCard({
           <span
             className={cn(
               'absolute right-1.5 top-1.5 grid size-5 place-items-center rounded border-2 transition',
-              checked ? 'border-accent bg-accent text-white' : 'border-white/80 bg-black/30'
+              checked ? 'border-accent bg-accent text-on-accent' : 'border-white/80 bg-black/30'
             )}
           >
             {checked && <span className="text-[11px] leading-none">✓</span>}
@@ -682,7 +682,7 @@ function IconBtn({
           aria-pressed={active === undefined ? undefined : active}
           className={cn(
             'grid size-8 place-items-center rounded-md transition-colors',
-            active ? 'bg-accent text-white' : 'text-muted hover:bg-surface-2 hover:text-fg'
+            active ? 'bg-accent text-on-accent' : 'text-muted hover:bg-surface-2 hover:text-fg'
           )}
         >
           {icon}

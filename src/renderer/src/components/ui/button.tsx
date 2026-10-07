@@ -8,11 +8,11 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: 'border border-line bg-surface text-ink hover:bg-surface-2',
-        accent: 'bg-accent text-paper hover:opacity-90',
+        accent: 'bg-accent text-on-accent hover:opacity-90',
         // 투명 테두리를 미리 깔아 ghost→default 전환 시 border-color가 currentColor(검정/흰)에서
         // 시작해 반짝이는 것 방지 (transition-colors가 transparent→border-line만 애니메이션)
         ghost: 'border border-transparent text-muted hover:bg-surface-2 hover:text-ink',
-        danger: 'bg-danger text-white hover:opacity-90'
+        danger: 'bg-danger text-on-danger hover:opacity-90'
       },
       size: {
         sm: 'h-7 px-2.5',

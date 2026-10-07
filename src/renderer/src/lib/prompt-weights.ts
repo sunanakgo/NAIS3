@@ -83,19 +83,22 @@ export function parseWeights(text: string): WeightSegment[] {
  */
 export function weightBackground(weight: number): string | null {
   if (weight === 1) return null
-  if (weight <= 0) return 'rgba(96, 145, 235, 0.45)'
+  if (weight <= 0) return tint('--weight-down', 0.45)
   const steps = Math.abs(Math.log(weight) / Math.log(STEP))
   const alpha = Math.min(0.1 + steps * 0.09, 0.48)
-  return weight > 1
-    ? `rgba(233, 94, 80, ${alpha.toFixed(3)})`
-    : `rgba(96, 145, 235, ${alpha.toFixed(3)})`
+  return tint(weight > 1 ? '--weight-up' : '--weight-down', alpha)
+}
+
+/** Makes a CSS color token (a variable defined in main.css) translucent by alpha */
+function tint(token: string, alpha: number): string {
+  return `color-mix(in srgb, var(${token}) ${(alpha * 100).toFixed(1)}%, transparent)`
 }
 
 /** 조각 구문 <...> 하이라이트 (NAIS2의 녹색 계승) */
-const FRAGMENT_BG = 'rgba(92, 190, 125, 0.3)'
+const FRAGMENT_BG = tint('--tag-fragment', 0.3)
 
 /** 주석 줄(#로 시작) — 전송에서 제외됨을 회색 배경으로 표시 */
-const COMMENT_BG = 'rgba(128, 128, 136, 0.28)'
+const COMMENT_BG = tint('--comment-mark', 0.28)
 
 /** #로 시작하는 줄 전체의 [시작, 끝) 구간 (removeComments와 동일 규칙 — 줄 중간 #는 태그) */
 function commentSpans(text: string): { start: number; end: number }[] {

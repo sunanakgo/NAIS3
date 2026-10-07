@@ -158,7 +158,7 @@ export function ResolutionPicker({
                 : t('ui.add')
             }
             onClick={doAdd}
-            className="grid size-7 shrink-0 place-items-center rounded bg-accent text-paper hover:opacity-90"
+            className="grid size-7 shrink-0 place-items-center rounded bg-accent text-on-accent hover:opacity-90"
           >
             <Plus size={14} />
           </button>

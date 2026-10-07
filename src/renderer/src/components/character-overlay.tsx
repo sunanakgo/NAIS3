@@ -265,7 +265,7 @@ export function CharacterOverlay(): React.JSX.Element {
         <span
           className={cn(
             'grid size-4 shrink-0 place-items-center rounded border-2',
-            checked ? 'border-accent bg-accent text-white' : 'border-line'
+            checked ? 'border-accent bg-accent text-on-accent' : 'border-line'
           )}
         >
           {checked && <span className="text-[9px] leading-none">✓</span>}
@@ -436,7 +436,7 @@ export function CharacterOverlay(): React.JSX.Element {
               'rounded-full px-1.5 font-mono text-[10.5px]',
               enabledCount >= maxCharacters
                 ? 'bg-danger/15 text-danger'
-                : 'bg-accent-soft text-accent'
+                : 'bg-accent-soft text-accent-ink'
             )}
             title={t('ui.activeCharactersValueValue', enabledCount, maxCharacters)}
           >

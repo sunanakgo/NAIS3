@@ -153,7 +153,7 @@ export function WebSearchMode(): React.JSX.Element {
             </button>
             {editLinks && (
               <button
-                className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-danger text-white"
+                className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-danger text-on-danger"
                 title={t('ui.delete')}
                 onClick={() => removeQuickLink(i)}
               >
@@ -180,7 +180,7 @@ export function WebSearchMode(): React.JSX.Element {
         <Button
           size="sm"
           variant="ghost"
-          className={cn('h-7 px-2 text-[12px]', editLinks && 'text-accent')}
+          className={cn('h-7 px-2 text-[12px]', editLinks && 'text-accent-ink')}
           onClick={() => setEditLinks(!editLinks)}
         >
           {editLinks ? t('ui.done') : t('ui.edit')}

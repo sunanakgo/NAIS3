@@ -40,7 +40,7 @@ function UpdateButton(): React.JSX.Element | null {
     return (
       <BarButton
         onClick={start}
-        className="text-accent hover:text-accent"
+        className="text-accent-ink hover:text-accent-ink"
         title={t('ui.downloadUpdateValueAndInstallAutomatically', version ?? '')}
       >
         <Download size={15} />
@@ -50,7 +50,7 @@ function UpdateButton(): React.JSX.Element | null {
   if (status === 'downloading') {
     return (
       <BarButton
-        className="text-accent"
+        className="text-accent-ink"
         title={t('ui.downloadingUpdateValue.773cde6', percent)}
         disabled
       >
@@ -60,7 +60,7 @@ function UpdateButton(): React.JSX.Element | null {
   }
   if (status === 'downloaded') {
     return (
-      <BarButton className="text-accent" title={t('ui.installingUpdateRestarting')} disabled>
+      <BarButton className="text-accent-ink" title={t('ui.installingUpdateRestarting')} disabled>
         <Loader2 size={15} className="animate-spin" />
       </BarButton>
     )
@@ -84,12 +84,12 @@ function AnlasChips({
         className="flex items-center gap-1 rounded-md bg-surface-2 px-2 py-0.5 font-mono text-[11.5px] text-muted"
         title={t('ui.anlasBalanceUpdatesAfterEachGeneration')}
       >
-        <Coins size={12} className="text-[#c9a34f]" />
+        <Coins size={12} className="text-anlas" />
         {balance.toLocaleString()}
       </span>
       {cost > 0 && (
         <span
-          className="rounded-md bg-danger px-2 py-0.5 font-mono text-[11.5px] font-medium text-white"
+          className="rounded-md bg-danger px-2 py-0.5 font-mono text-[11.5px] font-medium text-on-danger"
           title={t('ui.anlasCostOfThisGenerationInclHighResolutionCharacterReferenceUneaa8754e')}
         >
           -{cost}
@@ -116,7 +116,7 @@ function OpusUsageChip(): React.JSX.Element | null {
           : t('ui.v5OpusRechargeGaugeAboutValueHUntilTheNext1', hours.toFixed(1))
       }
     >
-      <BatteryCharging size={12} className={usage.isNegative ? 'text-danger' : 'text-accent'} />
+      <BatteryCharging size={12} className={usage.isNegative ? 'text-danger' : 'text-accent-ink'} />
       {percent}%
     </span>
   )
@@ -200,7 +200,7 @@ export function Titlebar(): React.JSX.Element {
 
       {import.meta.env.DEV && (
         <span
-          className="no-drag ml-1 rounded-md border border-accent/40 bg-accent-soft px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-[0.14em] text-accent"
+          className="no-drag ml-1 rounded-md border border-accent/40 bg-accent-soft px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-[0.14em] text-accent-ink"
           title="Development mode"
         >
           DEV
@@ -248,7 +248,7 @@ export function Titlebar(): React.JSX.Element {
             <Square size={12} />
           </BarButton>
           <BarButton
-            className="w-9 hover:bg-danger hover:text-white"
+            className="w-9 hover:bg-danger hover:text-on-danger"
             onClick={() => ctrl('close')}
             aria-label={t('ui.close')}
           >

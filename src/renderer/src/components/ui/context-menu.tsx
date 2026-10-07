@@ -38,7 +38,7 @@ export function ContextMenuItem({
       className={cn(
         'relative flex cursor-default select-none items-center gap-2 rounded-sm px-3 py-1.5 text-[12.5px] outline-none transition-colors data-[disabled]:pointer-events-none data-[highlighted]:bg-surface-2',
         inset && 'pl-8',
-        danger ? 'text-[#c0564e] data-[highlighted]:text-[#c0564e]' : 'text-ink',
+        danger ? 'text-danger data-[highlighted]:text-danger' : 'text-ink',
         className
       )}
       {...props}

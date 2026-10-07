@@ -1,4 +1,55 @@
-import { mixHex } from './color'
+import {
+  composite,
+  contrastRatio,
+  ensureContrast,
+  ensureMarkContrast,
+  mixHex,
+  readableOn
+} from './color'
+import { MARK_ALPHA } from './prompt-weights'
+
+/** Base prompt highlight colors, adjusted per theme for body text contrast (--*-mark tokens). */
+const MARK_BASE = {
+  weightUp: '#e95e50',
+  weightDown: '#6091eb',
+  comment: '#808088',
+  fragment: '#5cbe7d',
+  searchHit: '#e9c832',
+  searchHitCurrent: '#e99632'
+} as const
+
+/** Tag kind colors (Danbooru autocomplete), adjusted per theme to read as text (--tag-*). */
+const TAG_BASE = {
+  artist: '#e05c50',
+  character: '#5c9e6e',
+  copyright: '#b07fd8',
+  meta: '#c9a34f',
+  fragment: '#5cbe7d'
+} as const
+
+const ANLAS_BASE = '#c9a34f'
+
+/** Icon/chip hues — Tailwind 600 (light) / 400 (dark) tones, adjusted into the --hue-* tokens. */
+export const HUE_BASE = {
+  orange: ['#f54900', '#ff8904'],
+  amber: ['#e17100', '#ffb900'],
+  emerald: ['#009966', '#00d492'],
+  teal: ['#009689', '#00d5be'],
+  cyan: ['#0092b8', '#00d3f2'],
+  sky: ['#0084d1', '#00bcff'],
+  indigo: ['#4f39f6', '#7c86ff'],
+  violet: ['#7f22fe', '#a684ff'],
+  purple: ['#9810fa', '#c27aff'],
+  fuchsia: ['#c800de', '#ed6aff'],
+  pink: ['#e60076', '#fb64b6'],
+  rose: ['#ec003f', '#ff637e']
+} as const
+
+/** Max hue chip tint (hover:bg-hue-x/20 on scene-cast-dialog chips, over the dialog surface) */
+export const HUE_CHIP_ALPHA = 0.2
+
+/** Hues also used as chip text */
+export const HUE_CHIP_TEXT: readonly string[] = ['sky', 'emerald', 'violet']
 
 export type ThemeMode = 'dark' | 'light'
 
@@ -25,23 +76,119 @@ export interface ThemePreset {
 export function buildWhimsTokens(palette: Palette, mode: ThemeMode): Record<string, string> {
   const dark = mode === 'dark'
   const m = (amount: number): string => mixHex(palette.neutral, palette.ink, amount)
-  const dim = (amount: number): string => mixHex(palette.ink, palette.neutral, amount)
+  const surface = m(dark ? 0.045 : 0.035)
+  const surface2 = m(dark ? 0.095 : 0.08)
+  const surfaces = [palette.neutral, surface, surface2]
+  const toward = dark ? '#ffffff' : '#000000'
+  // Body text gets 7:1 (AAA) on every surface so that themes hovering near 4.5:1, like Solarized,
+  // still keep 4.5:1 once highlights or selection backgrounds sit behind the text.
+  const ink = ensureContrast(palette.ink, surfaces, toward, 7)
+  const dim = (amount: number): string => mixHex(ink, palette.neutral, amount)
+  const target = 4.5
+
+  // Secondary text. muted meets body-level 4.5:1, so must-read hints like placeholders use it.
+  // faint is for extras like shortcut hints and disabled icons, so to keep the hierarchy
+  // it only meets 3:1 (the UI component threshold).
+  const mutedBase = ensureContrast(dim(dark ? 0.42 : 0.46), surfaces, ink, target)
+
+  // Selected-row background (accent-soft). To keep body and muted text readable on it,
+  // first lower its strength (for muted, only down to 10% light / 14% dark);
+  // if that is still not enough, muted itself is nudged below.
+  const accent = palette.primary
+  const passesOnSoft = (fg: string, pct: number): boolean =>
+    surfaces.every((bg) => contrastRatio(fg, composite(bg, accent, pct / 100)) >= target)
+  let softPct = dark ? 18 : 13
+  while (
+    (softPct > 6 && !passesOnSoft(ink, softPct)) ||
+    (softPct > (dark ? 14 : 10) && !passesOnSoft(mutedBase, softPct))
+  )
+    softPct--
+  // Every background text sits on: the three surfaces plus the selection over each
+  const textBgs = [...surfaces, ...surfaces.map((bg) => composite(bg, accent, softPct / 100))]
+  const muted = ensureContrast(mutedBase, textBgs, ink, target)
+  const faint = ensureContrast(dim(dark ? 0.62 : 0.58), textBgs, ink, 3)
+
+  // Accent fills (bg-accent) keep the palette color; only accent text and icons
+  // (text-accent-ink) are nudged.
+  // Accent text sits on every background and on accent chips over them
+  // (bg-accent/10–15, including icon boxes on selected rows).
+  const accentChips = [...surfaces, textBgs[3], textBgs[4]].map((bg) => composite(bg, accent, 0.15))
+  const accentInk = ensureContrast(accent, [...textBgs, ...accentChips], toward, target)
+
+  // Status colors double as body text, so they meet 4.5:1. 15% chips (bg-x/15) are checked
+  // on the three surfaces and on the selection over paper/surface (Director tool cost chips);
+  // bare text is checked on every background.
+  // Only lightness is nudged, toward white/black rather than ink, to preserve the hue.
+  const chipBgs = [...surfaces, textBgs[3], textBgs[4]]
+  const readable = (color: string): string =>
+    ensureContrast(ensureContrast(color, chipBgs, toward, target, 0.15), textBgs, toward, target)
+  const danger = readable(palette.error)
+
+  // Palette-independent identity colors are used as text too. Anlas (titlebar, settings) and
+  // tag kinds (autocomplete list) never sit on a selection, so 4.5:1 on the surfaces suffices.
+  const onSurfaces = (color: string): string => ensureContrast(color, surfaces, toward, target)
+  const fixedColors: Record<string, string> = { '--anlas': onSurfaces(ANLAS_BASE) }
+  for (const [kind, color] of Object.entries(TAG_BASE))
+    fixedColors[`--tag-${kind}`] = onSurfaces(color)
+  // Hues are mostly icons, so they only meet 3:1 (non-text) on every background. Chip hues
+  // also used as text (HUE_CHIP_TEXT) meet 4.5:1 on their own chip (up to 20% on hover)
+  // over the dialog surface.
+  for (const [name, [light, darkTone]] of Object.entries(HUE_BASE)) {
+    const base = dark ? darkTone : light
+    const chipReadable = HUE_CHIP_TEXT.includes(name)
+      ? ensureContrast(base, [palette.neutral, surface], toward, target, HUE_CHIP_ALPHA)
+      : base
+    fixedColors[`--hue-${name}`] = ensureContrast(chipReadable, textBgs, toward, 3)
+  }
+
+  // Prompt highlights sit behind text, so they are nudged the other way, toward the
+  // background (black in dark mode, white in light mode).
+  const markAway = dark ? '#000000' : '#ffffff'
+  const mark = (color: string, alpha: number): string =>
+    ensureMarkContrast(color, ink, surfaces, markAway, alpha, target)
+  // Find highlights overlap weight highlights, so they are opaque to avoid stacked tints.
+  const searchMark = (color: string, alpha: number): string =>
+    ensureContrast(mixHex(palette.neutral, color, alpha), [ink], markAway, target)
+
+  // Hover for filled buttons. Lowering opacity would break text contrast, so the fill is
+  // pushed 10% away from its text color, raising contrast on hover instead.
+  const hoverFill = (fill: string): string =>
+    mixHex(fill, readableOn(fill) === '#ffffff' ? '#000000' : '#ffffff', 0.1)
 
   return {
     '--paper': palette.neutral,
-    '--surface': m(dark ? 0.045 : 0.035),
-    '--surface-2': m(dark ? 0.095 : 0.08),
-    '--ink': palette.ink,
-    '--muted': dim(dark ? 0.42 : 0.46),
-    '--faint': dim(dark ? 0.62 : 0.58),
+    '--surface': surface,
+    '--surface-2': surface2,
+    '--ink': ink,
+    '--muted': muted,
+    '--faint': faint,
     '--line': m(dark ? 0.14 : 0.16),
     '--accent': palette.primary,
-    '--accent-soft': `color-mix(in srgb, ${palette.primary} ${dark ? 18 : 13}%, transparent)`,
+    '--accent-soft': `color-mix(in srgb, ${accent} ${softPct}%, transparent)`,
+    '--accent-ink': accentInk,
+    '--on-accent': readableOn(palette.primary),
+    '--accent-hover': hoverFill(palette.primary),
+    '--danger': danger,
+    '--on-danger': readableOn(danger),
+    '--danger-hover': hoverFill(danger),
+    '--success': readable(palette.success),
+    '--warning': readable(palette.warning),
+    '--info': readable(palette.info),
     '--dialogue': palette.primary,
     '--dialogue-bg': `color-mix(in srgb, ${palette.primary} 16%, transparent)`,
     '--quote': palette.warning,
     '--quote-bg': `color-mix(in srgb, ${palette.warning} 16%, transparent)`,
-    '--onomatopoeia': palette.accent
+    '--onomatopoeia': palette.accent,
+    '--weight-up': mark(MARK_BASE.weightUp, MARK_ALPHA.weight),
+    '--weight-down': mark(
+      MARK_BASE.weightDown,
+      Math.max(MARK_ALPHA.weight, MARK_ALPHA.weightNegative)
+    ),
+    '--comment-mark': mark(MARK_BASE.comment, MARK_ALPHA.comment),
+    '--fragment-mark': mark(MARK_BASE.fragment, MARK_ALPHA.fragment),
+    '--search-hit': searchMark(MARK_BASE.searchHit, 0.4),
+    '--search-hit-current': searchMark(MARK_BASE.searchHitCurrent, 0.85),
+    ...fixedColors
   }
 }
 

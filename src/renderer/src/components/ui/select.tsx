@@ -127,7 +127,7 @@ export function SelectItem({
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
       <span className="absolute right-2.5 flex items-center">
         <SelectPrimitive.ItemIndicator>
-          <Check size={14} className="text-accent" />
+          <Check size={14} className="text-accent-ink" />
         </SelectPrimitive.ItemIndicator>
       </span>
     </SelectPrimitive.Item>

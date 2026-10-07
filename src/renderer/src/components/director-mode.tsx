@@ -333,7 +333,7 @@ export function DirectorMode(): React.JSX.Element {
             {sourceDims ? (
               <ZoomableImageStage src={shown} width={sourceDims.width} height={sourceDims.height}>
                 {isResult && (
-                  <span className="absolute left-3 top-3 rounded-full bg-accent px-2.5 py-0.5 text-[11px] font-medium text-white">
+                  <span className="absolute left-3 top-3 rounded-full bg-accent px-2.5 py-0.5 text-[11px] font-medium text-on-accent">
                     {t('ui.result')}
                   </span>
                 )}
@@ -358,7 +358,7 @@ export function DirectorMode(): React.JSX.Element {
             // 점선 박스를 실제 드롭 가능 영역(캔버스 전체)과 일치시킴 — 여백만큼 작아 보이던 문제 (B10)
             className={cn(
               'absolute inset-2 flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 text-faint transition-colors',
-              dragOver ? 'border-accent text-accent' : 'border-line'
+              dragOver ? 'border-accent text-accent-ink' : 'border-line'
             )}
             onClick={() => fileRef.current?.click()}
           >
@@ -450,7 +450,7 @@ export function DirectorMode(): React.JSX.Element {
           ) : (
             <div className="grid gap-2.5">
               <div className="flex items-center gap-2">
-                <selectedTool.icon size={16} className="shrink-0 text-accent" />
+                <selectedTool.icon size={16} className="shrink-0 text-accent-ink" />
                 <p className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">
                   {t(selectedTool.label)}
                 </p>
@@ -583,7 +583,7 @@ function CostChip({ cost }: { cost: number | null }): React.JSX.Element | null {
   const t = useT()
   if (cost == null) return null
   return cost === 0 ? (
-    <span className="shrink-0 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-500">
+    <span className="shrink-0 rounded bg-success/15 px-1.5 py-0.5 text-[10px] font-medium text-success">
       {t('ui.free')}
     </span>
   ) : (
@@ -625,7 +625,7 @@ function ToolRow({
       <span
         className={cn(
           'flex size-8 shrink-0 items-center justify-center rounded-md transition-colors',
-          selected ? 'bg-accent/15 text-accent' : 'bg-surface-2 text-muted group-hover:text-ink'
+          selected ? 'bg-accent/15 text-accent-ink' : 'bg-surface-2 text-muted group-hover:text-ink'
         )}
       >
         <Icon size={16} />

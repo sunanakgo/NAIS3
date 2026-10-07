@@ -53,7 +53,7 @@ export function FragmentEditorDialog(): React.JSX.Element {
       >
         <div className="shrink-0 space-y-1 pr-7">
           <div className="flex items-center gap-2">
-            <Puzzle size={16} className="shrink-0 text-accent" />
+            <Puzzle size={16} className="shrink-0 text-accent-ink" />
             <DialogTitle className="min-w-0 truncate">{fragment?.name}</DialogTitle>
           </div>
           <DialogDescription className="break-all font-mono">{`<${path}>`}</DialogDescription>

@@ -116,7 +116,7 @@ export function PromptPresetBar(): React.JSX.Element {
                     onClick={() => apply(p.id)}
                     className={cn(
                       'flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px]',
-                      p.id === activeId && 'font-semibold text-accent'
+                      p.id === activeId && 'font-semibold text-accent-ink'
                     )}
                   >
                     <span className="truncate">{p.name}</span>
@@ -148,7 +148,7 @@ export function PromptPresetBar(): React.JSX.Element {
         </div>
         <div className="my-1 h-px bg-line" />
         <button
-          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-accent hover:bg-surface-2"
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-accent-ink hover:bg-surface-2"
           onClick={async () => {
             const name = await askText(t('ui.newPresetName'), t('ui.newPreset'))
             if (!name?.trim()) return

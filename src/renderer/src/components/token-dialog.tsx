@@ -199,7 +199,7 @@ function PageToggles(): React.JSX.Element {
             className={cn(
               'rounded-full border px-2.5 py-1 text-[12px] transition-colors',
               on
-                ? 'border-accent bg-accent/10 text-accent'
+                ? 'border-accent bg-accent/10 text-accent-ink'
                 : 'border-line text-faint hover:text-ink'
             )}
           >
@@ -696,7 +696,7 @@ function ShortcutsSection(): React.JSX.Element {
               className={cn(
                 'min-w-24 rounded-md border px-3 py-1 text-center font-mono text-[12px] transition-colors',
                 recording === action
-                  ? 'border-accent bg-accent/10 text-accent'
+                  ? 'border-accent bg-accent/10 text-accent-ink'
                   : 'border-line bg-surface-2/60 text-muted hover:text-ink'
               )}
             >
@@ -859,7 +859,7 @@ function AccountSection(): React.JSX.Element {
           {status === 'checking' ? t('ui.checking') : t('ui.add')}
         </Button>
       </div>
-      {status === 'ok' && <span className="text-[12px] text-accent">{message}</span>}
+      {status === 'ok' && <span className="text-[12px] text-accent-ink">{message}</span>}
       {status === 'fail' && <span className="text-[12px] text-danger">{message}</span>}
 
       <div className="min-w-0 space-y-1.5">
@@ -890,7 +890,7 @@ function AccountSection(): React.JSX.Element {
                       {account.label}
                     </span>
                     {account.active && (
-                      <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[9.5px] text-accent">
+                      <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[9.5px] text-accent-ink">
                         {t('ui.active')}
                       </span>
                     )}
@@ -943,7 +943,7 @@ function AccountSection(): React.JSX.Element {
             <p className="flex items-center gap-1.5 text-[12.5px] font-medium text-ink">
               <BatteryCharging
                 size={13}
-                className={opusUsage?.isNegative ? 'text-danger' : 'text-accent'}
+                className={opusUsage?.isNegative ? 'text-danger' : 'text-accent-ink'}
               />
               {t('ui.v5Usage')}
             </p>
@@ -969,7 +969,7 @@ function AccountSection(): React.JSX.Element {
               </div>
             ))}
           </div>
-          <p className="mt-2 text-[10.5px] text-faint">
+          <p className="mt-2 text-[10.5px] text-muted">
             {opusUsage
               ? opusUsage.isNegative
                 ? accounts.length > 1
@@ -987,14 +987,14 @@ function AccountSection(): React.JSX.Element {
       {/* Anlas 사용량 — 잔액 스냅샷 간 감소분 합산 */}
       <div className="min-w-0 rounded-lg border border-line bg-surface-2/50 p-3">
         <p className="mb-2 flex items-center gap-1.5 text-[12.5px] font-medium text-ink">
-          <Coins size={13} className="text-[#c9a34f]" /> Anlas
+          <Coins size={13} className="text-anlas" /> Anlas
         </p>
         <div className="grid grid-cols-3 gap-2 text-center">
           <div>
             <p className="font-mono text-[15px] text-ink">
               {anlasBalance !== null ? anlasBalance.toLocaleString() : '—'}
             </p>
-            <p className="text-[10.5px] text-faint">{t('ui.currentBalance')}</p>
+            <p className="text-[10.5px] text-muted">{t('ui.currentBalance')}</p>
           </div>
           <div>
             <p className="font-mono text-[15px] text-ink">
@@ -1040,11 +1040,13 @@ function AboutSection(): React.JSX.Element {
             <Download size={14} /> {t('ui.updateToVersionValue', updateVersion ?? '')}
           </Button>
         ) : updateStatus === 'downloading' ? (
-          <span className="text-[12px] text-accent">
+          <span className="text-[12px] text-accent-ink">
             {t('ui.downloadingUpdateValue', updatePercent)}
           </span>
         ) : updateStatus === 'downloaded' ? (
-          <span className="text-[12px] text-accent">{t('ui.installingUpdateRestartingSoon')}</span>
+          <span className="text-[12px] text-accent-ink">
+            {t('ui.installingUpdateRestartingSoon')}
+          </span>
         ) : (
           <span className="text-[12px] text-faint">{t('ui.youReOnTheLatestVersion')}</span>
         )}

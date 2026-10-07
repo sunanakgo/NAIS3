@@ -4,6 +4,7 @@ import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
 import { Slider } from './ui/slider'
 import { Input } from './ui/input'
+import { MASK_PAINT_RGB } from '../lib/color'
 import { useT } from '../lib/i18n'
 
 type View = { scale: number; x: number; y: number }
@@ -176,8 +177,8 @@ export function MaskEditor({
     const r = brush / 2
     ctx.globalCompositeOperation = erasing ? 'destination-out' : 'source-over'
     // 스트로크는 불투명으로 그리고 캔버스 자체를 CSS opacity로 반투명 표시 — 겹쳐 칠해도 진해지지 않는다.
-    ctx.strokeStyle = 'rgb(233, 94, 80)'
-    ctx.fillStyle = 'rgb(233, 94, 80)'
+    ctx.strokeStyle = `rgb(${MASK_PAINT_RGB})`
+    ctx.fillStyle = `rgb(${MASK_PAINT_RGB})`
     if (brush === 1) {
       // 원형 안티앨리어싱은 1px 지우개에 잔여 알파를 남긴다. 픽셀 단위로 완전히 칠하고 지운다.
       const startX = Math.floor(last.current?.x ?? x)

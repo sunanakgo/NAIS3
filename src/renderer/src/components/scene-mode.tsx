@@ -122,7 +122,7 @@ function PresetDropdown(): React.JSX.Element {
                     onClick={() => choose(p.id)}
                     className={cn(
                       'flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px]',
-                      p.id === activePresetId && 'font-semibold text-accent'
+                      p.id === activePresetId && 'font-semibold text-accent-ink'
                     )}
                   >
                     <span className="truncate">{p.name}</span>
@@ -163,7 +163,7 @@ function PresetDropdown(): React.JSX.Element {
           </div>
           <div className="my-1 h-px bg-line" />
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-accent hover:bg-surface-2"
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-accent-ink hover:bg-surface-2"
             onClick={async () => {
               const name = await askText(t('ui.newPresetName'), t('ui.newPreset'))
               if (name) void createPreset(name)
@@ -223,7 +223,7 @@ function CastSelector(): React.JSX.Element {
           <button
             className={cn(
               'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-surface-2',
-              !active && 'font-semibold text-accent'
+              !active && 'font-semibold text-accent-ink'
             )}
             onClick={() => {
               setActiveCast('')
@@ -249,7 +249,7 @@ function CastSelector(): React.JSX.Element {
                   <div
                     className={cn(
                       'flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px]',
-                      c.id === activeCastId && 'font-semibold text-accent'
+                      c.id === activeCastId && 'font-semibold text-accent-ink'
                     )}
                   >
                     <span
@@ -287,7 +287,7 @@ function CastSelector(): React.JSX.Element {
           </div>
           <div className="my-1 h-px bg-line" />
           <button
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-accent hover:bg-surface-2"
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-accent-ink hover:bg-surface-2"
             onClick={() => {
               setOpen(false)
               setTimeout(() => setManageOpen(true), 0) // 팝오버 dismiss 레이스 회피
@@ -323,7 +323,7 @@ function IconBtn({
           aria-pressed={active === undefined ? undefined : active}
           className={cn(
             'grid size-8 place-items-center rounded-md transition-colors',
-            active ? 'bg-accent text-white' : 'text-muted hover:bg-surface-2 hover:text-fg'
+            active ? 'bg-accent text-on-accent' : 'text-muted hover:bg-surface-2 hover:text-fg'
           )}
         >
           {icon}
@@ -535,7 +535,7 @@ function SceneGrid(): React.JSX.Element {
               ))}
               <button
                 onClick={() => void create(t('ui.newScene'))}
-                className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-line text-faint transition hover:text-accent"
+                className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-line text-faint transition hover:text-accent-ink"
                 style={{ aspectRatio: CARD_ASPECT[cardOrientation] }}
               >
                 <Plus size={22} />
@@ -789,7 +789,7 @@ function reserveBadges(
   }
   for (const [id, n] of Object.entries(scene.reserves)) {
     if (id !== '' && n > 0 && !casts.some((c) => c.id === id))
-      out.push({ key: id, name: '', count: n, color: '#6b7280', deleted: true })
+      out.push({ key: id, name: '', count: n, color: null, deleted: true })
   }
   return out
 }
@@ -911,8 +911,12 @@ const SceneCard = memo(function SceneCard({
                     <span
                       key={b.key}
                       className={cn(
-                        'grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-[12px] font-bold text-white shadow',
-                        b.color === null && 'bg-danger'
+                        'grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-[12px] font-bold shadow',
+                        b.deleted
+                          ? 'bg-black/60 text-white/80'
+                          : b.color === null
+                            ? 'bg-danger text-on-danger'
+                            : 'text-white'
                       )}
                       style={b.color ? { backgroundColor: b.color } : undefined}
                       title={t('ui.valueValueImages', reserveBadgeLabel(b, t), b.count)}
@@ -939,7 +943,7 @@ const SceneCard = memo(function SceneCard({
             <span
               className={cn(
                 'absolute right-1.5 top-1.5 grid size-5 place-items-center rounded border-2 transition',
-                checked ? 'border-accent bg-accent text-white' : 'border-white/80 bg-black/30'
+                checked ? 'border-accent bg-accent text-on-accent' : 'border-white/80 bg-black/30'
               )}
             >
               {checked && <span className="text-[11px] leading-none">✓</span>}
@@ -1019,7 +1023,7 @@ const SceneCard = memo(function SceneCard({
                   value={ctxCount}
                   className={cn(
                     'min-w-5 rounded-full px-1 text-center text-[12px] font-medium text-white',
-                    !activeCast && ctxCount > 0 && 'bg-danger'
+                    !activeCast && ctxCount > 0 && 'bg-danger text-on-danger'
                   )}
                   style={
                     activeCast && ctxCount > 0 ? { backgroundColor: activeCast.color } : undefined
@@ -1051,7 +1055,7 @@ const SceneCard = memo(function SceneCard({
           <Copy size={13} /> {t('ui.duplicate')}
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => void openFolder()}>
-          <FolderOpen size={13} className="text-amber-400" /> {t('ui.openFolder')}
+          <FolderOpen size={13} className="text-hue-amber" /> {t('ui.openFolder')}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem danger onSelect={() => void removeScene()}>

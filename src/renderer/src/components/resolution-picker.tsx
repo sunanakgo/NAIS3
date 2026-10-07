@@ -92,7 +92,7 @@ export function ResolutionPicker({
               }}
               className={cn(
                 'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-surface-2',
-                isCurrent(r.width, r.height) && 'font-semibold text-accent'
+                isCurrent(r.width, r.height) && 'font-semibold text-accent-ink'
               )}
             >
               <span className="min-w-0 flex-1 truncate">{t(r.label)}</span>
@@ -110,7 +110,7 @@ export function ResolutionPicker({
                 }}
                 className={cn(
                   'flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-surface-2',
-                  isCurrent(r.width, r.height) && 'font-semibold text-accent'
+                  isCurrent(r.width, r.height) && 'font-semibold text-accent-ink'
                 )}
               >
                 <span className="min-w-0 flex-1 truncate">{r.label}</span>
@@ -158,7 +158,7 @@ export function ResolutionPicker({
                 : t('ui.add')
             }
             onClick={doAdd}
-            className="grid size-7 shrink-0 place-items-center rounded bg-accent text-paper hover:opacity-90"
+            className="grid size-7 shrink-0 place-items-center rounded bg-accent text-on-accent hover:bg-accent-hover"
           >
             <Plus size={14} />
           </button>

@@ -102,7 +102,7 @@ export function ArtistTagsDialog(): React.JSX.Element {
                     >
                       <Palette
                         size={11}
-                        className={cn('shrink-0', off ? 'text-faint' : 'text-accent')}
+                        className={cn('shrink-0', off ? 'text-faint' : 'text-accent-ink')}
                       />
                       <span className="min-w-0 flex-1 truncate text-left">{tag.label}</span>
                       <span className="shrink-0 font-mono text-[10px] text-faint">
@@ -118,7 +118,7 @@ export function ArtistTagsDialog(): React.JSX.Element {
                   readOnly
                   value={selectedText}
                   placeholder={t('ui.noTagsSelected')}
-                  className="block h-24 w-full resize-none overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-line bg-surface-2/40 p-2 font-mono text-[12px] leading-relaxed text-ink outline-none placeholder:font-sans placeholder:text-faint"
+                  className="block h-24 w-full resize-none overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-line bg-surface-2/40 p-2 font-mono text-[12px] leading-relaxed text-ink outline-none placeholder:font-sans placeholder:text-muted"
                 />
               </div>
             </div>

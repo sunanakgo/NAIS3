@@ -125,7 +125,7 @@ export function PreviewPane(): React.JSX.Element {
         )
       ) : generating ? (
         <div className="flex flex-col items-center gap-3 text-muted">
-          <Loader2 size={38} className="animate-spin text-accent" strokeWidth={2} />
+          <Loader2 size={38} className="animate-spin text-accent-ink" strokeWidth={2} />
           <span className="text-[13px]">{t('ui.preparingToGenerate')}</span>
         </div>
       ) : (
@@ -139,7 +139,7 @@ export function PreviewPane(): React.JSX.Element {
       {generating && !viewPinned && (
         <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-line bg-paper/85 px-4 py-1.5 backdrop-blur">
           {preparing ? (
-            <Loader2 size={14} className="animate-spin text-accent" />
+            <Loader2 size={14} className="animate-spin text-accent-ink" />
           ) : (
             <div className="h-1.5 w-36 overflow-hidden rounded-full bg-surface-2">
               <div
@@ -157,7 +157,7 @@ export function PreviewPane(): React.JSX.Element {
 
       {/* 해상도·시드 칩 — 완성작(파일)이 표시 중일 때 (생성 중이라도 고정 보기면 표시). 시드 클릭=고정 토글 */}
       {viewingFilePath && !streamShown && info && (info.width || info.seed != null) && (
-        <div className="absolute bottom-3 left-3 flex flex-col items-start gap-0.5 rounded-md bg-paper/35 px-2.5 py-1 font-mono text-[11px] leading-tight text-muted opacity-70 backdrop-blur-sm transition hover:bg-paper/90 hover:text-ink hover:opacity-100">
+        <div className="absolute bottom-3 left-3 flex flex-col items-start gap-0.5 rounded-md bg-paper/90 px-2.5 py-1 font-mono text-[11px] leading-tight text-muted backdrop-blur-sm transition hover:text-ink">
           {info.width && info.height && (
             <span>
               {info.width}×{info.height}
@@ -167,7 +167,7 @@ export function PreviewPane(): React.JSX.Element {
             <button
               className={cn(
                 'flex items-center gap-1 rounded transition-colors',
-                seedLocked && requestSeed === info.seed ? 'text-accent' : 'hover:text-ink'
+                seedLocked && requestSeed === info.seed ? 'text-accent-ink' : 'hover:text-ink'
               )}
               title={
                 seedLocked && requestSeed === info.seed

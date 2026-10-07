@@ -13,15 +13,60 @@
 /* NAIS3 기본 테마 (무채색) — 프리셋 적용 전 초기 페인트용 기본값 */
 :root {
   --paper: #fafafa;
-  --surface: #f1f1f2;
-  --surface-2: #e8e8ea;
+  --surface: #f2f2f2;
+  --surface-2: #e8e8e8;
   --ink: #19191b;
-  --muted: #6d6d73;
-  --faint: #9c9ca1;
-  --line: #e3e3e6;
+  --muted: #5f5f60;
+  --faint: #7b7b7c;
+  --line: #d6d6d6;
   --accent: #c2610a;
-  --accent-soft: rgba(194, 97, 10, 0.13);
-  --danger: #a85a52;
+  --accent-soft: rgba(194, 97, 10, 0.1);
+  --accent-ink: #884407;
+  /* Status and on-* colors are recomputed for contrast by buildWhimsTokens per preset */
+  --on-accent: #000000;
+  --accent-hover: #c87123;
+  --danger: #7e443e;
+  --on-danger: #ffffff;
+  --danger-hover: #713d38;
+  --success: #395f45;
+  --warning: #645327;
+  --info: #3f5a6e;
+
+  /* Fixed UI colors independent of the preset — define them here instead of hardcoding */
+  --brand-paper: #0f0f10; /* loading splash: always dark so the white logo shows */
+  --brand-accent: #eb9550;
+  --anlas: #79622f;
+  --favorite: oklch(82.8% 0.189 84.429);
+  /* Find highlights (opaque — they cover weight highlights) */
+  --search-hit: #f3e6aa;
+  --search-hit-current: #eca550;
+  /* Danbooru tag kind colors (autocomplete) — contrast-adjusted per theme */
+  --tag-artist: #a8453c;
+  --tag-character: #406f4d;
+  --tag-copyright: #7b5997;
+  --tag-meta: #79622f;
+  --tag-fragment: #37724b;
+  /* Prompt highlights (weight up/down, comment lines, fragments) — alpha set via color-mix.
+     buildWhimsTokens recomputes them per theme against body text contrast. */
+  --weight-up: #e95e50;
+  --weight-down: #6091eb;
+  --comment-mark: #808088;
+  --fragment-mark: #5cbe7d;
+
+  /* Icon/chip identity hues — 600 tones light, 400 dark (contrast-adjusted per theme) */
+  --hue-orange: #dd4200;
+  --hue-amber: #bf6000;
+  --hue-emerald: #006342;
+  --hue-teal: #00877b;
+  --hue-cyan: #0083a6;
+  --hue-sky: #005c92;
+  --hue-indigo: #4f39f6;
+  --hue-violet: #6c1dd8;
+  --hue-purple: #9810fa;
+  --hue-fuchsia: #c800de;
+  --hue-pink: #e60076;
+  --hue-rose: #ec003f;
+
   --font-ui:
     'Pretendard Variable', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI Variable',
     'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
@@ -37,15 +82,61 @@
 
 [data-theme='dark'] {
   --paper: #0f0f10;
-  --surface: #161618;
-  --surface-2: #1e1e21;
+  --surface: #19191a;
+  --surface-2: #242425;
   --ink: #e9e9ea;
-  --muted: #8e8e94;
-  --faint: #5d5d63;
-  --line: #252528;
+  --muted: #9f9fa0;
+  --faint: #848485;
+  --line: #2e2e2f;
   --accent: #eb9550;
   --accent-soft: rgba(235, 149, 80, 0.14);
-  --danger: #c47a72;
+  --accent-ink: #ec9a59;
+  --on-accent: #000000;
+  --accent-hover: #eda062;
+  --danger: #d6a29c;
+  --on-danger: #000000;
+  --danger-hover: #daaba6;
+  --success: #90b499;
+  --warning: #c4b184;
+  --info: #9aadbc;
+  --search-hit: #66591e;
+  --search-hit-current: #8c5b20;
+  --anlas: #c9a34f;
+  --tag-artist: #e26459;
+  --tag-character: #5c9e6e;
+  --tag-copyright: #b07fd8;
+  --tag-meta: #c9a34f;
+  --tag-fragment: #5cbe7d;
+  --hue-orange: #ff8904;
+  --hue-amber: #ffb900;
+  --hue-emerald: #00d492;
+  --hue-teal: #00d5be;
+  --hue-cyan: #00d3f2;
+  --hue-sky: #00bcff;
+  --hue-indigo: #7c86ff;
+  --hue-violet: #aa8aff;
+  --hue-purple: #c27aff;
+  --hue-fuchsia: #ed6aff;
+  --hue-pink: #fb64b6;
+  --hue-rose: #ff637e;
+}
+
+/* Image badges (.on-image, dark translucent backdrop) keep the original 400 tones in any theme.
+   Declared on the element itself, so they override the adjusted values
+   buildWhimsTokens writes to the root */
+.on-image {
+  --hue-orange: oklch(75% 0.183 55.934);
+  --hue-amber: oklch(82.8% 0.189 84.429);
+  --hue-emerald: oklch(76.5% 0.177 163.223);
+  --hue-teal: oklch(77.7% 0.152 181.912);
+  --hue-cyan: oklch(78.9% 0.154 211.53);
+  --hue-sky: oklch(74.6% 0.16 232.661);
+  --hue-indigo: oklch(67.3% 0.182 276.935);
+  --hue-violet: oklch(70.2% 0.183 293.541);
+  --hue-purple: oklch(71.4% 0.203 305.504);
+  --hue-fuchsia: oklch(74% 0.238 322.16);
+  --hue-pink: oklch(71.8% 0.202 349.761);
+  --hue-rose: oklch(71.2% 0.194 13.428);
 }
 
 @theme inline {
@@ -58,7 +149,36 @@
   --color-line: var(--line);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-on-accent: var(--on-accent);
+  --color-accent-hover: var(--accent-hover);
   --color-danger: var(--danger);
+  --color-on-danger: var(--on-danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-brand-paper: var(--brand-paper);
+  --color-brand-accent: var(--brand-accent);
+  --color-anlas: var(--anlas);
+  --color-favorite: var(--favorite);
+  --color-tag-artist: var(--tag-artist);
+  --color-tag-character: var(--tag-character);
+  --color-tag-copyright: var(--tag-copyright);
+  --color-tag-meta: var(--tag-meta);
+  --color-tag-fragment: var(--tag-fragment);
+  --color-hue-orange: var(--hue-orange);
+  --color-hue-amber: var(--hue-amber);
+  --color-hue-emerald: var(--hue-emerald);
+  --color-hue-teal: var(--hue-teal);
+  --color-hue-cyan: var(--hue-cyan);
+  --color-hue-sky: var(--hue-sky);
+  --color-hue-indigo: var(--hue-indigo);
+  --color-hue-violet: var(--hue-violet);
+  --color-hue-purple: var(--hue-purple);
+  --color-hue-fuchsia: var(--hue-fuchsia);
+  --color-hue-pink: var(--hue-pink);
+  --color-hue-rose: var(--hue-rose);
   --font-sans: var(--font-ui);
   --font-mono: var(--font-mono);
   --radius-DEFAULT: var(--radius);

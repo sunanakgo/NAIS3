@@ -377,7 +377,7 @@ function CharacterChecklist({
                 <span
                   className={cn(
                     'mt-0.5 grid size-3.5 shrink-0 place-items-center rounded border-2',
-                    checked ? 'border-accent bg-accent text-white' : 'border-line'
+                    checked ? 'border-accent bg-accent text-on-accent' : 'border-line'
                   )}
                 >
                   {checked && <span className="text-[8px] leading-none">✓</span>}
@@ -452,7 +452,7 @@ function ThumbGrid({
                 <span
                   className={cn(
                     'absolute bottom-1 right-1 grid size-4 place-items-center rounded border-2 bg-black/45',
-                    checked ? 'border-accent bg-accent text-white' : 'border-white/70'
+                    checked ? 'border-accent bg-accent text-on-accent' : 'border-white/70'
                   )}
                 >
                   {checked && <span className="text-[9px] leading-none text-white">✓</span>}
@@ -493,9 +493,9 @@ function EmptyNote({ text }: { text: string }): React.JSX.Element {
 }
 
 const CHIP_COLORS = {
-  sky: 'bg-sky-500/12 text-sky-500',
-  emerald: 'bg-emerald-500/12 text-emerald-500',
-  violet: 'bg-violet-500/12 text-violet-400'
+  sky: 'bg-hue-sky/12 text-hue-sky hover:bg-hue-sky/20',
+  emerald: 'bg-hue-emerald/12 text-hue-emerald hover:bg-hue-emerald/20',
+  violet: 'bg-hue-violet/12 text-hue-violet hover:bg-hue-violet/20'
 } as const
 
 function Chip({
@@ -511,7 +511,7 @@ function Chip({
   return (
     <button
       className={cn(
-        'max-w-[180px] truncate rounded-md px-2 py-1 text-[11px] transition hover:opacity-70',
+        'max-w-[180px] truncate rounded-md px-2 py-1 text-[11px] transition',
         CHIP_COLORS[color]
       )}
       title={t('ui.clickToDeselect')}

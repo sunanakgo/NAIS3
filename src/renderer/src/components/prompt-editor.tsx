@@ -36,10 +36,31 @@ function formatCount(count: number): string {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  artist: 'text-[#e05c50]',
-  character: 'text-[#5c9e6e]',
-  copyright: 'text-[#b07fd8]',
-  meta: 'text-[#c9a34f]'
+  artist: 'text-tag-artist',
+  character: 'text-tag-character',
+  copyright: 'text-tag-copyright',
+  meta: 'text-tag-meta'
+}
+
+/*
+ * Find highlights. In some themes the fill alone barely differs in luminance from the surface,
+ * so also draw a line with guaranteed contrast (current = ink outline, others = ink underline).
+ * box-decoration-break: clone draws the line on every fragment split by line wraps.
+ */
+const FIND_HIT_BASE: React.CSSProperties = {
+  borderRadius: 3,
+  boxDecorationBreak: 'clone',
+  WebkitBoxDecorationBreak: 'clone'
+}
+const FIND_HIT_STYLE: React.CSSProperties = {
+  ...FIND_HIT_BASE,
+  background: 'var(--search-hit)',
+  boxShadow: 'inset 0 -2px 0 var(--ink)'
+}
+const FIND_HIT_CURRENT_STYLE: React.CSSProperties = {
+  ...FIND_HIT_BASE,
+  background: 'var(--search-hit-current)',
+  boxShadow: '0 0 0 1.5px var(--ink)'
 }
 
 export function PromptEditor({
@@ -316,12 +337,7 @@ export function PromptEditor({
           {hits.map((start, i) => (
             <span key={start}>
               {value.slice(i === 0 ? 0 : hits[i - 1] + query.length, start)}
-              <span
-                style={{
-                  background: i === current ? 'rgba(233,150,50,0.85)' : 'rgba(233,200,50,0.4)',
-                  borderRadius: 3
-                }}
-              >
+              <span style={i === current ? FIND_HIT_CURRENT_STYLE : FIND_HIT_STYLE}>
                 {value.slice(start, start + query.length)}
               </span>
             </span>
@@ -335,7 +351,7 @@ export function PromptEditor({
         aria-label={ariaLabel}
         className={cn(
           TYPO,
-          'relative block h-full w-full resize-none bg-transparent text-ink outline-none placeholder:text-faint'
+          'relative block h-full w-full resize-none bg-transparent text-ink outline-none placeholder:text-muted'
         )}
         style={{ caretColor: 'var(--ink)' }}
         spellCheck={false}
@@ -402,7 +418,7 @@ export function PromptEditor({
           <Search size={12} className="ml-0.5 shrink-0 text-faint" />
           <input
             ref={findInputRef}
-            className="w-28 bg-transparent font-mono text-[12px] text-ink outline-none placeholder:font-sans placeholder:text-faint"
+            className="w-28 bg-transparent font-mono text-[12px] text-ink outline-none placeholder:font-sans placeholder:text-muted"
             placeholder={t('ui.find')}
             value={query}
             onChange={(e) => {
@@ -424,7 +440,7 @@ export function PromptEditor({
               }
             }}
           />
-          <span className="shrink-0 font-mono text-[10.5px] text-faint">
+          <span className="shrink-0 font-mono text-[10.5px] text-muted">
             {query ? `${hits.length === 0 ? 0 : current + 1}/${hits.length}` : ''}
           </span>
           <button
@@ -457,7 +473,7 @@ export function PromptEditor({
         <span
           className={cn(
             'pointer-events-none absolute bottom-1 right-1.5 rounded bg-paper/85 px-1 font-mono text-[10.5px] backdrop-blur-sm',
-            tokens > tokenLimit ? 'text-danger' : 'text-faint'
+            tokens > tokenLimit ? 'text-danger' : 'text-muted'
           )}
           title={
             tokens > tokenLimit
@@ -494,7 +510,7 @@ export function PromptEditor({
                 }}
               >
                 {s.kind === 'frag' ? (
-                  <span className="truncate text-[#5cbe7d]">{`<${s.path}>`}</span>
+                  <span className="truncate text-tag-fragment">{`<${s.path}>`}</span>
                 ) : (
                   <>
                     <span className={cn('min-w-0 flex-1 truncate', TYPE_COLORS[s.type])}>

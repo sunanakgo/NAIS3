@@ -106,7 +106,10 @@ export function FragmentOverlay(): React.JSX.Element {
           <Pencil size={13} />
         </Button>
         <span
-          className={cn('shrink-0 font-mono text-[11px]', lines > 1 ? 'text-accent' : 'text-faint')}
+          className={cn(
+            'shrink-0 font-mono text-[11px]',
+            lines > 1 ? 'text-accent-ink' : 'text-faint'
+          )}
           title={
             lines > 1
               ? t('ui.multipleLinesRandomPickPerGenerationWildcard')

@@ -440,7 +440,7 @@ export function PromptPanel(): React.JSX.Element {
             {t('ui.generateScenes')}
             {sceneReserved > 0 && (
               // 한글 '장'이 mono 폴백(Windows Consolas)에서 깨져 보여 기본 폰트(Pretendard) 사용
-              <span className="text-[12px] opacity-75">{t('ui.valueImages', sceneReserved)}</span>
+              <span className="text-[12px]">{t('ui.valueImages', sceneReserved)}</span>
             )}
           </Button>
         ) : (
@@ -764,7 +764,7 @@ function SyntaxHelp(): React.JSX.Element {
         <div className="flex flex-col gap-1.5">
           {rows.map((r) => (
             <div key={r.syntax} className="flex flex-col gap-0.5">
-              <code className="w-fit rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-accent">
+              <code className="w-fit rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-accent-ink">
                 {t(r.syntax)}
               </code>
               <span className="text-[11px] leading-snug text-muted">{t(r.desc)}</span>
@@ -806,7 +806,7 @@ function ToolButton({
       </Button>
       {badge > 0 && (
         // 우측 상단에 겹치는 알림 배지 (붉은 원)
-        <span className="pointer-events-none absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 font-mono text-[10px] font-medium text-white shadow">
+        <span className="pointer-events-none absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 font-mono text-[10px] font-medium text-on-danger shadow">
           {badge}
         </span>
       )}

@@ -26,7 +26,7 @@ export function DropOverlay({
           <motion.div
             animate={{ scale: [1, 1.08, 1] }}
             transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
-            className="grid size-16 place-items-center rounded-full bg-accent/12 text-accent ring-8 ring-accent/5"
+            className="grid size-16 place-items-center rounded-full bg-accent/12 text-accent-ink ring-8 ring-accent/5"
           >
             <Icon size={28} strokeWidth={1.6} />
           </motion.div>

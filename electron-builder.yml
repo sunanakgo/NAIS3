@@ -22,6 +22,10 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
+  # sharp 네이티브 바이너리는 .node(@img/sharp-<os>-<arch>)와 libvips(@img/sharp-libvips-<os>-<arch>)로 나뉨.
+  # 자동 언팩은 .so/.dylib/.dll로 "끝나는" 파일만 꺼내므로 Linux의 libvips-cpp.so.8.x.y는 asar 안에 남아
+  # dlopen이 실패한다(ERR_DLOPEN_FAILED). 짝이 되는 패키지를 통째로 언팩해 RPATH 경로를 맞춘다.
+  - node_modules/@img/**
 win:
   executableName: NAIS3
   # Windows는 둥근 모서리·여백 규칙이 없어 mac용(여백 큼) 대신 여백 최소 버전 사용

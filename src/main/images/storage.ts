@@ -131,9 +131,10 @@ export async function saveEphemeralImage(input: {
       payloadWithLocalMetadata(input.sentPayload, input.localMetadata)
     )
 
+  // GLOB(대소문자 구분)이라야 idx_images_file_path 범위 탐색을 탄다 — LIKE는 전체 스캔
   const stale = db
     .prepare(
-      `SELECT id, file_path FROM images WHERE file_path LIKE '${MEMORY_PREFIX}%'
+      `SELECT id, file_path FROM images WHERE file_path GLOB '${MEMORY_PREFIX}*'
        ORDER BY id DESC LIMIT -1 OFFSET ?`
     )
     .all(EPHEMERAL_KEEP) as { id: number; file_path: string }[]

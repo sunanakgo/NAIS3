@@ -343,5 +343,22 @@ export const migrations: ((db: Database.Database) => void)[] = [
   // v18: lightweight Danbooru-based defaults. Existing fragments win on name collisions.
   (db) => {
     seedDefaultDanbooruFragments(db)
+  },
+
+  // v19: 경로로 히스토리 행을 찾는 쿼리(만료 임시 이미지 썸네일 폴백, 메타데이터 조회,
+  // 임시 이미지 정리)가 썸네일 BLOB이 붙은 images를 전체 스캔하지 않도록
+  (db) => {
+    db.exec(`CREATE INDEX idx_images_file_path ON images(file_path);`)
+  },
+
+  // v20: indexes matching the ORDER BY of the scene card and library list queries, so
+  // SQLite can read the first matching rows instead of sorting every row in a temp B-tree.
+  // - scene card cover (favorite first, then newest), favorites-only paging and has_favorite
+  // - library grid paging inside a stack or the unstacked root, in drag order
+  (db) => {
+    db.exec(`
+      CREATE INDEX idx_images_scene_favorite ON images(scene_id, favorite, id);
+      CREATE INDEX idx_library_images_stack_order ON library_images(stack_id, sort_order, id);
+    `)
   }
 ]

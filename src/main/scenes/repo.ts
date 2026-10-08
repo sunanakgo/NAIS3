@@ -138,14 +138,20 @@ export function deletePreset(id: number): void {
 /** 프리셋별 목록 (썸네일은 씬당 1장만 조인 — 수만 장이어도 가벼움) */
 export function listScenes(presetId: number): Scene[] {
   // 카드 썸네일: 즐겨찾기가 있으면 최상단(최신) 즐겨찾기, 없으면 최신 이미지 (NAIS2 방식)
+  // The cover row is looked up once and joined. Because favorites sort first, the cover
+  // is a favorite exactly when the scene has one, so it also answers has_favorite.
   const rows = getDb()
     .prepare(
       `SELECT s.id, s.preset_id, s.name, s.prompt, s.negative_prompt, s.width, s.height, s.reserve_count, s.reserve_json,
               (SELECT COUNT(*) FROM images WHERE scene_id = s.id) AS image_count,
-              (SELECT thumbnail FROM images WHERE scene_id = s.id ORDER BY favorite DESC, id DESC LIMIT 1) AS thumb,
-              (SELECT file_path FROM images WHERE scene_id = s.id ORDER BY favorite DESC, id DESC LIMIT 1) AS thumb_path,
-              EXISTS(SELECT 1 FROM images WHERE scene_id = s.id AND favorite = 1) AS has_favorite
-       FROM gen_scenes s WHERE s.preset_id = ? ORDER BY s.sort_order, s.id`
+              cover.thumbnail AS thumb,
+              cover.file_path AS thumb_path,
+              COALESCE(cover.favorite, 0) AS has_favorite
+       FROM gen_scenes s
+       LEFT JOIN images cover ON cover.id = (
+         SELECT id FROM images WHERE scene_id = s.id ORDER BY favorite DESC, id DESC LIMIT 1
+       )
+       WHERE s.preset_id = ? ORDER BY s.sort_order, s.id`
     )
     .all(presetId) as (Row & {
     image_count: number

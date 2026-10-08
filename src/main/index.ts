@@ -16,7 +16,8 @@ import {
   isUnderImagesRoot,
   saveEphemeralImage,
   saveGeneratedImage,
-  thumbnailByPath
+  thumbnailByPath,
+  thumbnailForUrl
 } from './images/storage'
 import { broadcast, registerIpcHandlers } from './ipc'
 import { resolveInitialLanguage, t } from './i18n'
@@ -107,6 +108,12 @@ app.whenReady().then(() => {
 
   protocol.handle('nais-image', (request) => {
     const url = new URL(request.url)
+    // Stored webp thumbnails by row id — list IPC responses carry these URLs instead of base64
+    if (url.searchParams.has('thumb')) {
+      const thumb = thumbnailForUrl(url)
+      if (!thumb) return new Response('not found', { status: 404 })
+      return new Response(new Uint8Array(thumb), { headers: { 'content-type': 'image/webp' } })
+    }
     const filePath = decodeURIComponent(url.searchParams.get('path') ?? '')
     // 자동저장 OFF 임시 이미지 — 메모리 원본, 만료됐으면 DB 썸네일로 폴백
     if (isMemoryPath(filePath)) {

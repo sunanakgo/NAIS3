@@ -550,9 +550,9 @@ function SceneGrid(): React.JSX.Element {
                 className="relative overflow-hidden rounded-lg border border-accent bg-surface-2 shadow-2xl"
                 style={{ aspectRatio: CARD_ASPECT[cardOrientation] }}
               >
-                {dragScene.thumbnail ? (
+                {dragScene.thumbnailUrl ? (
                   <img
-                    src={`data:image/webp;base64,${dragScene.thumbnail}`}
+                    src={dragScene.thumbnailUrl}
                     className="h-full w-full object-cover"
                     draggable={false}
                     alt=""
@@ -830,11 +830,7 @@ const SceneCard = memo(function SceneCard({
   // 카드는 작게 표시되므로 640 webp 썸네일이면 충분히 선명하고, 풀해상도 대신 써서 드래그가 부드럽다.
   const src = live
     ? `data:image/png;base64,${live}`
-    : scene.thumbnail
-      ? `data:image/webp;base64,${scene.thumbnail}`
-      : scene.thumbnailPath
-        ? imageUrl(scene.thumbnailPath)
-        : null
+    : scene.thumbnailUrl || (scene.thumbnailPath ? imageUrl(scene.thumbnailPath) : null)
 
   // 우클릭 메뉴/3-dot 공용 액션
   const renameScene = async (): Promise<void> => {

@@ -3,7 +3,8 @@ import { app } from 'electron'
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs'
 import { isAbsolute, join, relative } from 'path'
 import sharp from 'sharp'
-import type { DirectorMethod, ImageMetadata } from '../../shared/types'
+import { isThumbnailSource, thumbnailUrl, type ThumbnailSource } from '../../shared/thumbnail-url'
+import type { DirectorMethod, HistoryItem, ImageMetadata } from '../../shared/types'
 import { getDb } from '../db'
 import { getSetting } from '../db/settings'
 
@@ -96,6 +97,32 @@ export function thumbnailByPath(filePath: string): Buffer | null {
   return row?.thumbnail ?? null
 }
 
+const THUMBNAIL_TABLES: Record<ThumbnailSource, string> = {
+  image: 'images',
+  library: 'library_images'
+}
+
+/** Resolves a `thumbnailUrl()` request to its stored bytes (null for bad params or no thumbnail) */
+export function thumbnailForUrl(url: URL): Buffer | null {
+  const source = url.searchParams.get('thumb')
+  const id = Number(url.searchParams.get('id'))
+  if (!isThumbnailSource(source) || !Number.isInteger(id)) return null
+  const row = getDb()
+    .prepare(`SELECT thumbnail FROM ${THUMBNAIL_TABLES[source]} WHERE id = ?`)
+    .get(id) as { thumbnail: Buffer | null } | undefined
+  return row?.thumbnail ?? null
+}
+
+/** Protocol URL for a row's stored thumbnail, or '' when it has none (callers fall back to the original) */
+export function storedThumbnailUrl(
+  source: ThumbnailSource,
+  id: number | null | undefined,
+  createdAt: string | null | undefined,
+  thumbSize: number | null | undefined
+): string {
+  return id != null && createdAt && thumbSize ? thumbnailUrl(source, id, createdAt) : ''
+}
+
 /** 자동저장 OFF 메인 생성 저장 — 파일 없이 메모리 + 썸네일 행. 최근 N장 초과분은 행·버퍼 정리 */
 export async function saveEphemeralImage(input: {
   png: Buffer
@@ -131,9 +158,10 @@ export async function saveEphemeralImage(input: {
       payloadWithLocalMetadata(input.sentPayload, input.localMetadata)
     )
 
+  // GLOB(대소문자 구분)이라야 idx_images_file_path 범위 탐색을 탄다 — LIKE는 전체 스캔
   const stale = db
     .prepare(
-      `SELECT id, file_path FROM images WHERE file_path LIKE '${MEMORY_PREFIX}%'
+      `SELECT id, file_path FROM images WHERE file_path GLOB '${MEMORY_PREFIX}*'
        ORDER BY id DESC LIMIT -1 OFFSET ?`
     )
     .all(EPHEMERAL_KEEP) as { id: number; file_path: string }[]
@@ -283,28 +311,18 @@ function injectNais3Params(png: Buffer, meta: Pick<ImageMetadata, 'promptParts'>
   return Buffer.concat([png.subarray(0, ihdrEnd), chunk, png.subarray(ihdrEnd)])
 }
 
-export interface HistoryItem {
-  id: number
-  filePath: string
-  /** webp 썸네일 base64 (data URL 아님) */
-  thumbnail: string
-  kind: string
-  seed: number | null
-  createdAt: string
-}
-
 export function listImages(limit: number, offset: number): { items: HistoryItem[]; total: number } {
   const db = getDb()
   const total = (db.prepare('SELECT COUNT(*) AS c FROM images').get() as { c: number }).c
   const rows = db
     .prepare(
-      `SELECT id, file_path, thumbnail, kind, seed, created_at
+      `SELECT id, file_path, length(thumbnail) AS thumb_size, kind, seed, created_at
        FROM images ORDER BY id DESC LIMIT ? OFFSET ?`
     )
     .all(limit, offset) as {
     id: number
     file_path: string
-    thumbnail: Buffer | null
+    thumb_size: number | null
     kind: string
     seed: number | null
     created_at: string
@@ -315,7 +333,7 @@ export function listImages(limit: number, offset: number): { items: HistoryItem[
     items: rows.map((r) => ({
       id: r.id,
       filePath: r.file_path,
-      thumbnail: r.thumbnail ? r.thumbnail.toString('base64') : '',
+      thumbnailUrl: storedThumbnailUrl('image', r.id, r.created_at, r.thumb_size),
       kind: r.kind,
       seed: r.seed,
       createdAt: r.created_at

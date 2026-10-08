@@ -397,13 +397,13 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
 
   setSceneThumb: (sceneId, filePath) =>
     set({
-      // thumbnail(base64) 비우고 thumbnailPath로 → 카드가 새 원본을 즉시 표시.
+      // thumbnailUrl 비우고 thumbnailPath로 → 카드가 새 원본을 즉시 표시.
       // 즐겨찾기가 있는 씬은 즐겨찾기가 썸네일 고정이라 교체하지 않는다 (개수만 갱신)
       scenes: get().scenes.map((s) =>
         s.id === sceneId
           ? s.hasFavorite
             ? { ...s, imageCount: s.imageCount + 1 }
-            : { ...s, thumbnail: '', thumbnailPath: filePath, imageCount: s.imageCount + 1 }
+            : { ...s, thumbnailUrl: '', thumbnailPath: filePath, imageCount: s.imageCount + 1 }
           : s
       )
     }),
@@ -608,7 +608,7 @@ export function bindSceneEvents(): () => void {
   return window.nais.on('scenes:changed', ({ sceneId, filePath }) => {
     const st = useScenesStore.getState()
     // 완료 즉시 카드 낙관적 갱신 — 스트리밍 프레임이 사라진 뒤 옛 썸네일이 튀는 것 방지.
-    // 새 원본을 바로 표시(thumbnail 비워 thumbnailPath로 폴백), load()가 곧 정식 썸네일로 대체.
+    // 새 원본을 바로 표시(thumbnailUrl 비워 thumbnailPath로 폴백), load()가 곧 정식 썸네일로 대체.
     st.setSceneThumb(sceneId, filePath)
     if (st.selectedId === sceneId) reloadSelected = true
     clearTimeout(timer)

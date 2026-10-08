@@ -6,7 +6,7 @@ import sharp from 'sharp'
 import type { LibraryImage, LibraryStack } from '../../shared/types'
 import { getDb } from '../db'
 import { t } from '../i18n'
-import { libraryRoot } from '../images/storage'
+import { libraryRoot, storedThumbnailUrl } from '../images/storage'
 
 /**
  * 라이브러리 — 사용자가 직접 모아두는 큐레이션 컬렉션 (NAIS2 라이브러리 이식).
@@ -24,10 +24,11 @@ interface ImageRow {
   id: number
   name: string
   file_path: string
-  thumbnail: Buffer | null
+  thumb_size: number | null
   width: number | null
   height: number | null
   stack_id: number | null
+  created_at: string
 }
 
 function toImage(r: ImageRow): LibraryImage {
@@ -35,7 +36,7 @@ function toImage(r: ImageRow): LibraryImage {
     id: r.id,
     name: r.name,
     filePath: r.file_path,
-    thumbnail: r.thumbnail ? r.thumbnail.toString('base64') : '',
+    thumbnailUrl: storedThumbnailUrl('library', r.id, r.created_at, r.thumb_size),
     width: r.width,
     height: r.height,
     stackId: r.stack_id
@@ -55,7 +56,7 @@ export function listLibrary(
 
   const rows = db
     .prepare(
-      `SELECT id, name, file_path, thumbnail, width, height, stack_id
+      `SELECT id, name, file_path, length(thumbnail) AS thumb_size, width, height, stack_id, created_at
        FROM library_images WHERE ${where} ORDER BY sort_order DESC, id DESC LIMIT ? OFFSET ?`
     )
     .all(...params, limit, offset) as ImageRow[]
@@ -70,15 +71,27 @@ export function listLibrary(
           .prepare(
             `SELECT s.id, s.name,
                (SELECT COUNT(*) FROM library_images i WHERE i.stack_id = s.id) AS count,
-               (SELECT thumbnail FROM library_images i WHERE i.stack_id = s.id ORDER BY i.id DESC LIMIT 1) AS cover
-             FROM library_stacks s ORDER BY s.id DESC`
+               cover.id AS cover_id, cover.created_at AS cover_created_at,
+               length(cover.thumbnail) AS cover_size
+             FROM library_stacks s
+             LEFT JOIN library_images cover ON cover.id = (
+               SELECT id FROM library_images i WHERE i.stack_id = s.id ORDER BY i.id DESC LIMIT 1
+             )
+             ORDER BY s.id DESC`
           )
-          .all() as { id: number; name: string; count: number; cover: Buffer | null }[]
+          .all() as {
+          id: number
+          name: string
+          count: number
+          cover_id: number | null
+          cover_created_at: string | null
+          cover_size: number | null
+        }[]
       ).map((s) => ({
         id: s.id,
         name: s.name,
         count: s.count,
-        coverThumbnail: s.cover ? s.cover.toString('base64') : ''
+        coverUrl: storedThumbnailUrl('library', s.cover_id, s.cover_created_at, s.cover_size)
       }))
 
   return { items: rows.map(toImage), stacks, total }

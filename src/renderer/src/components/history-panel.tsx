@@ -79,10 +79,11 @@ export function HistoryPanel(): React.JSX.Element {
                     setCenterMode('main') // 씬/디렉터 페이지에서도 클릭 시 메인으로 이동해 원본 표시
                   }}
                 >
-                  {item.thumbnail && (
+                  {item.thumbnailUrl && (
                     <img
-                      src={`data:image/webp;base64,${item.thumbnail}`}
+                      src={item.thumbnailUrl}
                       className="size-full object-cover"
+                      loading="lazy"
                       // 프리뷰로 드래그해서 메타데이터 열기
                       draggable
                       onDragStart={(e) => {

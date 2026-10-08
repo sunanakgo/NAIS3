@@ -123,6 +123,78 @@ describe('browser runtime regressions', () => {
     expect(download.href).toBe(filePath)
   })
 
+  it('maps stored base64 thumbnails to the URL fields of list responses', async () => {
+    const thumb = 'data:image/webp;base64,YQ=='
+    state.images = [
+      {
+        id: 1,
+        filePath: 'data:image/png;base64,YQ==',
+        thumbnail: 'YQ==',
+        kind: 'generated',
+        seed: 1,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        base64: 'YQ==',
+        payloadJson: null,
+        sceneId: 3,
+        favorite: false
+      }
+    ]
+    state.scenes = [
+      {
+        id: 3,
+        presetId: 2,
+        name: 'scene',
+        prompt: '',
+        negativePrompt: '',
+        width: 832,
+        height: 1216,
+        reserveCount: 0,
+        reserves: {},
+        thumbnail: 'YQ==',
+        thumbnailPath: 'data:image/png;base64,YQ==',
+        imageCount: 1,
+        hasFavorite: false
+      }
+    ]
+    state.libraryStacks = [{ id: 5, name: 'stack', count: 0, coverThumbnail: '' }]
+    state.libraryImages = [
+      {
+        id: 6,
+        name: 'a.png',
+        filePath: 'x',
+        thumbnail: 'YQ==',
+        width: 1,
+        height: 1,
+        stackId: 5,
+        base64: 'YQ=='
+      },
+      {
+        id: 7,
+        name: 'b.png',
+        filePath: 'y',
+        thumbnail: '',
+        width: 1,
+        height: 1,
+        stackId: null,
+        base64: ''
+      }
+    ]
+
+    const history = await api.invoke('images:list', { limit: 10, offset: 0 })
+    expect(history.items[0]).toMatchObject({ id: 1, thumbnailUrl: thumb })
+    expect(history.items[0]).not.toHaveProperty('thumbnail')
+
+    const scenes = await api.invoke('scenes:list', { presetId: 2 })
+    expect(scenes.items[0]).toMatchObject({ id: 3, thumbnailUrl: thumb })
+    expect(scenes.items[0]).not.toHaveProperty('thumbnail')
+    expect((await api.invoke('scenes:get', { id: 3 })).scene).toMatchObject({ thumbnailUrl: thumb })
+
+    const library = await api.invoke('library:list', { limit: 10, offset: 0 })
+    expect(library.items).toEqual([expect.objectContaining({ id: 7, thumbnailUrl: '' })])
+    expect(library.stacks).toEqual([{ id: 5, name: 'stack', count: 1, coverUrl: thumb }])
+    expect(state.libraryStacks[0]).toHaveProperty('coverThumbnail')
+  })
+
   it('expands split, character, and sequential prompts at generation time without consuming preview counters', async () => {
     state.fragments = [{ id: 1, name: 'Words', content: 'first\nsecond', folderId: null }]
     const generated: {

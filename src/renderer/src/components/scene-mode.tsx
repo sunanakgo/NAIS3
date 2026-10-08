@@ -380,8 +380,8 @@ function SceneGrid(): React.JSX.Element {
     void reorder(arrayMove(scenes, from, to).map((s) => s.id))
   }
 
-  // 스트리밍: 현재 생성 중인 씬과 미리보기 프레임 (해당 씬 카드에만 전달)
-  const previewPng = useGenerationStore((s) => s.previewPng)
+  // Streaming: only the scene being generated. The card subscribes to the preview frame itself,
+  // so per-step frames re-render that one card instead of the whole sortable grid
   const generatingSceneId = useGenerationStore(
     (s) => s.queue?.items.find((i) => i.state === 'generating')?.request.sceneId ?? null
   )
@@ -529,7 +529,6 @@ function SceneGrid(): React.JSX.Element {
                 <SceneCard
                   key={scene.id}
                   scene={scene}
-                  live={scene.id === generatingSceneId ? previewPng : null}
                   generating={scene.id === generatingSceneId}
                 />
               ))}
@@ -798,13 +797,12 @@ function reserveBadges(
 /* eslint-disable react-hooks/refs */
 const SceneCard = memo(function SceneCard({
   scene,
-  live,
   generating
 }: {
   scene: Scene
-  live: string | null
   generating: boolean
 }): React.JSX.Element {
+  const live = useGenerationStore((s) => (generating ? s.previewPng : null))
   const editMode = useScenesStore((s) => s.editMode)
   const cardOrientation = useScenesStore((s) => s.cardOrientation)
   const selection = useScenesStore((s) => s.selection)

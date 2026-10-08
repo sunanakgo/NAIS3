@@ -10,6 +10,7 @@ import {
   normalizeDelayRandomization,
   randomizedGenerationDelayMs
 } from '@shared/generation-delay'
+import { FinishedQueueLog, queueItemSnapshot } from '@shared/queue-status'
 import {
   browserFragmentSource,
   exportBrowserWorkspace,
@@ -43,7 +44,19 @@ let delayRandomization: GenerationDelayRandomization = {
   plusMs: 0
 }
 const queueControllers = new Map<string, AbortController>()
+const finishedQueue = new FinishedQueueLog()
 let queueRunning = false
+
+/** Copy for broadcasts/queries — like the desktop queue, the source image is left out */
+function queueSnapshot(): QueueStatus {
+  return structuredClone({ ...queue, items: queue.items.map(queueItemSnapshot) })
+}
+
+/** Records a finished item and drops old finished items past the limit */
+function markQueueItemFinished(id: string): void {
+  const stale = new Set(finishedQueue.record(id))
+  if (stale.size > 0) queue.items = queue.items.filter((item) => !stale.has(item.id))
+}
 
 function emit<C extends keyof IpcEventMap>(channel: C, payload: IpcEventMap[C]): void {
   listeners.get(channel)?.forEach((listener) => listener(payload))
@@ -188,12 +201,12 @@ async function runQueue(): Promise<void> {
   if (queueRunning) return
   queueRunning = true
   queue.running = true
-  emit('queue:changed', structuredClone(queue))
+  emit('queue:changed', queueSnapshot())
   try {
     let item = queue.items.find((candidate) => candidate.state === 'pending')
     while (item) {
       item.state = 'generating'
-      emit('queue:changed', structuredClone(queue))
+      emit('queue:changed', queueSnapshot())
       const controller = new AbortController()
       queueControllers.set(item.id, controller)
       try {
@@ -303,8 +316,9 @@ async function runQueue(): Promise<void> {
         }
       } finally {
         queueControllers.delete(item.id)
+        markQueueItemFinished(item.id)
       }
-      emit('queue:changed', structuredClone(queue))
+      emit('queue:changed', queueSnapshot())
       await new Promise((resolve) =>
         setTimeout(resolve, randomizedGenerationDelayMs(queue.delayMs, delayRandomization))
       )
@@ -313,7 +327,7 @@ async function runQueue(): Promise<void> {
   } finally {
     queue.running = false
     queueRunning = false
-    emit('queue:changed', structuredClone(queue))
+    emit('queue:changed', queueSnapshot())
   }
 }
 
@@ -468,7 +482,7 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
     }
   }
 
-  if (channel === 'queue:status') return structuredClone(queue)
+  if (channel === 'queue:status') return queueSnapshot()
   if (channel === 'queue:enqueue') {
     const state = await readBrowserState()
     const savedDelay = Number(state.settings.gen_delay_ms)
@@ -494,17 +508,20 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
       })
       return id
     })
-    emit('queue:changed', structuredClone(queue))
+    emit('queue:changed', queueSnapshot())
     void runQueue()
     return { ids }
   }
   if (channel === 'queue:cancel') {
     const ids = new Set(request.ids as string[])
     queue.items.forEach((item) => {
-      if (ids.has(item.id) && item.state === 'pending') item.state = 'cancelled'
+      if (ids.has(item.id) && item.state === 'pending') {
+        item.state = 'cancelled'
+        markQueueItemFinished(item.id)
+      }
       if (ids.has(item.id) && item.state === 'generating') queueControllers.get(item.id)?.abort()
     })
-    emit('queue:changed', structuredClone(queue))
+    emit('queue:changed', queueSnapshot())
     return undefined
   }
   if (channel === 'gen:setDelay') {

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { CharacterPromptInput, GenerationRequest } from '../src/shared/types'
 import { GenerationQueue } from '../src/main/queue/generation-queue'
+import { FinishedQueueLog, MAX_FINISHED_QUEUE_ITEMS } from '../src/shared/queue-status'
 
 /** NaiHttpError를 흉내낸 최소 오류 — 큐는 status 필드만 본다 */
 class HttpErr extends Error {
@@ -207,5 +208,77 @@ describe('GenerationQueue 재시도', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('GenerationQueue broadcast slimming', () => {
+  const SOURCE = { imageBase64: 'SOURCE', maskBase64: 'MASK', strength: 1, noise: 0 }
+
+  it('strips the source image from broadcasts but still passes it to the generate callback', async () => {
+    const seen: (GenerationRequest['source'] | undefined)[] = []
+    const q = new GenerationQueue(async (request) => {
+      seen.push(request.source)
+      return '/img.png'
+    })
+    q.setDelayMs(0)
+    const broadcastSources: unknown[] = []
+    q.on('changed', (s) => broadcastSources.push(...s.items.map((i) => i.request.source)))
+
+    q.enqueue({ ...REQ, source: SOURCE }, 1)
+    await vi.waitFor(() => expect(q.status().items[0].state).toBe('done'))
+
+    expect(seen).toEqual([SOURCE])
+    expect(broadcastSources.length).toBeGreaterThan(0)
+    expect(broadcastSources.every((s) => s === undefined)).toBe(true)
+    expect(q.status().items[0].request).not.toHaveProperty('source')
+  })
+
+  it('keeps only the latest MAX_FINISHED_QUEUE_ITEMS finished items, dropping the oldest first', async () => {
+    const q = new GenerationQueue(async () => '/img.png')
+    q.setDelayMs(0)
+    const ids = q.enqueue({ ...REQ, seed: 1 }, MAX_FINISHED_QUEUE_ITEMS + 5)
+    await vi.waitFor(() => expect(q.status().running).toBe(false))
+
+    const remaining = q.status().items.map((i) => i.id)
+    expect(remaining).toEqual(ids.slice(5))
+  })
+
+  it('always includes a just-finished item in its broadcast (even with many later cancellations)', async () => {
+    let release!: () => void
+    const q = new GenerationQueue(
+      () => new Promise<string>((resolve) => (release = () => resolve('/first.png')))
+    )
+    q.setDelayMs(0)
+    const [first] = q.enqueue({ ...REQ, seed: 1 }, 1)
+    await vi.waitFor(() => expect(release).toBeDefined())
+    const rest = q.enqueue({ ...REQ, seed: 2 }, MAX_FINISHED_QUEUE_ITEMS + 3)
+    q.cancel(rest)
+
+    const doneSeen: boolean[] = []
+    q.on('changed', (s) => doneSeen.push(s.items.some((i) => i.id === first && i.state === 'done')))
+    release()
+    await vi.waitFor(() => expect(q.status().running).toBe(false))
+
+    expect(doneSeen.some(Boolean)).toBe(true)
+    expect(q.status().items.length).toBe(MAX_FINISHED_QUEUE_ITEMS)
+  })
+
+  it('never prunes pending or generating items, even past the limit', async () => {
+    const q = new GenerationQueue(() => new Promise<string>(() => {}))
+    q.setDelayMs(0)
+    const ids = q.enqueue({ ...REQ, seed: 1 }, MAX_FINISHED_QUEUE_ITEMS + 10)
+    await vi.waitFor(() => expect(q.status().items[0].state).toBe('generating'))
+
+    expect(q.status().items.map((i) => i.id)).toEqual(ids)
+  })
+})
+
+describe('FinishedQueueLog', () => {
+  it('returns the earliest-finished ids beyond the limit', () => {
+    const log = new FinishedQueueLog(2)
+    expect(log.record('a')).toEqual([])
+    expect(log.record('b')).toEqual([])
+    expect(log.record('c')).toEqual(['a'])
+    expect(log.record('d')).toEqual(['b'])
   })
 })

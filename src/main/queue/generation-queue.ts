@@ -5,6 +5,7 @@ import {
   normalizeDelayRandomization,
   randomizedGenerationDelayMs
 } from '../../shared/generation-delay'
+import { FinishedQueueLog, queueItemSnapshot } from '../../shared/queue-status'
 import { applyRandomCharacterPrompt } from '../../shared/random-character'
 import type {
   CharacterPromptInput,
@@ -32,6 +33,7 @@ const RETRY_MAX_MS = 20000
 export class GenerationQueue extends EventEmitter {
   private items = new Map<string, QueueItem>()
   private controllers = new Map<string, AbortController>()
+  private finished = new FinishedQueueLog()
   private running = false
   private delayMs = 600
   private delayRandomization: GenerationDelayRandomization = {
@@ -97,6 +99,7 @@ export class GenerationQueue extends EventEmitter {
       const item = this.items.get(id)
       if (item && item.state === 'pending') {
         item.state = 'cancelled'
+        this.markFinished(item)
       } else if (item && item.state === 'generating') {
         this.controllers.get(id)?.abort()
       }
@@ -110,7 +113,11 @@ export class GenerationQueue extends EventEmitter {
   }
 
   status(): QueueStatus {
-    return { items: [...this.items.values()], running: this.running, delayMs: this.delayMs }
+    return {
+      items: [...this.items.values()].map(queueItemSnapshot),
+      running: this.running,
+      delayMs: this.delayMs
+    }
   }
 
   private async run(): Promise<void> {
@@ -136,6 +143,7 @@ export class GenerationQueue extends EventEmitter {
         } finally {
           this.controllers.delete(next.id)
           next.retrying = false
+          this.markFinished(next)
         }
         this.emitChanged()
         if (this.nextPending()) {
@@ -169,6 +177,11 @@ export class GenerationQueue extends EventEmitter {
         this.emitChanged()
       }
     }
+  }
+
+  /** Records a finished item and drops old finished items past the limit (no unbounded growth per session) */
+  private markFinished(item: QueueItem): void {
+    for (const id of this.finished.record(item.id)) this.items.delete(id)
   }
 
   private nextPending(): QueueItem | undefined {

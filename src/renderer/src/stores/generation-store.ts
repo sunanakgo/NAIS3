@@ -354,9 +354,9 @@ function persistParams(request: GenerationRequest): void {
 export function bindGenerationEvents(): () => void {
   // 생성 소요 시간 추적 (id별 시작 시각 → 완료 시 평균 갱신)
   const startTimes = new Map<string, number>()
-  // 완료 알림용 — 배치 시작 시점의 누적 done/failed 스냅샷
-  let batchBaseDone = 0
-  let batchBaseFailed = 0
+  // For the completion alert — items that became done/failed during the current batch
+  let batchDone = 0
+  let batchFailed = 0
 
   // 실패 토스트 합치기 — 배치가 통째로 막히면(예: rate-limit) 장마다 토스트가 쏟아지므로
   // 짧은 창으로 모아 한 번만 알린다. 동일 사유면 개수만, 사유가 여러 개면 종류 수를 표기.
@@ -394,8 +394,12 @@ export function bindGenerationEvents(): () => void {
 
     // 완료된 항목의 소요 시간으로 평균(EMA) 갱신
     let avg = useGenerationStore.getState().avgDurationMs
+    let doneNow = 0
+    let failedNow = 0
     for (const item of queue.items) {
+      if (item.state === 'failed' && prevStates.get(item.id) !== 'failed') failedNow++
       if (item.state === 'done' && prevStates.get(item.id) !== 'done') {
+        doneNow++
         const start = startTimes.get(item.id)
         if (start) {
           const d = Date.now() - start
@@ -438,17 +442,20 @@ export function bindGenerationEvents(): () => void {
     if (!stillActive && useGenerationStore.getState().viewPinned) {
       useGenerationStore.setState({ viewPinned: false })
     }
-    // 배치(활성→소진) 단위 완료 알림 — 큐 items는 세션 내내 누적되므로 배치 시작 시점 기준 델타로 계산
+    // Per-batch (active → drained) completion alert. Old finished items are pruned from the
+    // main queue, so sum per-event state transitions over the batch instead of cumulative counts
     const prevActive =
       prev?.items.some((i) => i.state === 'pending' || i.state === 'generating') ?? false
     if (!prevActive && stillActive) {
-      batchBaseDone = queue.items.filter((i) => i.state === 'done').length
-      batchBaseFailed = queue.items.filter((i) => i.state === 'failed').length
+      batchDone = 0
+      batchFailed = 0
       retryNoticeShown = false // 새 배치 — 재시도 안내 다시 허용
-    } else if (prevActive && !stillActive) {
-      const done = queue.items.filter((i) => i.state === 'done').length - batchBaseDone
-      const failed = queue.items.filter((i) => i.state === 'failed').length - batchBaseFailed
-      if (done + failed > 0) void queueDoneAlert(done, failed)
+    } else {
+      batchDone += doneNow
+      batchFailed += failedNow
+      if (prevActive && !stillActive && batchDone + batchFailed > 0) {
+        void queueDoneAlert(batchDone, batchFailed)
+      }
     }
   })
   const offProgress = window.nais.on('generation:progress', (e) => {

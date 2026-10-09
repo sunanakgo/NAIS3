@@ -1,5 +1,6 @@
 import type { DirectorMethod, OpusUsageStatus } from './types'
 import { translate, type MessageId } from './i18n'
+import { effectiveSteps, isMediumEffortModel } from './nai-models'
 
 export function displayOpusUsagePercent(usage: OpusUsageStatus): number {
   return usage.isNegative ? 0 : Math.max(0, usage.percent)
@@ -98,6 +99,8 @@ export function formatAnlasEstimate(
 }
 
 const VIBE_ENCODE_COST = 2
+/** V5 Full Medium effort의 스텝 항 계수 (novelai.net 가격 함수: `1/1.06521739`) */
+const MEDIUM_EFFORT_STEP_FACTOR = 1 / 1.06521739
 /**
  * 캐릭터 레퍼런스 사용료 (장당·레퍼당) — 실측 기반 추정.
  * 검증 사례: Opus·1024²·28스텝·캐릭레퍼 1 → 장당 5 차감 (생성 자체는 무료 유지).
@@ -161,17 +164,18 @@ export function estimateAnlas(input: AnlasEstimateInput): AnlasEstimate {
   const px = Math.max(input.width * input.height, 65536)
   const strength = input.strength ?? 1
 
-  let base = Math.ceil(2.951823174884865e-6 * px + 5.753298233447344e-7 * px * input.steps)
+  // V5 Full Medium: 항상 14스텝, 스텝 항에 1/1.06521739 (웹 번들 가격 함수에서 확인)
+  const medium = isMediumEffortModel(input.model ?? '')
+  const steps = effectiveSteps(input.model ?? '', input.steps)
+  const stepFactor = medium ? MEDIUM_EFFORT_STEP_FACTOR : 1
+  let base = Math.ceil(2.951823174884865e-6 * px + 5.753298233447344e-7 * px * steps * stepFactor)
   const isV5 = input.model?.startsWith('nai-diffusion-5-') ?? false
   if (isV5) base *= 1.5
   const perImage = Math.max(Math.ceil(base * strength), 2)
 
   // 캐릭레퍼는 무료 조건을 깨지 않는다 (실측) — 대신 아래에서 별도 사용료 부과
   const freeEligible =
-    px <= 1048576 &&
-    input.steps <= 28 &&
-    input.isOpus &&
-    (!isV5 || input.opusUsageExhausted === false)
+    px <= 1048576 && steps <= 28 && input.isOpus && (!isV5 || input.opusUsageExhausted === false)
 
   const generation = freeEligible ? 0 : perImage * input.batchCount
   const charRef = (input.charRefCount ?? 0) * CHARREF_COST * input.batchCount

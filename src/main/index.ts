@@ -7,7 +7,7 @@ import icon from '../../resources/icon.png?asset'
 import { closeDb, initDb } from './db'
 import { getSetting } from './db/settings'
 import { preprocessRequest } from './fragments/request'
-import { inpaintingModelFor, modelCapabilities } from '../shared/nai-models'
+import { effectiveSteps, inpaintingModelFor, modelCapabilities } from '../shared/nai-models'
 import { snapNaiResolution } from '../shared/nai-resolution'
 import { fragmentSource } from './fragments/repo'
 import {
@@ -234,7 +234,7 @@ app.whenReady().then(() => {
             broadcast('generation:progress', {
               id,
               stepIx,
-              totalSteps: request.steps,
+              totalSteps: effectiveSteps(request.model, request.steps),
               previewPng: preview?.toString('base64')
             })
           },

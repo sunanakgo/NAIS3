@@ -3,10 +3,18 @@ import type { UcPresetIndex } from '@shared/types'
 import { NOISE_SCHEDULES, SAMPLERS, UC_PRESET_OPTIONS } from '../lib/constants'
 import { useT } from '../lib/i18n'
 import {
+  baseModelForSelect,
+  effortOf,
   generationDefaultsForModel,
+  hasEffortToggle,
   inpaintingModelFor,
-  modelCapabilities
+  isMediumEffortModel,
+  MEDIUM_EFFORT_FIXED,
+  modelCapabilities,
+  withEffort,
+  type GenerationEffort
 } from '@shared/nai-models'
+import { cn } from '../lib/utils'
 import { ResolutionPicker } from './resolution-picker'
 import { useGenerationStore } from '../stores/generation-store'
 import { Button } from './ui/button'
@@ -15,6 +23,7 @@ import { Input } from './ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Slider } from './ui/slider'
 import { Switch } from './ui/switch'
+import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group'
 
 function Row({ label, children }: { label: string; children: React.ReactNode }): React.JSX.Element {
   return (
@@ -41,6 +50,13 @@ export function ParamsDialog({
   const capabilities = modelCapabilities(request.model)
   const effectiveModel = source?.maskBase64 ? inpaintingModelFor(request.model) : request.model
   const supportsTransparency = modelCapabilities(effectiveModel).transparency
+  // Medium effort는 steps·sampler·UC 프리셋을 고정하고 CFG Rescale이 없다.
+  // 사용자의 High 값은 그대로 보존하고 화면에만 고정값을 보여 준다.
+  const medium = isMediumEffortModel(request.model)
+  const fixedTitle = medium ? t('ui.fixedAtMediumEffort') : undefined
+  const shownSteps = medium ? MEDIUM_EFFORT_FIXED.steps : request.steps
+  const shownSampler = medium ? MEDIUM_EFFORT_FIXED.sampler : request.sampler
+  const shownUcPreset = medium ? MEDIUM_EFFORT_FIXED.ucPreset : request.ucPreset
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -49,7 +65,7 @@ export function ParamsDialog({
         <div className="grid gap-4">
           <Row label={t('ui.model')}>
             <Select
-              value={request.model}
+              value={baseModelForSelect(request.model)}
               onValueChange={(model) => patch({ model, ...generationDefaultsForModel(model) })}
             >
               <SelectTrigger className="w-52" aria-label={t('ui.model')}>
@@ -63,6 +79,41 @@ export function ParamsDialog({
               </SelectContent>
             </Select>
           </Row>
+          {hasEffortToggle(request.model) && (
+            <div className="grid gap-1.5">
+              <Row label={t('ui.effort')}>
+                <ToggleGroup
+                  type="single"
+                  value={effortOf(request.model)}
+                  onValueChange={(v) => {
+                    if (v) patch({ model: withEffort(request.model, v as GenerationEffort) })
+                  }}
+                  className="inline-flex w-52 rounded-md bg-surface-2 p-0.5"
+                  aria-label={t('ui.effort')}
+                  title={t('ui.effortTooltip')}
+                >
+                  {(['medium', 'high'] as const).map((level) => (
+                    <ToggleGroupItem
+                      key={level}
+                      value={level}
+                      // 다크 테마에서 bg-paper는 바탕보다 어두워 선택 상태가 뒤집혀 보이므로,
+                      // 앱의 다른 선택 표시(탭·디렉터 카드)와 같은 accent 계열로 표시한다.
+                      className={cn(
+                        'h-7 flex-1 rounded-[5px] border border-transparent text-[12.5px] text-muted hover:text-ink',
+                        'data-[state=on]:border-accent/40 data-[state=on]:bg-accent-soft data-[state=on]:font-medium data-[state=on]:text-accent'
+                      )}
+                    >
+                      {t(level === 'medium' ? 'ui.effortMedium' : 'ui.effortHigh')}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </Row>
+              {medium && (
+                <p className="text-[11.5px] leading-snug text-faint">{t('ui.effortMediumHint')}</p>
+              )}
+            </div>
+          )}
+
           <Row label={t('ui.resolution')}>
             <ResolutionPicker
               className="w-52"
@@ -104,14 +155,16 @@ export function ParamsDialog({
             </div>
           </Row>
 
-          <Row label={t('ui.stepsValue', request.steps)}>
+          <Row label={t('ui.stepsValue', shownSteps)}>
             <Slider
               className="w-52"
-              aria-label={t('ui.stepsValue', request.steps)}
+              aria-label={t('ui.stepsValue', shownSteps)}
+              title={fixedTitle}
+              disabled={medium}
               min={1}
               max={50}
               step={1}
-              value={[request.steps]}
+              value={[shownSteps]}
               onValueChange={([v]) => patch({ steps: v })}
             />
           </Row>
@@ -128,21 +181,27 @@ export function ParamsDialog({
             />
           </Row>
 
-          <Row label={`Rescale ${request.cfgRescale}`}>
+          <Row label={medium ? `Rescale —` : `Rescale ${request.cfgRescale}`}>
             <Slider
               className="w-52"
               aria-label={`Rescale ${request.cfgRescale}`}
+              title={medium ? t('ui.unavailableAtMediumEffort') : undefined}
+              disabled={medium}
               min={0}
               max={1}
               step={0.02}
-              value={[request.cfgRescale]}
+              value={[medium ? 0 : request.cfgRescale]}
               onValueChange={([v]) => patch({ cfgRescale: Math.round(v * 100) / 100 })}
             />
           </Row>
 
           <Row label={t('ui.sampler')}>
-            <Select value={request.sampler} onValueChange={(v) => patch({ sampler: v })}>
-              <SelectTrigger className="w-52" aria-label={t('ui.sampler')}>
+            <Select
+              value={shownSampler}
+              disabled={medium}
+              onValueChange={(v) => patch({ sampler: v })}
+            >
+              <SelectTrigger className="w-52" aria-label={t('ui.sampler')} title={fixedTitle}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -177,10 +236,11 @@ export function ParamsDialog({
 
           <Row label={t('ui.ucPreset')}>
             <Select
-              value={String(request.ucPreset)}
+              value={String(shownUcPreset)}
+              disabled={medium}
               onValueChange={(v) => patch({ ucPreset: Number(v) as UcPresetIndex })}
             >
-              <SelectTrigger className="w-52" aria-label={t('ui.ucPreset')}>
+              <SelectTrigger className="w-52" aria-label={t('ui.ucPreset')} title={fixedTitle}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

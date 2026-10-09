@@ -36,7 +36,12 @@ import {
   UC_PRESET_HINT,
   removeComments
 } from '../../shared/nai-presets'
-import { isV5Model, modelCapabilities } from '../../shared/nai-models'
+import {
+  isMediumEffortModel,
+  isV5Model,
+  MEDIUM_EFFORT_FIXED,
+  modelCapabilities
+} from '../../shared/nai-models'
 import { applyAutoText } from '../../shared/nai-auto-text'
 
 /**
@@ -138,6 +143,19 @@ export function buildGenerateImagePayload(
   opts: BuildOptions = {}
 ): NaiImagePayload {
   const v5 = isV5Model(req.model)
+  // V5 Full Medium effort (웹 번들 2026-10-09 확인): steps·sampler·UC 프리셋(Heavy) 고정,
+  // 사용자 UC·캐릭터 UC는 비워서 보내고 cfg_rescale은 필드째 생략한다.
+  const medium = isMediumEffortModel(req.model)
+  if (medium) {
+    req = {
+      ...req,
+      steps: MEDIUM_EFFORT_FIXED.steps,
+      sampler: MEDIUM_EFFORT_FIXED.sampler,
+      ucPreset: MEDIUM_EFFORT_FIXED.ucPreset,
+      negativePrompt: '',
+      characterPrompts: req.characterPrompts.map((c) => ({ ...c, negativePrompt: '' }))
+    }
+  }
   const capabilities = modelCapabilities(req.model)
   const transparent = v5 && (opts.transparentBackground ?? req.transparentBackground ?? false)
   const userPrompt = removeComments(req.prompt)
@@ -224,7 +242,7 @@ export function buildGenerateImagePayload(
       legacy: false,
       // 인페인트는 add_original_image=true: 서버가 마스크 밖을 원본으로 합성
       add_original_image: true,
-      cfg_rescale: req.cfgRescale,
+      ...(medium ? {} : { cfg_rescale: req.cfgRescale }),
       noise_schedule: v5 ? 'karras' : req.noiseSchedule,
       legacy_v3_extend: false,
       ...(capabilities.variety

@@ -560,6 +560,16 @@ export const KO = {
   'ui.schedule': '스케줄',
   'ui.resolution': '해상도',
   'ui.qualityTags': '퀄리티 태그',
+  'ui.effort': 'Effort',
+  'ui.effortMedium': 'Medium',
+  'ui.effortHigh': 'High',
+  'ui.effortTooltip': 'Medium은 Anlas와 Opus 사용량을 덜 쓰는 대신 일부 설정을 쓸 수 없습니다.',
+  'ui.effortMediumHint':
+    'Medium은 14스텝·Euler Ancestral·Heavy UC로 고정되고 네거티브와 CFG Rescale을 쓰지 않습니다. High로 돌아가면 기존 설정이 그대로 적용됩니다.',
+  'ui.fixedAtMediumEffort': 'Medium Effort에서는 고정됩니다',
+  'ui.unavailableAtMediumEffort': 'Medium Effort에서는 사용할 수 없습니다',
+  'ui.negativeUnusedAtMediumEffort':
+    'Medium Effort에서는 네거티브가 전송되지 않습니다. 빼고 싶은 요소는 프롬프트에 -3::hat:: 처럼 음수 강조로 적어 주세요.',
   'ui.ucPreset': 'UC 프리셋',
   'ui.model': '모델',
   'ui.characterValue': '캐릭터 {0}',

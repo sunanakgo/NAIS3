@@ -574,6 +574,17 @@ export const EN = {
   'ui.schedule': 'Schedule',
   'ui.resolution': 'Resolution',
   'ui.qualityTags': 'Quality tags',
+  'ui.effort': 'Effort',
+  'ui.effortMedium': 'Medium',
+  'ui.effortHigh': 'High',
+  'ui.effortTooltip':
+    'Medium effort costs fewer Anlas and uses less of the Opus usage limit, but some settings are unavailable.',
+  'ui.effortMediumHint':
+    'Medium always runs 14 steps of Euler Ancestral with the Heavy UC preset, and uses no negative prompt or CFG Rescale. Your settings come back on High.',
+  'ui.fixedAtMediumEffort': 'Fixed at Medium effort',
+  'ui.unavailableAtMediumEffort': 'Not available at Medium effort',
+  'ui.negativeUnusedAtMediumEffort':
+    'Negative prompts are not sent at Medium effort. To keep something out, use negative emphasis in the prompt, like -3::hat::.',
   'ui.ucPreset': 'UC preset',
   'ui.model': 'Model',
   'ui.characterValue': 'Character {0}',

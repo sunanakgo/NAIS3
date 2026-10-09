@@ -10,7 +10,10 @@ export function Slider({
 }: ComponentProps<typeof SliderPrimitive.Root>) {
   return (
     <SliderPrimitive.Root
-      className={cn('relative flex w-full touch-none select-none items-center', className)}
+      className={cn(
+        'relative flex w-full touch-none select-none items-center data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
+        className
+      )}
       {...props}
     >
       <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-surface-2">

@@ -556,6 +556,16 @@ export const ZH_CN = {
   'ui.schedule': '调度',
   'ui.resolution': '分辨率',
   'ui.qualityTags': '质量标签',
+  'ui.effort': 'Effort',
+  'ui.effortMedium': 'Medium',
+  'ui.effortHigh': 'High',
+  'ui.effortTooltip': 'Medium 消耗更少的 Anlas 和 Opus 用量，但部分设置不可用。',
+  'ui.effortMediumHint':
+    'Medium 固定为 14 步、Euler Ancestral 和 Heavy 负面提示词预设，不使用负面提示词和 CFG Rescale。切回 High 后恢复原有设置。',
+  'ui.fixedAtMediumEffort': 'Medium Effort 下固定',
+  'ui.unavailableAtMediumEffort': 'Medium Effort 下不可用',
+  'ui.negativeUnusedAtMediumEffort':
+    'Medium Effort 不会发送负面提示词。想排除的元素请在提示词中用负权重表示，例如 -3::hat::。',
   'ui.ucPreset': '负面提示词预设',
   'ui.model': '模型',
   'ui.characterValue': '角色 {0}',

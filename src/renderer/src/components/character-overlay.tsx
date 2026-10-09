@@ -19,6 +19,7 @@ import { createPortal } from 'react-dom'
 import type { CharacterCard } from '@shared/types'
 import {
   canEnableAnotherCharacter,
+  isMediumEffortModel,
   isV5Model,
   modelCapabilities,
   promptTokenLimit
@@ -411,7 +412,11 @@ export function CharacterOverlay(): React.JSX.Element {
         value={char.negativePrompt}
         tokenModel={model}
         tokenLimit={tokenLimit}
-        placeholder={t('ui.characterNegative')}
+        placeholder={
+          isMediumEffortModel(model)
+            ? t('ui.negativeUnusedAtMediumEffort')
+            : t('ui.characterNegative')
+        }
         onValueChange={(v) => updateCard(char.id, { negativePrompt: v })}
       />
     </div>

@@ -491,3 +491,76 @@ describe('NAI 웹 실캡처 fixture 동일성 (2026-07-05, V4.5 full)', () => {
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
+
+describe('V5 Full Medium effort payload (novelai.net 번들 2026-10-09 대조)', () => {
+  const highSettings: GenerationRequest = {
+    ...baseRequest,
+    model: 'nai-diffusion-5-full-medium',
+    steps: 28,
+    sampler: 'k_dpmpp_2m',
+    cfgScale: 6,
+    cfgRescale: 0.4,
+    ucPreset: 1,
+    negativePrompt: 'hat, glasses',
+    characterPrompts: [
+      { prompt: 'girl', negativePrompt: 'red eyes', enabled: true },
+      { prompt: 'boy', negativePrompt: 'beard', enabled: true }
+    ]
+  }
+
+  it('steps 14·Euler Ancestral·Heavy UC로 고정하고 Guidance는 유지한다', () => {
+    const p = buildGenerateImagePayload(highSettings)
+    expect(p.model).toBe('nai-diffusion-5-full-medium')
+    expect(p.parameters.steps).toBe(14)
+    expect(p.parameters.sampler).toBe('k_euler_ancestral')
+    expect(p.parameters.scale).toBe(6)
+    expect(p.parameters.ucPreset).toBe(0)
+    expect(p.parameters.tag_hint_uc_preset).toBe(2)
+    expect(p.parameters.noise_schedule).toBe('karras')
+  })
+
+  it('사용자 UC와 캐릭터 UC는 비우고 Heavy 프리셋 텍스트만 보낸다', () => {
+    const p = buildGenerateImagePayload(highSettings)
+    const heavy = buildGenerateImagePayload({
+      ...highSettings,
+      model: 'nai-diffusion-5-full',
+      ucPreset: 0,
+      negativePrompt: ''
+    }).parameters.negative_prompt
+    expect(p.parameters.negative_prompt).toBe(heavy)
+    expect(p.parameters.negative_prompt).toMatch(/^nsfw, /)
+    expect(p.parameters.negative_prompt).not.toContain('hat, glasses')
+    const neg = p.parameters.v4_negative_prompt as {
+      caption: { base_caption: string; char_captions: { char_caption: string }[] }
+    }
+    expect(neg.caption.base_caption).toBe(heavy)
+    expect(neg.caption.char_captions.map((c) => c.char_caption)).toEqual(['', ''])
+    expect((p.parameters.characterPrompts as { uc: string }[]).map((c) => c.uc)).toEqual(['', ''])
+  })
+
+  it('cfg_rescale 필드는 아예 보내지 않는다 (High는 계속 보낸다)', () => {
+    expect(buildGenerateImagePayload(highSettings).parameters).not.toHaveProperty('cfg_rescale')
+    const high = buildGenerateImagePayload({ ...highSettings, model: 'nai-diffusion-5-full' })
+    expect(high.parameters.cfg_rescale).toBe(0.4)
+    expect(high.parameters.steps).toBe(28)
+  })
+
+  it('Medium 인페인트도 같은 고정값을 적용한다', () => {
+    const p = buildGenerateImagePayload(
+      { ...highSettings, model: 'nai-diffusion-5-full-medium-inpainting' },
+      {
+        i2i: {
+          strength: 1,
+          noise: 0,
+          extraNoiseSeed: 1,
+          colorCorrect: false,
+          imageBase64: 'src',
+          maskBase64: 'mask'
+        }
+      }
+    )
+    expect(p.action).toBe('infill')
+    expect(p.parameters.steps).toBe(14)
+    expect(p.parameters).not.toHaveProperty('cfg_rescale')
+  })
+})

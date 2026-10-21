@@ -4,7 +4,8 @@ import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import sharp from './sharp'
 import icon from '../../resources/icon.png?asset'
-import { closeDb, initDb } from './db'
+import { closeDb, initDb, migrateInWorker } from './db'
+import migrationWorkerPath from './db/migrate.worker?modulePath'
 import { getSetting } from './db/settings'
 import { preprocessRequest } from './fragments/request'
 import { effectiveSteps, inpaintingModelFor, modelCapabilities } from '../shared/nai-models'
@@ -21,7 +22,9 @@ import {
 } from './images/storage'
 import { broadcast, registerIpcHandlers } from './ipc'
 import { resolveInitialLanguage, t } from './i18n'
+import { translate, type Lang, type MessageId } from '../shared/i18n'
 import { setupUpdater } from './updater'
+import { showMigrationProgress } from './migration-window'
 import { logBalance } from './nai/anlas-log'
 import { fetchAnlasBalance, generateImageStream, generateImageZip } from './nai/client'
 import { requestUsesV5Usage, resolveNaiAccountForGeneration } from './nai/account-router'
@@ -105,7 +108,7 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // app.quit()은 비동기라 두 번째 실행도 ready까지 온다 — 여기서 멈추지 않으면 첫 실행이
   // 마이그레이션 중인 DB를 같이 열어 백업·마이그레이션을 중복 실행한다
   if (!hasSingleInstanceLock) return
@@ -143,21 +146,32 @@ app.whenReady().then(() => {
   })
 
   let dbVersion: number
+  let migrationProgress: { close(): void } | undefined
+  // 워커가 읽은 이 DB의 언어 — 워커가 실패하면 메인 DB가 안 열려 t()는 한국어로 떨어진다
+  let workspaceLanguage: Lang | undefined
   try {
+    // 워커가 끝나면 initDb는 열기만 한다 (워커를 못 띄운 경우만 이전처럼 메인 스레드에서 마이그레이션)
+    await migrateInWorker(migrationWorkerPath, ({ language, pending }) => {
+      workspaceLanguage = language
+      if (pending) migrationProgress = showMigrationProgress(language)
+    })
     const initialized = initDb()
     dbVersion = initialized.version
     // DB가 열린 직후 언어를 1회 확정·고정 (기존 설치는 한국어 유지)
     resolveInitialLanguage(initialized.isNewDatabase)
   } catch (e) {
     // DB를 못 열면 조용히 빈 상태로 시작하지 않는다 — 세이브 유실로 오인되는 최악의 UX
+    const message = (id: MessageId): string =>
+      workspaceLanguage ? translate(workspaceLanguage, id, []) : t(id)
     const raw = e instanceof Error ? e.message : String(e)
     const body = raw.includes('NAIS3를 최신 버전으로 업데이트하세요.')
       ? raw.replace(
           'NAIS3를 최신 버전으로 업데이트하세요.',
-          t('ui.pleaseUpdateNais3ToTheLatestVersion')
+          message('ui.pleaseUpdateNais3ToTheLatestVersion')
         )
       : raw
-    dialog.showErrorBox(t('ui.nais3DatabaseError'), body)
+    dialog.showErrorBox(message('ui.nais3DatabaseError'), body)
+    migrationProgress?.close()
     app.quit()
     return
   }
@@ -328,6 +342,7 @@ app.whenReady().then(() => {
   if (process.platform === 'darwin' && app.dock) app.dock.setIcon(icon)
 
   createWindow()
+  migrationProgress?.close()
   setupUpdater() // GitHub release 자동 업데이트 확인 (패키징된 앱에서만 실제 동작)
 
   app.on('activate', function () {

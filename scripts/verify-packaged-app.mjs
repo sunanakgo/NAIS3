@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { extractFile } from '@electron/asar'
+import { extractFile, listPackage } from '@electron/asar'
 
 const [platform = process.platform, arch = process.arch, suppliedDirectory] = process.argv.slice(2)
 assert.equal(platform, process.platform, 'Run the packaged app on its target OS')
@@ -123,5 +124,75 @@ if (platform === 'linux') {
     }
   )
   console.log(wasmOutput.trim())
+}
+// The app migrates the database in a worker thread (src/main/db/migrate.worker.ts). Run the
+// shipped worker from app.asar: it must load better-sqlite3 inside a worker and apply every
+// migration. The target version comes from the worker itself, which rejects a newer database.
+const [migrationWorker, ...extraWorkers] = listPackage(asar, { isPack: false }).filter((file) =>
+  /^[\\/]out[\\/]main[\\/]migrate\.worker-[^\\/]+\.js$/.test(file)
+)
+assert.ok(migrationWorker && extraWorkers.length === 0, 'Expected one packaged migration worker')
+const workspace = mkdtempSync(join(tmpdir(), 'nais3-packaged-worker-'))
+try {
+  const workerOutput = execFileSync(
+    executable,
+    [
+      '-e',
+      `
+      const assert = require('node:assert/strict');
+      const path = require('node:path');
+      const { Worker } = require('node:worker_threads');
+      const [root, workerFile, directory] = process.argv.slice(1);
+      const Database = require(path.join(root, 'node_modules/better-sqlite3'));
+      const backupDir = path.join(directory, 'backups');
+      // Resolves with every message once the worker exits; fails on a worker error.
+      const run = file => new Promise((resolve, reject) => {
+        const messages = [];
+        const worker = new Worker(path.join(root, workerFile), {
+          workerData: { path: file, backupDir }
+        });
+        worker.on('message', message => messages.push(message));
+        worker.once('error', reject);
+        worker.once('exit', code => code === 0 ? resolve(messages) : reject(new Error('exit ' + code)));
+      });
+      const userVersion = file => {
+        const db = new Database(file, { readonly: true });
+        try { return db.pragma('user_version', { simple: true }); } finally { db.close(); }
+      };
+      (async () => {
+        const fresh = path.join(directory, 'fresh.db');
+        new Database(fresh).close();
+        assert.deepEqual(await run(fresh), [
+          { type: 'opened', pending: false, uiLanguage: undefined },
+          { type: 'done' }
+        ]);
+        const target = userVersion(fresh);
+        const newer = path.join(directory, 'newer.db');
+        const db = new Database(newer);
+        db.pragma('user_version = ' + (target + 1));
+        db.close();
+        const [opened, rejected, ...rest] = await run(newer);
+        assert.deepEqual(opened, { type: 'opened', pending: false, uiLanguage: undefined });
+        assert.equal(rejected.type, 'error');
+        assert.ok(rejected.message.includes('app supports (' + target + ')'), rejected.message);
+        assert.deepEqual(rest, []);
+        assert.equal(userVersion(newer), target + 1);
+        console.log('Packaged migration worker passed: ' + process.platform + ' ' + process.arch +
+          ', user_version ' + target);
+      })().catch(error => { console.error(error); process.exitCode = 1; });
+    `,
+      asar,
+      migrationWorker,
+      workspace
+    ],
+    {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+      encoding: 'utf8',
+      timeout: 60_000
+    }
+  )
+  console.log(workerOutput.trim())
+} finally {
+  rmSync(workspace, { recursive: true, force: true })
 }
 console.log(`Packaged app version verified: ${version}`)

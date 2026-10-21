@@ -715,6 +715,9 @@ export const EN = {
   'ui.emotion': 'Emotion',
   'ui.declutter.85446fc': 'Declutter+',
   'ui.nais3DatabaseError': 'NAIS3 Database Error',
+  'ui.updatingTheDatabase': 'Updating the database…',
+  'ui.thisCanTakeAFewMinutesWithManyImagesNais3OpensWhenItIsDone':
+    'This can take a few minutes with many images. NAIS3 opens when it is done.',
   'ui.naiTokenIsNotConfigured': 'NAI token is not configured',
   'ui.downloadFailedValue': 'Download failed {0}',
   'ui.automaticInstallFailedOpeningTheReleasePageValue':

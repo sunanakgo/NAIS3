@@ -692,6 +692,9 @@ export const ZH_CN = {
   'ui.emotion': '表情',
   'ui.declutter.85446fc': '清理+',
   'ui.nais3DatabaseError': 'NAIS3 数据库错误',
+  'ui.updatingTheDatabase': '正在更新数据库…',
+  'ui.thisCanTakeAFewMinutesWithManyImagesNais3OpensWhenItIsDone':
+    '图片较多时可能需要几分钟。完成后将打开 NAIS3。',
   'ui.naiTokenIsNotConfigured': '尚未配置 NAI Token',
   'ui.downloadFailedValue': '下载失败 {0}',
   'ui.automaticInstallFailedOpeningTheReleasePageValue': '自动安装失败 — 正在打开发布页面（{0}）',

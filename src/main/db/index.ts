@@ -1,8 +1,17 @@
 import Database from 'better-sqlite3'
 import { app } from 'electron'
-import { randomUUID } from 'crypto'
-import { existsSync, mkdirSync, readdirSync, renameSync, rmSync } from 'fs'
+import { existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
+import { Worker } from 'worker_threads'
+import { isLang, type Lang } from '../../shared/i18n'
+import {
+  migrate,
+  openDatabase,
+  pruneBackups,
+  writeSnapshot,
+  type MigrationWorkerData,
+  type MigrationWorkerMessage
+} from './migrate'
 import { migrations } from './migrations'
 
 let db: Database.Database | null = null
@@ -16,13 +25,14 @@ export function getDbPath(): string {
   return join(app.getPath('userData'), 'nais3.db')
 }
 
+function getBackupDir(): string {
+  return join(app.getPath('userData'), 'backups')
+}
+
 /**
- * DB 열기 + 마이그레이션.
+ * DB 열기 + 마이그레이션 (migrate.ts).
  *
- * 안전장치 (NAIS2 세이브 유실 문제의 근본 대책):
- * - WAL 모드: 크래시 시에도 커밋된 데이터 보존
- * - 마이그레이션 필요 시 실행 전 파일 백업 자동 생성 (pre-migration-v{N}.db)
- * - 각 마이그레이션은 개별 트랜잭션: 실패하면 해당 버전 이전 상태로 남고 앱은 에러 표면화
+ * WAL 모드: 크래시 시에도 커밋된 데이터 보존
  */
 export function initDb(): { version: number; path: string; isNewDatabase: boolean } {
   const dir = app.getPath('userData')
@@ -32,101 +42,68 @@ export function initDb(): { version: number; path: string; isNewDatabase: boolea
   // mean a new installation: older workspaces may already contain user data.
   const isNewDatabase = !existsSync(path)
 
-  db = new Database(path)
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
+  db = openDatabase(path)
+  migrate(db, getBackupDir())
 
-  const current = db.pragma('user_version', { simple: true }) as number
-  const target = migrations.length
-  assertSupportedVersion(current, target)
-  // 마이그레이션이 필요 없는 실행에서도 정리한다 — 1.0.28 첫 실행을 강제 종료하며 쌓인 .tmp는
-  // 이미 v20까지 올라간 DB 옆에 남아 있다
-  removeSnapshotTemps()
-
-  if (current < target) {
-    if (current > 0) {
-      backupBeforeMigration(current)
-    }
-    // 버전은 쓰기 잠금(IMMEDIATE)을 잡은 뒤 다시 읽는다 — 같은 DB를 연 다른 프로세스가 먼저
-    // 적용한 마이그레이션을 또 실행해 "index ... already exists"로 실패하지 않도록
-    const migrateNext = db.transaction((): boolean => {
-      const v = db!.pragma('user_version', { simple: true }) as number
-      // 그사이 다른 프로세스가 더 새 버전으로 올렸을 수도 있다 — 첫 확인만으로는 막지 못한다
-      assertSupportedVersion(v, target)
-      if (v === target) return false
-      migrations[v](db!)
-      db!.pragma(`user_version = ${v + 1}`)
-      return true
-    })
-    while (migrateNext.immediate()) {
-      /* 한 버전씩 개별 트랜잭션으로 적용 */
-    }
-  }
-
-  return { version: target, path, isNewDatabase }
+  return { version: migrations.length, path, isNewDatabase }
 }
 
-function assertSupportedVersion(version: number, target: number): void {
-  // 다운그레이드된 앱이 미래 버전 DB를 여는 상황 — 조용히 진행하면 데이터가 깨진다
-  if (version > target) {
-    throw new Error(
-      `DB version ${version} is newer than app supports (${target}). ` +
-        'NAIS3를 최신 버전으로 업데이트하세요.'
-    )
-  }
-}
-
-function backupDirPath(): string {
-  return join(app.getPath('userData'), 'backups')
+export interface WorkspaceInfo {
+  language: Lang
+  /** 백업·마이그레이션이 남았는지 (진행 창 표시용) */
+  pending: boolean
 }
 
 /**
- * 스냅샷 도중 강제 종료되면 DB 크기만 한 .tmp(와 그 -journal)가 남는다 — 실행마다 쌓여
- * 디스크를 채우지 않게 정리
+ * 남은 마이그레이션을 워커 스레드에서 적용한다. 큰 워크스페이스의 백업·인덱스 생성은 몇 분 걸리는데,
+ * 메인 스레드가 그동안 막히면 다시 실행한 쪽의 single-instance 확인에 답하지 못하고
+ * 20초 뒤 이 프로세스가 강제 종료된다 — 업그레이드가 실행할 때마다 처음부터 다시 시작된다.
+ * DB를 여는 것도 워커에서 한다: 메인 스레드 연결은 닫을 때 큰 WAL을 체크포인트할 수 있다.
+ *
+ * onOpened는 워커가 DB를 열자마자 그 DB의 언어·남은 업그레이드 여부로 불린다.
+ * 마이그레이션 실패는 그 오류로 reject. 워커를 아예 돌리지 못했으면 false —
+ * 그때는 initDb가 이전처럼 메인 스레드에서 마이그레이션한다. DB 파일이 없으면 워커 없이 true.
  */
-function removeSnapshotTemps(): void {
-  const backupDir = backupDirPath()
-  if (!existsSync(backupDir)) return
-  for (const f of readdirSync(backupDir)) {
-    if (f.endsWith('.tmp') || f.endsWith('.tmp-journal'))
-      rmSync(join(backupDir, f), { force: true })
-  }
-}
-
-function backupBeforeMigration(fromVersion: number): void {
-  const backupDir = backupDirPath()
-  mkdirSync(backupDir, { recursive: true })
-  writeSnapshot(join(backupDir, `pre-migration-v${fromVersion}.db`))
-  pruneBackups(backupDir, 10)
-}
-
-/** Include committed WAL pages and replace an older backup only after the snapshot succeeds. */
-function writeSnapshot(destination: string): void {
-  const temporary = `${destination}.${randomUUID()}.tmp`
-  try {
-    getDb().prepare('VACUUM INTO ?').run(temporary)
-    renameSync(temporary, destination)
-  } finally {
-    rmSync(temporary, { force: true })
-  }
-}
-
-function pruneBackups(backupDir: string, keep: number): void {
-  const files = readdirSync(backupDir)
-    .filter((f) => f.endsWith('.db'))
-    .sort()
-  for (const f of files.slice(0, Math.max(0, files.length - keep))) {
-    rmSync(join(backupDir, f))
-  }
+export function migrateInWorker(
+  workerFile: string,
+  onOpened?: (info: WorkspaceInfo) => void
+): Promise<boolean> {
+  const workerData: MigrationWorkerData = { path: getDbPath(), backupDir: getBackupDir() }
+  // 새 설치 — initDb가 만들고 마이그레이션한다 (백업이 없어 금방 끝난다)
+  if (!existsSync(workerData.path)) return Promise.resolve(true)
+  return new Promise((resolve, reject) => {
+    let worker: Worker
+    try {
+      worker = new Worker(workerFile, { workerData })
+    } catch (error) {
+      console.error('DB migration worker failed:', error)
+      resolve(false)
+      return
+    }
+    worker.on('message', (message: MigrationWorkerMessage) => {
+      if (message.type === 'opened') {
+        // 언어 설정이 없는 기존 설치는 한국어 — resolveInitialLanguage와 같은 규칙
+        const language = isLang(message.uiLanguage) ? message.uiLanguage : 'ko'
+        onOpened?.({ language, pending: message.pending })
+      } else if (message.type === 'done') resolve(true)
+      else reject(new Error(message.message))
+    })
+    worker.once('error', (error) => {
+      console.error('DB migration worker failed:', error)
+      resolve(false)
+    })
+    // 결과를 보내기 전에 끝난 경우만 해당 — 이미 정해진 Promise는 바뀌지 않는다
+    worker.once('exit', () => resolve(false))
+  })
 }
 
 /** 주기 백업용: 압축 정리된 스냅샷을 원자적으로 생성 */
 export function backupNow(): string {
-  const backupDir = backupDirPath()
+  const backupDir = getBackupDir()
   mkdirSync(backupDir, { recursive: true })
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   const dest = join(backupDir, `auto-${stamp}.db`)
-  writeSnapshot(dest)
+  writeSnapshot(getDb(), dest)
   pruneBackups(backupDir, 10)
   return dest
 }

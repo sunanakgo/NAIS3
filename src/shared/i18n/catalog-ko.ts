@@ -697,6 +697,9 @@ export const KO = {
   'ui.emotion': '표정',
   'ui.declutter.85446fc': '정리+',
   'ui.nais3DatabaseError': 'NAIS3 데이터베이스 오류',
+  'ui.updatingTheDatabase': '데이터베이스 업데이트 중…',
+  'ui.thisCanTakeAFewMinutesWithManyImagesNais3OpensWhenItIsDone':
+    '이미지가 많으면 몇 분 걸릴 수 있습니다. 끝나면 NAIS3가 열립니다.',
   'ui.naiTokenIsNotConfigured': 'NAI 토큰이 설정되지 않았습니다',
   'ui.downloadFailedValue': '다운로드 실패 {0}',
   'ui.automaticInstallFailedOpeningTheReleasePageValue':

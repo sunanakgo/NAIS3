@@ -605,7 +605,7 @@ export async function loadCasts(): Promise<void> {
 export function bindSceneEvents(): () => void {
   let timer: ReturnType<typeof setTimeout> | undefined
   let reloadSelected = false
-  return window.nais.on('scenes:changed', ({ sceneId, filePath }) => {
+  const offImages = window.nais.on('scenes:changed', ({ sceneId, filePath }) => {
     const st = useScenesStore.getState()
     // 완료 즉시 카드 낙관적 갱신 — 스트리밍 프레임이 사라진 뒤 옛 썸네일이 튀는 것 방지.
     // 새 원본을 바로 표시(thumbnailUrl 비워 thumbnailPath로 폴백), load()가 곧 정식 썸네일로 대체.
@@ -619,4 +619,13 @@ export function bindSceneEvents(): () => void {
       reloadSelected = false
     }, 300)
   })
+  const offReservations = window.nais.on('scenes:reservationsChanged', () => {
+    // Reservation-only changes must not increment image counts or replace thumbnails.
+    void useScenesStore.getState().load()
+  })
+  return () => {
+    clearTimeout(timer)
+    offImages()
+    offReservations()
+  }
 }

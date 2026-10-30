@@ -6,9 +6,10 @@
 
 **NovelAI Image Studio 3** — NovelAI 이미지 생성을 위한 데스크톱 앱
 
-[![Discord](https://img.shields.io/badge/Discord-문의-5865F2?logo=discord&logoColor=white)](https://discord.gg/bFxP5Qvaz)
 [![Patreon](https://img.shields.io/badge/Patreon-후원-FF424D?logo=patreon&logoColor=white)](https://www.patreon.com/c/sunakgo)
 [![License](https://img.shields.io/badge/License-GPL--3.0-blue)](LICENSE)
+
+한국어 · [English](README.en.md)
 
 </div>
 

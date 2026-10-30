@@ -72,9 +72,8 @@ API 토큰은 개발용 브라우저 프로필에 저장되며, 작업 데이터
 문구 수정·새 언어 추가 방법은 [번역 기여 안내](CONTRIBUTING.md)를 참고하세요.
 번역 변경은 `pnpm i18n:check`로 검증할 수 있습니다.
 
-## 문의 · 후원
+## 후원
 
-- 💬 **Discord**: <https://discord.gg/bFxP5Qvaz>
 - ❤️ **Patreon**: <https://www.patreon.com/c/sunakgo>
 
 ## Thanks to

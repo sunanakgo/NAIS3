@@ -72,9 +72,8 @@ Translations are managed in per-language catalogs with stable message IDs.
 See the [translation contribution guide](CONTRIBUTING.md) for instructions on editing text and adding languages.
 Validate translation changes with `pnpm i18n:check`.
 
-## Contact & support
+## Support
 
-- 💬 **Discord**: <https://discord.gg/bFxP5Qvaz>
 - ❤️ **Patreon**: <https://www.patreon.com/c/sunakgo>
 
 ## Thanks to

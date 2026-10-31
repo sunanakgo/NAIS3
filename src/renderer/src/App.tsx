@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { useEffect, useState, type ComponentType } from 'react'
 import { HistoryPanel } from './components/history-panel'
 import { LoadingScreen } from './components/loading-screen'
 import { Toaster } from './components/toaster'
@@ -32,10 +32,10 @@ import { cn } from './lib/utils'
 import { useLayoutStore } from './stores/layout-store'
 import { useThemeStore } from './stores/theme-store'
 
-// 새 설치 첫 실행에만 뜨므로 평소 실행에선 읽지 않는다
-const Onboarding = lazy(() =>
-  import('./components/onboarding').then(({ Onboarding }) => ({ default: Onboarding }))
-)
+// 새 설치 첫 실행에만 뜨므로 평소 실행에선 읽지 않는다. React.lazy는 쓰지 않는다 — 미리 불러 둔
+// 모듈이어도 첫 렌더에서 한 번 멈추고, Suspense가 다시 그리기를 300ms가량 미뤄 첫 등장이 늦어진다
+const loadOnboarding = (): Promise<ComponentType> =>
+  import('./components/onboarding').then((m) => m.Onboarding)
 
 export default function App(): React.JSX.Element {
   const leftOpen = useLayoutStore((s) => s.leftOpen)
@@ -46,6 +46,7 @@ export default function App(): React.JSX.Element {
   const sidebarWidth = useLayoutStore((s) => s.sidebarWidth)
   const onboardingOpen = useLayoutStore((s) => s.onboardingOpen)
   const [ready, setReady] = useState(false)
+  const [OnboardingView, setOnboardingView] = useState<ComponentType | null>(null)
   const [resizing, setResizing] = useState(false)
 
   // 사이드바 폭 드래그 조절
@@ -65,13 +66,32 @@ export default function App(): React.JSX.Element {
     window.addEventListener('mouseup', onUp)
   }
 
+  // 시작 뒤에 온보딩을 여는 경우(개발용 다시 보기)에는 그때 불러온다
+  useEffect(() => {
+    if (!onboardingOpen || OnboardingView) return
+    let alive = true
+    void loadOnboarding().then((View) => alive && setOnboardingView(() => View))
+    return () => {
+      alive = false
+    }
+  }, [onboardingOpen, OnboardingView])
+
   useEffect(() => {
     // 초기 하이드레이션 — 완료되면 로딩 스플래시 해제
     void (async () => {
       await Promise.allSettled([
         useLanguageStore.getState().hydrate(),
         useThemeStore.getState().hydrate(),
-        useLayoutStore.getState().hydrate(),
+        // 온보딩 화면은 스플래시 뒤에서 미리 불러 둔다 — 스플래시가 걷힌 뒤에야 읽기 시작하면
+        // (새 설치는 코드 캐시도 없다) 빈 화면이 잠깐 비치고 카드의 첫 등장 애니메이션이 끊긴다
+        useLayoutStore
+          .getState()
+          .hydrate()
+          .then(async () => {
+            if (!useLayoutStore.getState().onboardingOpen) return
+            const View = await loadOnboarding()
+            setOnboardingView(() => View)
+          }),
         useGenerationStore.getState().hydrate(),
         useCharactersStore.getState().load(),
         useFragmentsStore.getState().load(),
@@ -112,11 +132,7 @@ export default function App(): React.JSX.Element {
         <Titlebar />
         {/* 새 설치 첫 실행 — 작업 영역 자리에 표시 (타이틀바의 창 컨트롤은 그대로).
             스플래시가 걷힐 때 마운트해야 첫 등장 애니메이션이 가려지지 않는다 */}
-        {onboardingOpen && ready && (
-          <Suspense fallback={null}>
-            <Onboarding />
-          </Suspense>
-        )}
+        {onboardingOpen && ready && OnboardingView && <OnboardingView />}
         {/* 온보딩을 마치면 카드가 빠진 뒤 작업 화면이 페이드인 (평소 시작에는 애니메이션 없음) */}
         <motion.div
           className={cn('flex min-h-0 flex-1 flex-col', onboardingOpen && 'hidden')}

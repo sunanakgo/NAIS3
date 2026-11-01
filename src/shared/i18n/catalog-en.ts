@@ -231,6 +231,11 @@ export const EN = {
   'ui.accountValue': 'Account {0}',
   'ui.checking': 'Checking…',
   'ui.add': 'Add',
+  'ui.naiTokenStoreLocked':
+    'Saved NAI tokens cannot be decrypted because the OS keychain (keyring) is locked or unavailable. Unlock the keychain and restart the app instead of re-entering your tokens.',
+  'ui.clearLockedNaiTokens': 'Delete locked tokens',
+  'ui.clearLockedNaiTokensConfirm':
+    'This deletes all saved NAI tokens that the keychain cannot decrypt. Only do this if the keychain cannot be unlocked again; you will need to add your tokens again.',
   'ui.noAccountsRegistered': 'No accounts registered.',
   'ui.active': 'Active',
   'ui.v5GaugeUnavailable': 'V5 gauge unavailable',

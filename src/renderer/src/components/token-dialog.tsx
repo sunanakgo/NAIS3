@@ -656,6 +656,8 @@ function AccountSection(): React.JSX.Element {
   const [status, setStatus] = useState<'idle' | 'checking' | 'ok' | 'fail'>('idle')
   const [message, setMessage] = useState('')
   const [accounts, setAccounts] = useState<NaiAccountInfo[]>([])
+  // 저장된 토큰이 있지만 OS 키체인이 잠겨 해독할 수 없는 상태
+  const [locked, setLocked] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [revealed, setRevealed] = useState<Record<string, string>>({})
   const [usage, setUsage] = useState<{ today: number; week: number } | null>(null)
@@ -669,9 +671,12 @@ function AccountSection(): React.JSX.Element {
 
   const refresh = useCallback(
     (includeBalance = true): void => {
-      void window.nais.invoke('nai:listAccounts', undefined).then(({ accounts: next }) => {
-        setAccounts(next)
-      })
+      void window.nais
+        .invoke('nai:listAccounts', undefined)
+        .then(({ accounts: next, locked: nextLocked }) => {
+          setAccounts(next)
+          setLocked(nextLocked)
+        })
       void window.nais.invoke('nai:anlasUsage', undefined).then(setUsage)
       if (includeBalance) void refreshAnlas().catch(() => undefined)
     },
@@ -769,6 +774,18 @@ function AccountSection(): React.JSX.Element {
     }
   }
 
+  async function clearLockedTokens(): Promise<void> {
+    const ok = await askConfirm(t('ui.clearLockedNaiTokens'), {
+      message: t('ui.clearLockedNaiTokensConfirm'),
+      confirmLabel: t('ui.delete'),
+      danger: true
+    })
+    if (!ok) return
+    await window.nais.invoke('nai:deleteToken', undefined)
+    useGenerationStore.setState({ anlasBalance: null, opusUsage: null, subscriptionTier: null })
+    refresh(false)
+  }
+
   const activeAccount = accounts.find((account) => account.active)
   const opusUsageSegments = opusUsage ? opusUsagePercentSegments(opusUsage) : [0]
   const opusPurchased = opusUsage ? opusUsagePurchasedPercent(opusUsage) : 0
@@ -783,6 +800,18 @@ function AccountSection(): React.JSX.Element {
             : t('ui.tokensAreEncryptedWithTheOsKeychainWhenTheV5GaugeReaches0TheNextfc0344e')}
         </p>
       </div>
+
+      {locked && (
+        <div
+          role="alert"
+          className="flex min-w-0 items-start gap-2 rounded-lg border border-danger/50 bg-danger/10 p-2.5 text-[11.5px] text-danger-ink"
+        >
+          <p className="min-w-0 flex-1">{t('ui.naiTokenStoreLocked')}</p>
+          <Button size="sm" variant="ghost" onClick={() => void clearLockedTokens()}>
+            {t('ui.clearLockedNaiTokens')}
+          </Button>
+        </div>
+      )}
 
       <div className="grid min-w-0 grid-cols-[7rem_minmax(0,1fr)_auto] gap-1.5">
         <Input
@@ -804,7 +833,11 @@ function AccountSection(): React.JSX.Element {
           }}
           onKeyDown={(e) => e.key === 'Enter' && void addAccount()}
         />
-        <Button variant="accent" disabled={status === 'checking'} onClick={() => void addAccount()}>
+        <Button
+          variant="accent"
+          disabled={status === 'checking' || locked}
+          onClick={() => void addAccount()}
+        >
           {status === 'checking' ? t('ui.checking') : t('ui.add')}
         </Button>
       </div>
@@ -812,7 +845,7 @@ function AccountSection(): React.JSX.Element {
       {status === 'fail' && <span className="text-[12px] text-danger-ink">{message}</span>}
 
       <div className="min-w-0 space-y-1.5">
-        {accounts.length === 0 ? (
+        {accounts.length === 0 && !locked ? (
           <div className="rounded-lg border border-dashed border-line p-4 text-center text-[11.5px] text-faint">
             {t('ui.noAccountsRegistered')}
           </div>

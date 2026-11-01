@@ -128,7 +128,8 @@ import {
   reorderImages as reorderLibraryImages,
   setStack
 } from './library/repo'
-import { exportLegacyJson, exportNais, importLegacyJson, importNais } from './backup/repo'
+import { exportLegacyJson, exportNais } from './backup/repo'
+import { importLegacyJsonDetachingScenes, importNaisDetachingScenes } from './backup/restore-queue'
 import { hasZipSignature } from './backup/archive'
 import { importNais2 } from './backup/nais2'
 import { startUpdateDownload } from './updater'
@@ -373,14 +374,14 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     try {
       const input = readFileSync(result.filePaths[0])
       if (hasZipSignature(input)) {
-        const { imported } = await importNais(input)
+        const { imported } = await importNaisDetachingScenes(ctx.queue, input)
         return { summary: t('ui.naisArchiveRestored', imported), needsPromptReload: true }
       }
 
       const data = JSON.parse(input.toString('utf-8')) as Record<string, unknown>
       // 포맷 감지: NAIS3는 _app='NAIS3', NAIS2는 nais2-* 키
       if (data._app === 'NAIS3') {
-        const { imported, skippedFiles } = importLegacyJson(data)
+        const { imported, skippedFiles } = importLegacyJsonDetachingScenes(ctx.queue, data)
         const skipped = skippedFiles ? t('ui.backupMissingImagesSkipped', skippedFiles) : ''
         return {
           summary: t('ui.nais3JsonRestored', imported, skipped),

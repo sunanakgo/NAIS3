@@ -188,6 +188,16 @@ const startup = app.whenReady().then(async () => {
     const selection = await resolveNaiAccountForGeneration(requestUsesV5Usage(rawRequest))
     if (!selection) throw new Error(t('ui.naiTokenIsNotConfigured'))
     const token = selection.account.token
+    // 라우터가 이미 조회한 생성 전 잔액도 이 계정 스냅샷으로 남긴다 — 자동 전환된 계정의
+    // 첫 스냅샷이 생성 후 잔액이면 그 생성의 소모량이 집계에서 빠진다
+    const balanceBefore = selection.balance?.anlas
+    if (balanceBefore !== null && balanceBefore !== undefined) {
+      try {
+        logBalance(balanceBefore, selection.account.id)
+      } catch {
+        // 기록 실패로 생성을 막지 않는다
+      }
+    }
     if (selection.rotated) {
       broadcast('nai:accountChanged', {
         accountId: selection.account.id,
@@ -321,7 +331,8 @@ const startup = app.whenReady().then(async () => {
     // 생성 후 잔액 갱신 (실사용량 추적의 진실 공급원) — 실패해도 생성 흐름엔 영향 없음
     void fetchAnlasBalance(token).then(({ anlas, tier, usage }) => {
       if (anlas !== null) {
-        logBalance(anlas)
+        // 활성 계정이 아니라 이 요청에 실제로 쓴 계정으로 기록 (자동 전환·동시 전환 대비)
+        logBalance(anlas, selection.account.id)
         broadcast('anlas:balance', { anlas, tier, ...(usage ? { usage } : {}) })
       }
     })

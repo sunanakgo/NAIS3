@@ -249,6 +249,7 @@ export const ZH_CN = {
   'ui.currentBalance': '当前余额',
   'ui.usedToday': '今日用量',
   'ui.last7Days': '最近 7 天',
+  'ui.anlasAccountUsageValue': 'Anlas 今日已用 {0} · 7 天 {1}',
   'ui.versionValue': '版本 {0}',
   'ui.updateToVersionValue': '更新到版本 {0}',
   'ui.downloadingUpdateValue': '正在下载更新 {0}%…',

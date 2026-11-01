@@ -22,7 +22,7 @@ import {
   opusUsagePurchasedPercent
 } from '@shared/anlas'
 import { isLang, LANGUAGES, SUPPORTED_LANGUAGES, type MessageId } from '@shared/i18n'
-import type { NaiAccountInfo } from '@shared/types'
+import type { AnlasUsageSummary, NaiAccountInfo } from '@shared/types'
 import discordSvg from '../assets/discord.svg'
 import nais3Logo from '../assets/nais3-logo.svg'
 import { importBackup } from '../lib/backup-import'
@@ -658,7 +658,7 @@ function AccountSection(): React.JSX.Element {
   const [accounts, setAccounts] = useState<NaiAccountInfo[]>([])
   const [busyId, setBusyId] = useState<string | null>(null)
   const [revealed, setRevealed] = useState<Record<string, string>>({})
-  const [usage, setUsage] = useState<{ today: number; week: number } | null>(null)
+  const [usage, setUsage] = useState<AnlasUsageSummary | null>(null)
   // 계정 자동 전환 (기본 켜짐) — 브라우저 버전은 전환하지 않는다
   const [autoSwitch, setAutoSwitch] = useState(true)
   const canAutoSwitch = window.nais.runtime !== 'browser' && accounts.length > 1
@@ -820,6 +820,7 @@ function AccountSection(): React.JSX.Element {
           accounts.map((account) => {
             const percent = account.usage ? displayOpusUsagePercent(account.usage) : null
             const purchased = account.usage ? opusUsagePurchasedPercent(account.usage) : 0
+            const accountUsage = usage?.byAccount?.[account.id]
             const masked = `${account.prefix}${'*'.repeat(Math.max(4, account.length - 8))}${account.suffix}`
             return (
               <div
@@ -863,6 +864,16 @@ function AccountSection(): React.JSX.Element {
                       : account.tier
                         ? `Anlas ${account.anlas?.toLocaleString() ?? '—'}`
                         : t('ui.statusUnavailable')}
+                    {accountUsage && accountUsage.week > 0 && (
+                      <span className="text-faint">
+                        {' · '}
+                        {t(
+                          'ui.anlasAccountUsageValue',
+                          accountUsage.today.toLocaleString(),
+                          accountUsage.week.toLocaleString()
+                        )}
+                      </span>
+                    )}
                   </p>
                 </button>
                 <Button
@@ -953,7 +964,7 @@ function AccountSection(): React.JSX.Element {
         </div>
       )}
 
-      {/* Anlas 사용량 — 잔액 스냅샷 간 감소분 합산 */}
+      {/* Anlas 사용량 — 계정별 연속 잔액 스냅샷 간 감소분의 합 (계정 전환은 사용 아님) */}
       <div className="min-w-0 rounded-lg border border-line bg-surface-2/50 p-3">
         <p className="mb-2 flex items-center gap-1.5 text-[12.5px] font-medium text-ink">
           <Coins size={13} className="text-anlas" /> Anlas

@@ -255,6 +255,7 @@ export const EN = {
   'ui.currentBalance': 'Current balance',
   'ui.usedToday': 'Used today',
   'ui.last7Days': 'Last 7 days',
+  'ui.anlasAccountUsageValue': 'Anlas used {0} today · {1} in 7 days',
   'ui.versionValue': 'Version {0}',
   'ui.updateToVersionValue': 'Update to version {0}',
   'ui.downloadingUpdateValue': 'Downloading update {0}%…',

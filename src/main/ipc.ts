@@ -244,7 +244,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     const account = getNaiAccounts().find((item) => item.id === id)
     broadcast('nai:accountChanged', { accountId: id, reason: 'selected', label: account?.label })
     if (balance.anlas !== null) {
-      logBalance(balance.anlas)
+      logBalance(balance.anlas, id)
       broadcast('anlas:balance', {
         anlas: balance.anlas,
         tier: balance.tier,
@@ -260,10 +260,10 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     return { activeId }
   })
   handle('nai:balance', async () => {
-    const token = getNaiToken()
-    if (!token) return { anlas: null, tier: null }
-    const { anlas, tier, usage } = await fetchAnlasBalance(token)
-    if (anlas !== null) logBalance(anlas)
+    const account = getActiveNaiAccount()
+    if (!account) return { anlas: null, tier: null }
+    const { anlas, tier, usage } = await fetchAnlasBalance(account.token)
+    if (anlas !== null) logBalance(anlas, account.id)
     return { anlas, tier, ...(usage ? { usage } : {}) }
   })
   handle('nai:anlasUsage', () => anlasUsage())
@@ -740,8 +740,9 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   })
 
   handle('images:upscale', async ({ imageBase64 }) => {
-    const token = getNaiToken()
-    if (!token) return { error: t('ui.naiTokenIsNotConfigured') }
+    const account = getActiveNaiAccount()
+    const token = account?.token
+    if (!account || !token) return { error: t('ui.naiTokenIsNotConfigured') }
     try {
       const input = Buffer.from(imageBase64.replace(/^data:[^,]+,/, ''), 'base64')
       const png = await upscaleImage(token, input.toString('base64'))
@@ -753,7 +754,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
       })
       void fetchAnlasBalance(token).then(({ anlas, tier, usage }) => {
         if (anlas !== null) {
-          logBalance(anlas)
+          logBalance(anlas, account.id)
           broadcast('anlas:balance', { anlas, tier, ...(usage ? { usage } : {}) })
         }
       })
@@ -779,8 +780,9 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   })
 
   handle('director:run', async ({ method, imageBase64, prompt, defry }) => {
-    const token = getNaiToken()
-    if (!token) return { error: t('ui.naiTokenIsNotConfigured') }
+    const account = getActiveNaiAccount()
+    const token = account?.token
+    if (!account || !token) return { error: t('ui.naiTokenIsNotConfigured') }
     try {
       const input = Buffer.from(imageBase64.replace(/^data:[^,]+,/, ''), 'base64')
       const meta = await sharp(input).metadata()
@@ -801,7 +803,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
       // 잔액 갱신 (디렉터 툴도 Anlas 소모, Opus는 소형 무료)
       void fetchAnlasBalance(token).then(({ anlas, tier, usage }) => {
         if (anlas !== null) {
-          logBalance(anlas)
+          logBalance(anlas, account.id)
           broadcast('anlas:balance', { anlas, tier, ...(usage ? { usage } : {}) })
         }
       })

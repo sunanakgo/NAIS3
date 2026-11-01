@@ -360,5 +360,15 @@ export const migrations: ((db: Database.Database) => void)[] = [
       CREATE INDEX idx_images_scene_favorite ON images(scene_id, favorite, id);
       CREATE INDEX idx_library_images_stack_order ON library_images(stack_id, sort_order, id);
     `)
+  },
+
+  // v21: anlas_log에 계정 구분 — 여러 계정의 잔액이 한 시계열에 섞여 계정 전환(5000→1000)이
+  // 4000 사용으로 집계되던 문제. 기존 행은 어느 계정 것인지 알 수 없어 NULL로 남기고
+  // 사용량 집계에서 제외한다 (anlas-log.ts 참고). 계정별 기간 조회용 인덱스.
+  (db) => {
+    db.exec(`
+      ALTER TABLE anlas_log ADD COLUMN account_id TEXT;
+      CREATE INDEX idx_anlas_log_account_created ON anlas_log(account_id, created_at);
+    `)
   }
 ]

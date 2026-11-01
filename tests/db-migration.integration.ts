@@ -133,7 +133,8 @@ describe('existing workspace migration', () => {
         expect(
           after[table].find((value) => value[key] === row[key]),
           table
-        ).toEqual(row)
+          // v21 adds a nullable anlas_log.account_id; legacy rows stay unattributed
+        ).toEqual(table === 'anlas_log' ? { ...row, account_id: null } : row)
     }
     expect(after.fragments).toHaveLength(8)
     expect(after.fragment_folders[1].name).toBe('Default (2)')

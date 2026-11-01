@@ -66,7 +66,8 @@ export class GenerationQueue extends EventEmitter {
       const seededRequest =
         i === 0 ? request : { ...request, seed: (request.seed + i) % 4294967296 }
       const req = applyRandomCharacterPrompt(seededRequest, randomCharacterPrompts)
-      this.items.set(id, { id, state: 'pending', request: req })
+      // Each item owns its request object so detachDeletedScenes can edit one item in place.
+      this.items.set(id, { id, state: 'pending', request: { ...req } })
       ids.push(id)
     }
     this.emitChanged()
@@ -86,7 +87,7 @@ export class GenerationQueue extends EventEmitter {
     const entries = requests.map((request, index): QueueItem => ({
       id: randomUUID(),
       state: 'pending',
-      request,
+      request: { ...request },
       ...(reservations ? { reservation: reservations[index] } : {})
     }))
     try {
@@ -119,12 +120,32 @@ export class GenerationQueue extends EventEmitter {
     this.emitChanged()
   }
 
-  /** Deleted scenes may have their numeric IDs reused by SQLite. */
-  forgetSceneReservations(sceneIds: number[]): void {
+  /**
+   * Called after scenes are deleted or replaced (single/bulk/preset delete, backup restore).
+   * SQLite may reuse the numeric IDs, so nothing in the queue may keep pointing at them:
+   * - reservations are dropped (there is no scene to give them back to),
+   * - pending items are cancelled through the normal cancel path (no Anlas spent),
+   * - in-flight items lose their sceneId, so the paid image is saved to plain history.
+   *   The generator reads `request.sceneId` from the item-owned request at save time.
+   * Idempotent: calling it again for the same IDs changes nothing.
+   */
+  detachDeletedScenes(sceneIds: readonly number[]): void {
+    if (sceneIds.length === 0) return
     const deleted = new Set(sceneIds)
+    const pending: string[] = []
+    let detached = false
     for (const item of this.items.values()) {
       if (item.reservation && deleted.has(item.reservation.sceneId)) delete item.reservation
+      const sceneId = item.request.sceneId
+      if (sceneId === undefined || !deleted.has(sceneId)) continue
+      if (item.state === 'pending') pending.push(item.id)
+      else if (item.state === 'generating') {
+        delete item.request.sceneId
+        detached = true
+      }
     }
+    if (pending.length > 0) this.cancel(pending)
+    else if (detached) this.emitChanged()
   }
 
   setDelayMs(ms: number, randomization?: GenerationDelayRandomization): void {

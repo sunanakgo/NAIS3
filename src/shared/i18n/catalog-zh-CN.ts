@@ -225,6 +225,11 @@ export const ZH_CN = {
   'ui.accountValue': '账户 {0}',
   'ui.checking': '正在验证…',
   'ui.add': '添加',
+  'ui.naiTokenStoreLocked':
+    '无法解密已保存的 NAI 令牌：系统钥匙串（密钥环）已锁定或不可用。请解锁钥匙串后重新启动应用，无需重新输入令牌。',
+  'ui.clearLockedNaiTokens': '删除锁定的令牌',
+  'ui.clearLockedNaiTokensConfirm':
+    '这将删除所有无法通过钥匙串解密的已保存 NAI 令牌。仅在钥匙串无法再解锁时使用；删除后需要重新添加令牌。',
   'ui.noAccountsRegistered': '尚未添加账户。',
   'ui.active': '当前使用',
   'ui.v5GaugeUnavailable': '无法获取 V5 额度',

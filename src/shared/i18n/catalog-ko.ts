@@ -226,6 +226,11 @@ export const KO = {
   'ui.accountValue': '계정 {0}',
   'ui.checking': '확인 중…',
   'ui.add': '추가',
+  'ui.naiTokenStoreLocked':
+    '저장된 NAI 토큰을 해독할 수 없습니다. OS 키체인(키링)이 잠겨 있거나 사용할 수 없습니다. 토큰을 다시 입력하지 말고 키체인 잠금을 푼 뒤 앱을 다시 시작하세요.',
+  'ui.clearLockedNaiTokens': '잠긴 토큰 삭제',
+  'ui.clearLockedNaiTokensConfirm':
+    '키체인으로 해독할 수 없는 저장된 NAI 토큰을 모두 삭제합니다. 키체인을 다시 열 수 없을 때만 사용하세요. 삭제 후에는 토큰을 다시 등록해야 합니다.',
   'ui.noAccountsRegistered': '등록된 계정이 없습니다.',
   'ui.active': '사용 중',
   'ui.v5GaugeUnavailable': 'V5 게이지 확인 불가',

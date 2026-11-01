@@ -410,11 +410,18 @@ export interface IpcInvokeMap {
     req: { token: string }
     res: { valid: boolean; subscription?: SubscriptionInfo; error?: string }
   }
-  'nai:tokenStatus': { req: void; res: { hasToken: boolean; prefix: string; length: number } }
+  /** locked = 저장된 토큰이 있지만 OS 키체인이 잠겨 지금은 해독할 수 없음 */
+  'nai:tokenStatus': {
+    req: void
+    res: { hasToken: boolean; prefix: string; length: number; locked: boolean }
+  }
   'nai:revealToken': { req: void; res: { token: string | null } }
   'nai:deleteToken': { req: void; res: void }
   /** 암호화 저장된 NAI 계정 목록과 각 계정의 현재 구독 상태 */
-  'nai:listAccounts': { req: void; res: { accounts: NaiAccountInfo[]; activeId: string | null } }
+  'nai:listAccounts': {
+    req: void
+    res: { accounts: NaiAccountInfo[]; activeId: string | null; locked: boolean }
+  }
   'nai:addAccount': {
     req: { token: string; label?: string }
     res: {

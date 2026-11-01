@@ -24,13 +24,19 @@ export function playChime(): void {
   setTimeout(() => void ctx.close(), 900)
 }
 
-/** 큐가 다 비었을 때 한 번 호출 — 설정에 따라 소리/네이티브 알림 */
-export async function queueDoneAlert(done: number, failed: number): Promise<void> {
+/** 큐가 다 비었을 때 한 번 호출 — 설정에 따라 소리/네이티브 알림. stopped: Anlas 가드로 멈춘 이유 */
+export async function queueDoneAlert(
+  done: number,
+  failed: number,
+  stopped?: string
+): Promise<void> {
   const [sound, native] = await Promise.all([
     window.nais.invoke('settings:get', { key: 'alert_sound' }),
     window.nais.invoke('settings:get', { key: 'alert_native' })
   ])
   if (sound.value === '1') playChime()
   // 포커스 판정은 메인이 담당 (창을 보고 있으면 토스트 생략)
-  if (native.value === '1') void window.nais.invoke('notify:done', { done, failed })
+  if (native.value === '1') {
+    void window.nais.invoke('notify:done', { done, failed, ...(stopped ? { stopped } : {}) })
+  }
 }

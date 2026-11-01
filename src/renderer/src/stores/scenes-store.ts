@@ -473,10 +473,12 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
         castId: cast?.id ?? '',
         request: buildCastRequest(cast)
       }))
-      await window.nais.invoke('scenes:enqueueReserved', {
+      const { blocked } = await window.nais.invoke('scenes:enqueueReserved', {
         casts,
         seedLocked: useGenerationStore.getState().seedLocked
       })
+      // 무료 범위 지킴이가 예약 전에 막음 — 예약은 그대로 남는다
+      if (blocked) toast(blocked, 'error')
     } catch (error) {
       toast(error instanceof Error ? error.message : String(error), 'error')
     } finally {
@@ -496,10 +498,11 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
     // 단건 생성도 현재 선택된 출연으로 (셀렉터가 곧 "지금 누구로 뽑는지")
     const castId = get().activeCastId
     const cast = castId === '' ? null : (get().casts.find((c) => c.id === castId) ?? null)
-    await window.nais.invoke('queue:enqueue', {
+    const { blocked } = await window.nais.invoke('queue:enqueue', {
       request: { ...applySceneRequest(buildCastRequest(cast), scene), seed: sceneSeed(0) },
       count: 1
     })
+    if (blocked) toast(blocked, 'error')
   },
 
   // ── 출연(Cast) ──────────────────────────────────────────

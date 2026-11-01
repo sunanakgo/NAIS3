@@ -27,7 +27,12 @@ import { setupUpdater } from './updater'
 import { showMigrationProgress, type MigrationProgress } from './migration-window'
 import { logBalance } from './nai/anlas-log'
 import { fetchAnlasBalance, generateImageStream, generateImageZip } from './nai/client'
-import { requestUsesV5Usage, resolveNaiAccountForGeneration } from './nai/account-router'
+import {
+  commitNaiAccountSelection,
+  previewNaiAccountForGeneration,
+  requestUsesV5Usage
+} from './nai/account-router'
+import { enforceGenerationGuard } from './nai/anlas-guard'
 import { localPromptMetadata } from './nai/payload'
 import { prepareCharRefs, prepareVibes } from './refs/prepare'
 import { GenerationQueue } from './queue/generation-queue'
@@ -185,8 +190,12 @@ const startup = app.whenReady().then(async () => {
 
   // 생성 파이프라인: 큐 → 조각/와일드카드 치환 → 바이브/캐릭레퍼 준비 → 스트리밍 생성 → 저장
   const queue = new GenerationQueue(async (rawRequest, id, signal) => {
-    const selection = await resolveNaiAccountForGeneration(requestUsesV5Usage(rawRequest))
+    const selection = await previewNaiAccountForGeneration(requestUsesV5Usage(rawRequest))
     if (!selection) throw new Error(t('ui.naiTokenIsNotConfigured'))
+    // 무료 범위 지킴이 — 바이브 인코딩을 포함해 Anlas가 드는 요청은 보내기 전에 막는다.
+    // 막히면 계정 자동 전환도 반영하지 않는다
+    await enforceGenerationGuard(rawRequest, selection.account, selection.balance)
+    commitNaiAccountSelection(selection)
     const token = selection.account.token
     if (selection.rotated) {
       broadcast('nai:accountChanged', {
@@ -321,7 +330,7 @@ const startup = app.whenReady().then(async () => {
     // 생성 후 잔액 갱신 (실사용량 추적의 진실 공급원) — 실패해도 생성 흐름엔 영향 없음
     void fetchAnlasBalance(token).then(({ anlas, tier, usage }) => {
       if (anlas !== null) {
-        logBalance(anlas)
+        logBalance(anlas, selection.account.id)
         broadcast('anlas:balance', { anlas, tier, ...(usage ? { usage } : {}) })
       }
     })

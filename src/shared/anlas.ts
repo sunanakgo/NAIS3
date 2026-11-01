@@ -151,15 +151,25 @@ export function directorAugmentCost(
   height: number,
   isOpus: boolean
 ): number {
+  const estimate = estimateAnlas(directorAugmentEstimateInput(method, width, height, isOpus))
+  return method === 'bg-removal' ? estimate.perImage * 3 + 5 : estimate.generation
+}
+
+/** 디렉터 툴 비용을 계산하는 이미지 비용 입력 — 무료 조건 판정(가드)에도 같은 입력을 쓴다 */
+export function directorAugmentEstimateInput(
+  method: DirectorMethod,
+  width: number,
+  height: number,
+  isOpus: boolean
+): AnlasEstimateInput {
   const normalized = normalizeDirectorDimensions(width, height)
-  const estimate = estimateAnlas({
+  return {
     width: normalized.width,
     height: normalized.height,
     steps: 28,
     isOpus: method === 'bg-removal' ? false : isOpus,
     batchCount: 1
-  })
-  return method === 'bg-removal' ? estimate.perImage * 3 + 5 : estimate.generation
+  }
 }
 
 function normalizeDirectorDimensions(
@@ -186,6 +196,23 @@ function normalizeDirectorDimensions(
   return { width: w, height: h }
 }
 
+/** Opus 무료 조건 중 어긋난 것 (eX). Opus가 아니면 게이지 조건은 따지지 않는다 */
+export type OpusFreeMiss = 'notOpus' | 'opusUsage' | 'resolution' | 'steps'
+
+/** 빈 배열이면 무료 범위 — 생성 비용과 가드 사유가 같은 조건을 쓴다 */
+export function opusFreeMisses(input: AnlasEstimateInput): OpusFreeMiss[] {
+  const px = Math.max(input.width * input.height, 65536)
+  const steps = effectiveSteps(input.model ?? '', input.steps)
+  const isV5 = input.model?.startsWith('nai-diffusion-5-') ?? false
+  const misses: OpusFreeMiss[] = []
+  if (!input.isOpus) misses.push('notOpus')
+  // V5는 게이지가 남았다고 확인된 경우만 무료 (조회 실패·소진은 Anlas)
+  else if (isV5 && input.opusUsageExhausted !== false) misses.push('opusUsage')
+  if (px > 1048576) misses.push('resolution')
+  if (steps > 28) misses.push('steps')
+  return misses
+}
+
 export function estimateAnlas(input: AnlasEstimateInput): AnlasEstimate {
   const px = Math.max(input.width * input.height, 65536)
   const strength = input.strength ?? 1
@@ -200,8 +227,7 @@ export function estimateAnlas(input: AnlasEstimateInput): AnlasEstimate {
   const perImage = Math.max(Math.ceil(base * strength), 2)
 
   // 캐릭레퍼는 무료 조건을 깨지 않는다 (실측) — 대신 아래에서 별도 사용료 부과
-  const freeEligible =
-    px <= 1048576 && steps <= 28 && input.isOpus && (!isV5 || input.opusUsageExhausted === false)
+  const freeEligible = opusFreeMisses(input).length === 0
 
   const generation = freeEligible ? 0 : perImage * input.batchCount
   const charRef = (input.charRefCount ?? 0) * CHARREF_COST * input.batchCount

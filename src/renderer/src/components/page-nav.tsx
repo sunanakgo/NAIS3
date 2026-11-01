@@ -20,6 +20,8 @@ const PAGES: { id: Page; label: MessageId; icon: LucideIcon }[] = [
  * JS 스프링과 달리 WAAPI 이징으로 넘기면 컴포지터가 혼자 끝까지 재생한다.
  */
 const SPRING_DURATION = 500
+/** 탭 전환 pill 애니메이션 길이 — 무거운 작업은 이만큼 기다렸다 시작하면 pill이 끊기지 않는다 */
+export const PAGE_NAV_ANIMATION_MS = SPRING_DURATION
 const SPRING_EASING = ((): string => {
   const zeta = 0.8
   const omega = 6.9 / (zeta * (SPRING_DURATION / 1000)) // 끝에서 오차 0.1% 이하로 수렴

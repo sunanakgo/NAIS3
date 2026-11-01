@@ -45,6 +45,13 @@ export default function App(): React.JSX.Element {
   const centerMode = useLayoutStore((s) => s.centerMode)
   const sidebarWidth = useLayoutStore((s) => s.sidebarWidth)
   const onboardingOpen = useLayoutStore((s) => s.onboardingOpen)
+  const webHidden = useLayoutStore((s) => s.hiddenPages.includes('websearch'))
+  // 웹 탭은 한 번 열면 계속 띄워 둔다 — <webview>를 다시 만들면(게스트 프로세스 생성 + 페이지
+  // 재로딩) 탭을 열 때마다 화면이 버벅이고 보던 스크롤·검색 상태도 날아간다. 숨김 설정 시에만 내린다
+  const [webMounted, setWebMounted] = useState(false)
+  if (centerMode === 'websearch' && !webMounted) setWebMounted(true)
+  if (webHidden && webMounted) setWebMounted(false)
+  const webActive = centerMode === 'websearch'
   const [ready, setReady] = useState(false)
   const [resizing, setResizing] = useState(false)
 
@@ -149,17 +156,28 @@ export default function App(): React.JSX.Element {
                 </motion.div>
               )}
             </AnimatePresence>
-            <main className="flex min-h-0 min-w-0 flex-1">
+            <main className="relative flex min-h-0 min-w-0 flex-1">
               {centerMode === 'scene' ? (
                 <SceneMode />
               ) : centerMode === 'director' ? (
                 <DirectorMode />
               ) : centerMode === 'library' ? (
                 <LibraryMode />
-              ) : centerMode === 'websearch' ? (
-                <WebSearchMode />
-              ) : (
+              ) : webActive ? null : (
                 <PreviewPane />
+              )}
+              {webMounted && (
+                // display:none은 레이아웃을 0으로 접어 다시 보일 때 게스트가 리사이즈·재합성되므로
+                // 크기는 유지한 채 visibility로만 숨긴다
+                <div
+                  className={cn(
+                    'absolute inset-0 flex',
+                    !webActive && 'pointer-events-none invisible'
+                  )}
+                  aria-hidden={!webActive || undefined}
+                >
+                  <WebSearchMode active={webActive} />
+                </div>
               )}
             </main>
             <AnimatePresence initial={false}>

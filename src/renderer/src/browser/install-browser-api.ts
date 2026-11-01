@@ -481,12 +481,14 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
   }
   if (channel === 'nai:anlasUsage') {
     const state = await readBrowserState()
-    const now = Date.now()
-    const dayAgo = now - 24 * 60 * 60 * 1000
-    const weekAgo = now - 7 * 24 * 60 * 60 * 1000
+    // 생성별 before/after 소모량이라 계정 전환이 섞이지 않는다. 기간은 데스크톱과 같게:
+    // today = 로컬 자정부터, week = 최근 7일
+    const now = new Date()
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+    const weekAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000
     return {
       today: state.anlasLog
-        .filter((entry) => Date.parse(entry.at) >= dayAgo)
+        .filter((entry) => Date.parse(entry.at) >= startOfToday)
         .reduce((sum, entry) => sum + entry.spent, 0),
       week: state.anlasLog
         .filter((entry) => Date.parse(entry.at) >= weekAgo)

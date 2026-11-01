@@ -150,6 +150,17 @@ export interface SubscriptionInfo {
   expired?: boolean
 }
 
+/**
+ * Anlas 사용량 집계. 같은 계정의 연속 잔액 스냅샷 간 감소분만 더하므로 계정 전환은 사용으로
+ * 치지 않는다. today는 로컬 자정부터, week는 최근 7일. byAccount는 계정 id별 내역
+ * (브라우저 버전은 생성별 소모량만 기록해 계정 구분이 없으므로 생략될 수 있다).
+ */
+export interface AnlasUsageSummary {
+  today: number
+  week: number
+  byAccount?: Record<string, { today: number; week: number }>
+}
+
 /** 렌더러에 노출되는 NAI 계정 메타. 실제 토큰은 명시적으로 공개할 때만 전달한다. */
 export interface NaiAccountInfo {
   id: string
@@ -446,7 +457,7 @@ export interface IpcInvokeMap {
       usage?: OpusUsageStatus
     }
   }
-  'nai:anlasUsage': { req: void; res: { today: number; week: number } }
+  'nai:anlasUsage': { req: void; res: AnlasUsageSummary }
   'scenes:enqueueReserved': {
     req: { casts: { castId: string; request: GenerationRequest }[]; seedLocked: boolean }
     res: { ids: string[] }

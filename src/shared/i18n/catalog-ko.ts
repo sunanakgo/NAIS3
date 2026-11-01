@@ -250,6 +250,7 @@ export const KO = {
   'ui.currentBalance': '현재 잔액',
   'ui.usedToday': '오늘 사용',
   'ui.last7Days': '최근 7일',
+  'ui.anlasAccountUsageValue': 'Anlas 오늘 {0} · 7일 {1} 사용',
   'ui.versionValue': '버전 {0}',
   'ui.updateToVersionValue': '새 버전 {0} 업데이트',
   'ui.downloadingUpdateValue': '업데이트 다운로드 중 {0}%…',

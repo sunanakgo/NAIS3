@@ -158,6 +158,83 @@ function validateRows(database: BackupDatabaseV1): Partial<Record<BackupTableNam
   return result
 }
 
+/**
+ * Generation history (`images`) is not part of a backup, but `images.scene_id` references
+ * `gen_scenes(id) ON DELETE SET NULL`. Replacing `gen_scenes` during restore would therefore
+ * unlink every image from its scene. A `PRAGMA foreign_key_list` audit of every table after
+ * all migrations shows this is the only foreign key from a table outside BACKUP_TABLES into
+ * one inside it (the folder links point between backup tables, and gen_scenes.preset_id has
+ * no declared FK), so nothing else is nulled or cascaded.
+ *
+ * A link is put back only when the restored data holds what is recognisably the same scene:
+ * the same id, the same creation time, the same scene name and the same preset name. A numeric
+ * id alone is not trusted, because a backup from another machine or an older state can reuse an
+ * id for an unrelated scene; such images stay unlinked (NULL) rather than joining the wrong
+ * gallery. Names alone are not enough either: every workspace starts with the preset `기본`
+ * and new scenes get the same default name, so the first scene of two unrelated workspaces
+ * often matches on id and names. `created_at` is set once when the scene is created, never
+ * edited, and travels in every backup, so it tells those scenes apart.
+ * Scene covers and image counts are derived from `images.scene_id` by the scene queries,
+ * so restoring the links keeps them consistent as well.
+ */
+interface SceneIdentity {
+  name: string
+  createdAt: string
+  presetName: string | null
+}
+
+const SCENE_IDENTITY_SQL = `SELECT s.id, s.name, s.created_at, p.name AS preset_name
+  FROM gen_scenes s LEFT JOIN scene_presets p ON p.id = s.preset_id`
+
+function captureSceneLinks(db: ReturnType<typeof getDb>): {
+  scenes: Map<number, SceneIdentity>
+  images: { id: number; scene_id: number }[]
+} {
+  const images = db.prepare('SELECT id, scene_id FROM images WHERE scene_id IS NOT NULL').all() as {
+    id: number
+    scene_id: number
+  }[]
+  const scenes = new Map<number, SceneIdentity>()
+  if (images.length === 0) return { scenes, images }
+  const rows = db.prepare(SCENE_IDENTITY_SQL).all() as {
+    id: number
+    name: string
+    created_at: string
+    preset_name: string | null
+  }[]
+  for (const row of rows)
+    scenes.set(row.id, { name: row.name, createdAt: row.created_at, presetName: row.preset_name })
+  return { scenes, images }
+}
+
+function restoreSceneLinks(
+  db: ReturnType<typeof getDb>,
+  captured: ReturnType<typeof captureSceneLinks>
+): void {
+  if (captured.images.length === 0) return
+  const restoredScene = db.prepare(`${SCENE_IDENTITY_SQL} WHERE s.id = ?`)
+  const matches = new Map<number, boolean>()
+  const isSameScene = (sceneId: number): boolean => {
+    const cached = matches.get(sceneId)
+    if (cached !== undefined) return cached
+    const before = captured.scenes.get(sceneId)
+    const after = restoredScene.get(sceneId) as
+      { name: string; created_at: string; preset_name: string | null } | undefined
+    const same =
+      before !== undefined &&
+      after !== undefined &&
+      before.createdAt === after.created_at &&
+      before.name === after.name &&
+      before.presetName === after.preset_name
+    matches.set(sceneId, same)
+    return same
+  }
+  const relink = db.prepare('UPDATE images SET scene_id = ? WHERE id = ?')
+  for (const image of captured.images) {
+    if (isSameScene(image.scene_id)) relink.run(image.scene_id, image.id)
+  }
+}
+
 /** Restore a validated snapshot, replacing only the tables declared by that format. */
 export function restoreBackupDatabase(database: BackupDatabaseV1): { imported: number } {
   const tables = validateRows(database)
@@ -191,6 +268,7 @@ export function restoreBackupDatabase(database: BackupDatabaseV1): { imported: n
       ? (db.prepare('SELECT id FROM gen_scenes').all() as { id: number }[])
       : []
     const transaction = db.transaction(() => {
+      const sceneLinks = included.has('gen_scenes') ? captureSceneLinks(db) : null
       for (const table of [...BACKUP_TABLES].reverse()) {
         if (included.has(table)) db.prepare(`DELETE FROM ${table}`).run()
       }
@@ -206,6 +284,7 @@ export function restoreBackupDatabase(database: BackupDatabaseV1): { imported: n
           imported++
         }
       }
+      if (sceneLinks) restoreSceneLinks(db, sceneLinks)
       if (typeof database.mainParams === 'string') {
         setSetting('main_params', database.mainParams)
       }

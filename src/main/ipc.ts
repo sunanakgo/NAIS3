@@ -8,7 +8,7 @@ import {
   Notification,
   shell
 } from 'electron'
-import type { IpcEventMap, IpcInvokeMap, NaiAccountInfo } from '../shared/types'
+import type { IpcEventMap, IpcInvokeMap, NaiAccountInfo, QueueHalt } from '../shared/types'
 import {
   createCharacter,
   createFolder,
@@ -61,6 +61,8 @@ import {
   setSetting
 } from './db/settings'
 import { anlasUsage, logBalance } from './nai/anlas-log'
+import { anlasGuardBlockForDirect, anlasGuardBlockForQueue } from './nai/anlas-guard'
+import { directorCharge, UPSCALE_CHARGE } from '../shared/anlas-guard'
 import {
   augmentImage,
   fetchAnlasBalance,
@@ -71,6 +73,7 @@ import {
 import { listImages, getImagePayload, saveGeneratedImage } from './images/storage'
 import {
   enqueueReservedScenes,
+  planReservedScenes,
   bindSceneReservationRecovery,
   listPresets,
   createPreset,
@@ -244,7 +247,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     const account = getNaiAccounts().find((item) => item.id === id)
     broadcast('nai:accountChanged', { accountId: id, reason: 'selected', label: account?.label })
     if (balance.anlas !== null) {
-      logBalance(balance.anlas)
+      logBalance(balance.anlas, id)
       broadcast('anlas:balance', {
         anlas: balance.anlas,
         tier: balance.tier,
@@ -263,17 +266,24 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     const token = getNaiToken()
     if (!token) return { anlas: null, tier: null }
     const { anlas, tier, usage } = await fetchAnlasBalance(token)
-    if (anlas !== null) logBalance(anlas)
+    if (anlas !== null) logBalance(anlas, getActiveNaiAccount()?.id)
     return { anlas, tier, ...(usage ? { usage } : {}) }
   })
   handle('nai:anlasUsage', () => anlasUsage())
 
-  handle('scenes:enqueueReserved', (request) => ({
-    ids: enqueueReservedScenes(ctx.queue, request)
-  }))
-  handle('queue:enqueue', ({ request, count, randomCharacterPrompts }) => ({
-    ids: ctx.queue.enqueue(request, count, randomCharacterPrompts)
-  }))
+  // 무료 범위 지킴이: 묶음 전체를 예약 전에 확인해 N건 실패 대신 한 번에 알린다
+  // (항목별 최종 확인은 생성 직전에 다시 한다)
+  handle('scenes:enqueueReserved', async (request) => {
+    const blocked = await anlasGuardBlockForQueue(planReservedScenes(request).requests)
+    if (blocked) return { ids: [], blocked }
+    // 확인하는 사이 예약이 바뀌었을 수 있어 다시 계획해 넣는다
+    return { ids: enqueueReservedScenes(ctx.queue, request) }
+  })
+  handle('queue:enqueue', async ({ request, count, randomCharacterPrompts }) => {
+    const blocked = await anlasGuardBlockForQueue(Array.from({ length: count }, () => request))
+    if (blocked) return { ids: [], blocked }
+    return { ids: ctx.queue.enqueue(request, count, randomCharacterPrompts) }
+  })
   handle('queue:cancel', ({ ids }) => {
     ctx.queue.cancel(ids)
   })
@@ -662,14 +672,17 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     }
   })
 
-  handle('notify:done', ({ done, failed }) => {
+  handle('notify:done', ({ done, failed, stopped }) => {
     const win = BrowserWindow.getAllWindows()[0]
     if (!win || win.isFocused()) return // 보고 있는 중엔 토스트 불필요
     if (!Notification.isSupported()) return
-    const body =
+    const counts =
       failed > 0 ? t('ui.valueImagesDoneValueFailed', done, failed) : t('ui.valueImagesDone', done)
+    // Anlas 가드로 멈췄으면 제목을 바꾸고 이유를 붙인다
+    const body = stopped ? `${counts}\n${stopped}` : counts
+    const title = stopped ? t('ui.nais3GenerationStopped') : t('ui.nais3GenerationComplete')
     // silent — 소리는 앱의 알림음 설정이 따로 담당 (이중 재생 방지)
-    const n = new Notification({ title: t('ui.nais3GenerationComplete'), body, silent: true })
+    const n = new Notification({ title, body, silent: true })
     n.on('click', () => {
       if (win.isMinimized()) win.restore()
       win.show()
@@ -740,9 +753,16 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   })
 
   handle('images:upscale', async ({ imageBase64 }) => {
+    const account = getActiveNaiAccount()
     const token = getNaiToken()
-    if (!token) return { error: t('ui.naiTokenIsNotConfigured') }
+    if (!account || !token) return { error: t('ui.naiTokenIsNotConfigured') }
     try {
+      // 업스케일은 항상 1 Anlas — 무료 범위 지킴이가 켜져 있으면 보내기 전에 확인
+      const blocked = await anlasGuardBlockForDirect(
+        { id: account.id, token },
+        () => UPSCALE_CHARGE
+      )
+      if (blocked) return { error: blocked }
       const input = Buffer.from(imageBase64.replace(/^data:[^,]+,/, ''), 'base64')
       const png = await upscaleImage(token, input.toString('base64'))
       const saved = await saveGeneratedImage({
@@ -753,7 +773,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
       })
       void fetchAnlasBalance(token).then(({ anlas, tier, usage }) => {
         if (anlas !== null) {
-          logBalance(anlas)
+          logBalance(anlas, account.id)
           broadcast('anlas:balance', { anlas, tier, ...(usage ? { usage } : {}) })
         }
       })
@@ -779,11 +799,22 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   })
 
   handle('director:run', async ({ method, imageBase64, prompt, defry }) => {
+    const account = getActiveNaiAccount()
     const token = getNaiToken()
-    if (!token) return { error: t('ui.naiTokenIsNotConfigured') }
+    if (!account || !token) return { error: t('ui.naiTokenIsNotConfigured') }
     try {
       const input = Buffer.from(imageBase64.replace(/^data:[^,]+,/, ''), 'base64')
       const meta = await sharp(input).metadata()
+      const blocked = await anlasGuardBlockForDirect({ id: account.id, token }, (balance) =>
+        directorCharge(
+          method,
+          meta.width ?? 0,
+          meta.height ?? 0,
+          balance.tier === 'opus',
+          balance.tier !== null
+        )
+      )
+      if (blocked) return { error: blocked }
       const png = await augmentImage(token, {
         method,
         imageBase64: input.toString('base64'),
@@ -801,7 +832,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
       // 잔액 갱신 (디렉터 툴도 Anlas 소모, Opus는 소형 무료)
       void fetchAnlasBalance(token).then(({ anlas, tier, usage }) => {
         if (anlas !== null) {
-          logBalance(anlas)
+          logBalance(anlas, account.id)
           broadcast('anlas:balance', { anlas, tier, ...(usage ? { usage } : {}) })
         }
       })
@@ -892,4 +923,5 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
 
   bindSceneReservationRecovery(ctx.queue, () => broadcast('scenes:reservationsChanged', {}))
   ctx.queue.on('changed', (status) => broadcast('queue:changed', status))
+  ctx.queue.on('halted', (halt: QueueHalt) => broadcast('queue:halted', halt))
 }

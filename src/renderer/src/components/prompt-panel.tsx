@@ -13,7 +13,13 @@ import {
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { effectiveGenerationStrength, estimateAnlas, formatAnlasEstimate } from '@shared/anlas'
+import {
+  effectiveGenerationStrength,
+  estimateAnlas,
+  formatAnlasEstimate,
+  type AnlasEstimateInput
+} from '@shared/anlas'
+import { formatAnlasPaidReasons, generationCharge } from '@shared/anlas-guard'
 import type { MessageId } from '@shared/i18n'
 import { snapNaiResolution } from '@shared/nai-resolution'
 import {
@@ -168,25 +174,24 @@ export function PromptPanel(): React.JSX.Element {
     }
   }, [request.model, request.prompt, request.negativePrompt, enabledChars])
 
-  const anlas = useMemo(
-    () =>
-      estimateAnlas({
-        model: estimateModel,
-        width: estimateSize.width,
-        height: estimateSize.height,
-        steps: request.steps,
-        strength: effectiveGenerationStrength(
-          Boolean(source),
-          Boolean(source?.maskBase64),
-          request.i2iStrength
-        ),
-        charRefCount: capabilities.characterReferences ? enabledCrefs : 0,
-        isOpus: subscriptionTier === 'opus',
-        opusUsageExhausted: opusUsage?.isNegative,
-        batchCount,
-        vibeCount: capabilities.vibes ? enabledVibes : 0,
-        unencodedVibes: capabilities.vibes ? unencodedVibes : 0
-      }),
+  const estimateInput = useMemo(
+    (): AnlasEstimateInput => ({
+      model: estimateModel,
+      width: estimateSize.width,
+      height: estimateSize.height,
+      steps: request.steps,
+      strength: effectiveGenerationStrength(
+        Boolean(source),
+        Boolean(source?.maskBase64),
+        request.i2iStrength
+      ),
+      charRefCount: capabilities.characterReferences ? enabledCrefs : 0,
+      isOpus: subscriptionTier === 'opus',
+      opusUsageExhausted: opusUsage?.isNegative,
+      batchCount,
+      vibeCount: capabilities.vibes ? enabledVibes : 0,
+      unencodedVibes: capabilities.vibes ? unencodedVibes : 0
+    }),
     [
       estimateModel,
       estimateSize.width,
@@ -203,6 +208,16 @@ export function PromptPanel(): React.JSX.Element {
       capabilities.characterReferences,
       capabilities.vibes
     ]
+  )
+  const anlas = useMemo(() => estimateAnlas(estimateInput), [estimateInput])
+  // 무료 범위 지킴이를 켰으면 막힐 요청을 생성 전에 미리 알린다 (실제 차단은 메인)
+  const blockPaid = useGenerationStore((s) => s.anlasGuard.blockPaid)
+  const paidReasons = useMemo(
+    () =>
+      blockPaid && window.nais.runtime !== 'browser'
+        ? generationCharge(estimateInput, subscriptionTier !== null).reasons
+        : [],
+    [blockPaid, estimateInput, subscriptionTier]
   )
 
   // 오버레이는 하나만 열림 — 서로 배타
@@ -389,6 +404,12 @@ export function PromptPanel(): React.JSX.Element {
       </div>
 
       {quickGenerationControlsEnabled && <QuickGenerationControls />}
+
+      {!isScene && paidReasons.length > 0 && (
+        <p className="px-1 text-[11.5px] text-danger-ink" role="status">
+          {t('ui.anlasGuardWillBlockValue', formatAnlasPaidReasons(paidReasons, t))}
+        </p>
+      )}
 
       {/* 생성 행: 파라미터 / 배치 / 생성 */}
       <div className="flex items-center gap-2">

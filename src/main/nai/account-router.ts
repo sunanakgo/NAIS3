@@ -88,19 +88,25 @@ export async function chooseNaiAccount(
   return { account: active, balance: activeBalance, rotated: false }
 }
 
-export async function resolveNaiAccountForGeneration(
+/** 활성 계정은 바꾸지 않고 다음 생성에 쓸 계정만 고른다 (보내기 전 Anlas 가드 확인용) */
+export async function previewNaiAccountForGeneration(
   usesV5Usage: boolean
 ): Promise<NaiAccountSelection | null> {
   const active = getActiveNaiAccount()
   if (!active) return null
   // 자동 전환을 끄면 게이지가 바닥나도 지금 계정으로 (Anlas를 써서) 생성한다
   const autoSwitch = getSetting('nai_auto_switch') !== '0'
-  const selection = await chooseNaiAccount(
-    getNaiAccounts(),
-    active.id,
-    usesV5Usage && autoSwitch,
-    fetchAnlasBalance
-  )
+  return chooseNaiAccount(getNaiAccounts(), active.id, usesV5Usage && autoSwitch, fetchAnlasBalance)
+}
+
+export function commitNaiAccountSelection(selection: NaiAccountSelection): void {
   if (selection.rotated) setActiveNaiAccount(selection.account.id)
+}
+
+export async function resolveNaiAccountForGeneration(
+  usesV5Usage: boolean
+): Promise<NaiAccountSelection | null> {
+  const selection = await previewNaiAccountForGeneration(usesV5Usage)
+  if (selection) commitNaiAccountSelection(selection)
   return selection
 }

@@ -297,13 +297,12 @@ export function setReserveAll(presetId: number, count: number): void {
     .run(count, presetId)
 }
 
-/** No asynchronous boundary may separate the reservation snapshot and queue commit. */
-export function enqueueReservedScenes(
-  queue: GenerationQueue,
-  { casts, seedLocked }: IpcInvokeMap['scenes:enqueueReserved']['req']
-): string[] {
-  const db = getDb()
-  const rows = db
+/** 예약된 씬을 큐 요청으로 펼친다 — DB는 바꾸지 않는다 (예약 전 Anlas 가드 확인에도 쓴다) */
+export function planReservedScenes({
+  casts,
+  seedLocked
+}: IpcInvokeMap['scenes:enqueueReserved']['req']): ReturnType<typeof planSceneReservations> {
+  const rows = getDb()
     .prepare(
       `
     SELECT s.* FROM gen_scenes s
@@ -314,12 +313,18 @@ export function enqueueReservedScenes(
     )
     .all() as Row[]
   const scenes = rows.map((row) => toScene({ ...row, image_count: 0 }))
-  const { requests, reservations, remaining } = planSceneReservations(
-    scenes,
-    casts,
-    seedLocked,
-    () => Math.floor(Math.random() * 4294967295)
+  return planSceneReservations(scenes, casts, seedLocked, () =>
+    Math.floor(Math.random() * 4294967295)
   )
+}
+
+/** No asynchronous boundary may separate the reservation snapshot and queue commit. */
+export function enqueueReservedScenes(
+  queue: GenerationQueue,
+  request: IpcInvokeMap['scenes:enqueueReserved']['req']
+): string[] {
+  const db = getDb()
+  const { requests, reservations, remaining } = planReservedScenes(request)
   return queue.enqueueRequests(
     requests,
     db.transaction(() => {

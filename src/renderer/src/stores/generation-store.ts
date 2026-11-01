@@ -499,7 +499,9 @@ export function bindGenerationEvents(): () => void {
       batchDone += doneNow
       batchFailed += failedNow
       if (prevActive && !stillActive && (batchDone + batchFailed > 0 || haltReason)) {
-        void queueDoneAlert(batchDone, batchFailed, haltReason)
+        // 멈춘 이유는 가드가 큐를 세웠을 때만 넘긴다
+        if (haltReason) void queueDoneAlert(batchDone, batchFailed, haltReason)
+        else void queueDoneAlert(batchDone, batchFailed)
         haltReason = undefined
       }
     }

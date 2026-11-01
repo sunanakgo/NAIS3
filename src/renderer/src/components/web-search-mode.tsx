@@ -37,7 +37,7 @@ function toUrl(input: string): string {
 }
 
 /**
- * App이 한 번 연 뒤로는 내리지 않고 숨겨 두기만 하므로 `active`로 보이는지 알려 준다.
+ * 떠난 뒤에도 잠시 숨겨 둔 채 남아 있으므로 `active`로 보이는지 알려 준다.
  * 숨겨진 동안엔 소리를 끄고 포커스를 빼서, 다른 탭에서 영상 소리나 키 입력이 새지 않게 한다.
  */
 export function WebSearchMode({ active }: { active: boolean }): React.JSX.Element {

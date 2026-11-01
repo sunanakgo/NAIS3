@@ -29,6 +29,7 @@ import { bindUpdateEvents } from './stores/update-store'
 import { bindNavMouse } from './lib/nav-history'
 import { useLanguageStore } from './lib/i18n'
 import { cn } from './lib/utils'
+import { useWebSearchKeepAlive } from './lib/websearch-keep-alive'
 import { useLayoutStore } from './stores/layout-store'
 import { useThemeStore } from './stores/theme-store'
 
@@ -45,13 +46,8 @@ export default function App(): React.JSX.Element {
   const centerMode = useLayoutStore((s) => s.centerMode)
   const sidebarWidth = useLayoutStore((s) => s.sidebarWidth)
   const onboardingOpen = useLayoutStore((s) => s.onboardingOpen)
-  const webHidden = useLayoutStore((s) => s.hiddenPages.includes('websearch'))
-  // 웹 탭은 한 번 열면 계속 띄워 둔다 — <webview>를 다시 만들면(게스트 프로세스 생성 + 페이지
-  // 재로딩) 탭을 열 때마다 화면이 버벅이고 보던 스크롤·검색 상태도 날아간다. 숨김 설정 시에만 내린다
-  const [webMounted, setWebMounted] = useState(false)
-  if (centerMode === 'websearch' && !webMounted) setWebMounted(true)
-  if (webHidden && webMounted) setWebMounted(false)
   const webActive = centerMode === 'websearch'
+  const webMounted = useWebSearchKeepAlive(webActive)
   const [ready, setReady] = useState(false)
   const [resizing, setResizing] = useState(false)
 
@@ -167,15 +163,9 @@ export default function App(): React.JSX.Element {
                 <PreviewPane />
               )}
               {webMounted && (
-                // display:none은 레이아웃을 0으로 접어 다시 보일 때 게스트가 리사이즈·재합성되므로
-                // 크기는 유지한 채 visibility로만 숨긴다
-                <div
-                  className={cn(
-                    'absolute inset-0 flex',
-                    !webActive && 'pointer-events-none invisible'
-                  )}
-                  aria-hidden={!webActive || undefined}
-                >
+                // 떠나 있는 동안은 display:none(Electron webview의 기본 [hidden] 스타일과 같음) —
+                // 게스트 프레임이 '안 보임'이 되어 그리기를 멈추고 백그라운드 타이머 제한을 받는다
+                <div className={cn('absolute inset-0 flex', !webActive && 'hidden')}>
                   <WebSearchMode active={webActive} />
                 </div>
               )}

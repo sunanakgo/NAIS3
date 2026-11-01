@@ -369,7 +369,7 @@ export function bindSceneReservationRecovery(
     if (restored) onRestored()
   }
   queue.on('cancelled', restore)
-  const forget = (ids: number[]): void => queue.forgetSceneReservations(ids)
+  const forget = (ids: number[]): void => queue.detachDeletedScenes(ids)
   sceneEvents.on('deleted', forget)
   return () => {
     queue.off('cancelled', restore)

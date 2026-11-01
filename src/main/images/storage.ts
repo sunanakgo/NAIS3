@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { app } from 'electron'
-import { mkdirSync, readdirSync, writeFileSync } from 'fs'
+import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'fs'
 import { isAbsolute, join, relative } from 'path'
 import sharp from '../sharp'
 import { isThumbnailSource, thumbnailUrl, type ThumbnailSource } from '../../shared/thumbnail-url'
@@ -17,6 +17,8 @@ import { getSetting } from '../db/settings'
 export interface SavedImage {
   id: number
   filePath: string
+  /** Scene the row was actually linked to (absent when none, or when the scene was gone) */
+  sceneId?: number
 }
 
 /** 기본 저장 폴더 (설정 미지정 시) */
@@ -233,26 +235,40 @@ export async function saveGeneratedImage(input: {
     filePath = writeNewFile(monthDir, `NAIS3_${stamp}_${input.seed}`, ext, fileBuffer)
   }
 
-  // 썸네일: 카드가 커질 수 있어 640px로 (화질 열화 방지). webp q90
-  const thumbnail = await sharp(input.png)
-    .resize(640, 640, { fit: 'inside' })
-    .webp({ quality: 90 })
-    .toBuffer()
+  try {
+    // 썸네일: 카드가 커질 수 있어 640px로 (화질 열화 방지). webp q90
+    const thumbnail = await sharp(input.png)
+      .resize(640, 640, { fit: 'inside' })
+      .webp({ quality: 90 })
+      .toBuffer()
 
-  const result = getDb()
-    .prepare(
-      'INSERT INTO images (file_path, thumbnail, kind, seed, payload_json, scene_id) VALUES (?, ?, ?, ?, ?, ?)'
-    )
-    .run(
+    // The scene can be deleted while the thumbnail is made. Linking only a scene that still
+    // exists keeps the INSERT from failing on images.scene_id's foreign key.
+    const row = getDb()
+      .prepare(
+        `INSERT INTO images (file_path, thumbnail, kind, seed, payload_json, scene_id)
+         VALUES (?, ?, ?, ?, ?, (SELECT id FROM gen_scenes WHERE id = ?))
+         RETURNING id, scene_id`
+      )
+      .get(
+        filePath,
+        thumbnail,
+        input.kind,
+        input.seed,
+        payloadWithLocalMetadata(input.sentPayload, input.localMetadata),
+        input.sceneId ?? null
+      ) as { id: number; scene_id: number | null }
+
+    return {
+      id: Number(row.id),
       filePath,
-      thumbnail,
-      input.kind,
-      input.seed,
-      payloadWithLocalMetadata(input.sentPayload, input.localMetadata),
-      input.sceneId ?? null
-    )
-
-  return { id: Number(result.lastInsertRowid), filePath }
+      ...(row.scene_id !== null ? { sceneId: row.scene_id } : {})
+    }
+  } catch (error) {
+    // No history row points at the file, so it would be an orphan nobody can find or delete.
+    rmSync(filePath, { force: true })
+    throw error
+  }
 }
 
 /**

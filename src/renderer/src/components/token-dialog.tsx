@@ -45,6 +45,7 @@ import {
   useShortcutsStore,
   type ShortcutAction
 } from '../stores/shortcuts-store'
+import { NaiTokenStoreLockNotice } from './nai-token-store-lock-notice'
 import { ThemeToggle } from './theme-toggle'
 import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
@@ -775,18 +776,6 @@ function AccountSection(): React.JSX.Element {
     }
   }
 
-  async function clearLockedTokens(): Promise<void> {
-    const ok = await askConfirm(t('ui.clearLockedNaiTokens'), {
-      message: t('ui.clearLockedNaiTokensConfirm'),
-      confirmLabel: t('ui.delete'),
-      danger: true
-    })
-    if (!ok) return
-    await window.nais.invoke('nai:deleteToken', undefined)
-    useGenerationStore.setState({ anlasBalance: null, opusUsage: null, subscriptionTier: null })
-    refresh(false)
-  }
-
   const activeAccount = accounts.find((account) => account.active)
   const opusUsageSegments = opusUsage ? opusUsagePercentSegments(opusUsage) : [0]
   const opusPurchased = opusUsage ? opusUsagePurchasedPercent(opusUsage) : 0
@@ -802,18 +791,8 @@ function AccountSection(): React.JSX.Element {
         </p>
       </div>
 
-      {locked && (
-        <div
-          role="alert"
-          className="flex min-w-0 items-start gap-2 rounded-lg border border-danger/50 bg-danger/10 p-2.5 text-[11.5px] text-danger-ink"
-        >
-          <p className="min-w-0 flex-1">
-            {lockReason === 'corrupt' ? t('ui.naiTokenStoreCorrupt') : t('ui.naiTokenStoreLocked')}
-          </p>
-          <Button size="sm" variant="ghost" onClick={() => void clearLockedTokens()}>
-            {t('ui.clearLockedNaiTokens')}
-          </Button>
-        </div>
+      {lockReason && (
+        <NaiTokenStoreLockNotice reason={lockReason} onCleared={() => refresh(false)} />
       )}
 
       <div className="grid min-w-0 grid-cols-[7rem_minmax(0,1fr)_auto] gap-1.5">
@@ -822,6 +801,7 @@ function AccountSection(): React.JSX.Element {
           value={label}
           placeholder={t('ui.accountValue', accounts.length + 1)}
           maxLength={60}
+          disabled={locked}
           onChange={(e) => setLabel(e.target.value)}
         />
         <Input
@@ -830,6 +810,7 @@ function AccountSection(): React.JSX.Element {
           placeholder="pst-..."
           autoComplete="off"
           spellCheck={false}
+          disabled={locked}
           onChange={(e) => {
             setDraft(e.target.value)
             setStatus('idle')

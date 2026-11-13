@@ -9,6 +9,7 @@ import { Onboarding } from '../src/renderer/src/components/onboarding'
 import { Titlebar } from '../src/renderer/src/components/titlebar'
 import { useLanguageStore } from '../src/renderer/src/lib/i18n'
 import { useGenerationStore } from '../src/renderer/src/stores/generation-store'
+import { useDialogStore } from '../src/renderer/src/stores/dialog-store'
 import { useLayoutStore } from '../src/renderer/src/stores/layout-store'
 import { useThemeStore } from '../src/renderer/src/stores/theme-store'
 import { bindShortcuts } from '../src/renderer/src/stores/shortcuts-store'
@@ -247,6 +248,45 @@ describe('onboarding flow', () => {
     expect(document.activeElement?.textContent).toContain('연결됨 — 계정 1')
     expect(button('다음').disabled).toBe(false)
   })
+
+  it.each([
+    ['keychain', '키체인 잠금을 푼 뒤'],
+    ['corrupt', '데이터가 손상되어']
+  ])(
+    'blocks new tokens and offers to clear them when the saved tokens are unreadable (%s)',
+    async (lockReason, message) => {
+      let storeLock: string | null = lockReason
+      const base = invoke.getMockImplementation()!
+      invoke.mockImplementation(async (channel: string, request?: Record<string, string>) => {
+        if (channel === 'nai:listAccounts') {
+          return { accounts, activeId: null, locked: storeLock !== null, lockReason: storeLock }
+        }
+        if (channel === 'nai:deleteToken') {
+          storeLock = null
+          return undefined
+        }
+        return base(channel, request)
+      })
+      await act(async () => root.render(h(Onboarding)))
+      await next(5)
+
+      const input = container.querySelector<HTMLInputElement>(
+        'input[aria-label="NovelAI API 토큰"]'
+      )!
+      expect(input.disabled).toBe(true)
+      expect(button('연결').disabled).toBe(true)
+      expect(container.querySelector('[role="alert"]')?.textContent).toContain(message)
+
+      await click('잠긴 토큰 삭제')
+      expect(useDialogStore.getState().confirm?.title).toBe('잠긴 토큰 삭제')
+      expect(invoke).not.toHaveBeenCalledWith('nai:deleteToken', undefined)
+      await act(async () => useDialogStore.getState()._resolveConfirm(true))
+
+      expect(invoke).toHaveBeenCalledWith('nai:deleteToken', undefined)
+      expect(container.textContent).not.toContain('잠긴 토큰 삭제')
+      expect(input.disabled).toBe(false)
+    }
+  )
 
   it('moves focus to the heading of each new step', async () => {
     await act(async () => root.render(h(Onboarding)))

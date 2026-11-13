@@ -473,12 +473,13 @@ export const useScenesStore = create<ScenesState>((set, get) => ({
         castId: cast?.id ?? '',
         request: buildCastRequest(cast)
       }))
-      const { blocked } = await window.nais.invoke('scenes:enqueueReserved', {
+      // 브라우저 런타임은 이 채널에 결과를 돌려주지 않으므로(undefined) 구조 분해하지 않는다
+      const result = (await window.nais.invoke('scenes:enqueueReserved', {
         casts,
         seedLocked: useGenerationStore.getState().seedLocked
-      })
+      })) as { blocked?: string } | undefined
       // 무료 범위 지킴이가 예약 전에 막음 — 예약은 그대로 남는다
-      if (blocked) toast(blocked, 'error')
+      if (result?.blocked) toast(result.blocked, 'error')
     } catch (error) {
       toast(error instanceof Error ? error.message : String(error), 'error')
     } finally {

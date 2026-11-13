@@ -201,6 +201,23 @@ describe('하루 사용량 (잔액 스냅샷)', () => {
       { id: 4, balance: 290 }
     ]
     expect(anlasUsageFromSnapshots(rows)).toBe(710)
-    expect(anlasUsageFromSnapshots(rows, new Set([3]))).toBe(30)
+    expect(anlasUsageFromSnapshots(rows, new Map([[3, 0]]))).toBe(30)
+  })
+
+  it('다른 계정을 거쳐 돌아온 계정은 그 계정 직전 잔액 대비 감소분을 센다', () => {
+    const rows = [
+      { id: 1, balance: 1000 }, // A
+      { id: 2, balance: 300 }, // B 미리보기
+      { id: 3, balance: 980 } // A로 돌아옴 — A의 직전 1000 대비 20
+    ]
+    expect(
+      anlasUsageFromSnapshots(
+        rows,
+        new Map([
+          [2, 0],
+          [3, 20]
+        ])
+      )
+    ).toBe(20)
   })
 })

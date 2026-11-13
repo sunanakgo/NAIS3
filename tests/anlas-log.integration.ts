@@ -69,4 +69,39 @@ describe('Anlas 잔액 로그 사용량', () => {
     logBalance(980, 'a')
     expect(anlasUsage().today).toBe(20)
   })
+
+  it('다른 계정 미리보기 뒤에 늦게 온 원래 계정 잔액도 실제 사용량을 센다', () => {
+    at(11, 9)
+    logBalance(1000, 'a')
+    // 예약 전 확인이 자동 전환 후보 B의 잔액을 기록
+    at(11, 9, 1)
+    logBalance(300, 'b')
+    // A로 보낸 생성이 끝난 뒤 A 잔액이 늦게 도착
+    at(11, 9, 2)
+    logBalance(980, 'a')
+    expect(anlasUsage().today).toBe(20)
+    // 계정 간 잔액 차이(700, 680)는 세지 않는다
+    at(11, 9, 3)
+    logBalance(290, 'b')
+    expect(anlasUsage().today).toBe(30)
+  })
+
+  it('계정이 바뀐 행은 잔액이 우연히 같아도 경계로 남긴다', () => {
+    at(11, 9)
+    logBalance(1000, 'a')
+    logBalance(1000, 'b')
+    at(11, 9, 1)
+    logBalance(990, 'b')
+    logBalance(980, 'a')
+    expect(anlasUsage().today).toBe(30)
+  })
+
+  it('어제 이후 처음 돌아온 계정의 차이는 오늘 사용량에 넣지 않는다', () => {
+    at(10, 20)
+    logBalance(1000, 'a')
+    at(11, 9)
+    logBalance(300, 'b')
+    logBalance(700, 'a')
+    expect(anlasUsage().today).toBe(0)
+  })
 })

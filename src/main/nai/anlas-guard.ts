@@ -147,7 +147,11 @@ export async function anlasGuardBlockForQueue(
   return blockMessage(settings, charges, balance, selection.account.id)
 }
 
-/** 업스케일·디렉터 툴처럼 큐를 거치지 않는 요청 확인 */
+/**
+ * 업스케일·디렉터 툴처럼 큐를 거치지 않는 요청 확인.
+ * 큐와 따로 판정하므로, 큐 생성과 동시에 보내면 서로의 비용을 모른 채 통과해
+ * 하루 상한을 한 요청분만큼 넘을 수 있다 — 직접 누른 단발 요청이라 감수한다.
+ */
 export async function anlasGuardBlockForDirect(
   account: { id: string; token: string },
   chargeFor: (balance: NaiAccountBalance) => AnlasCharge

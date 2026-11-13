@@ -160,7 +160,12 @@ describe('queued generation for deleted scenes', () => {
       queue.enqueue(request, 1) // keeps the queue busy so scene jobs stay pending
       const ids = queue.enqueue({ ...request, sceneId }, 2)
       await vi.waitFor(() => expect(started).toHaveLength(1))
-      const row = { id: sceneId, preset_id: 1, name: 'Imported' }
+      const row = {
+        id: sceneId,
+        preset_id: 1,
+        name: 'Imported',
+        created_at: '2001-01-01 00:00:00' // an unrelated scene that reuses the id
+      }
       const backup: BackupDatabaseV1 = {
         version: 1,
         includedTables: result === 'unrelated' ? [] : ['gen_scenes'],

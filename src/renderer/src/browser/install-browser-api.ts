@@ -390,7 +390,16 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
   }
   if (channel === 'nai:tokenStatus') {
     const account = activeAccount(await readBrowserState())
-    return { hasToken: !!account, prefix: account?.prefix ?? '', length: account?.length ?? 0 }
+    return {
+      hasToken: !!account,
+      prefix: account?.prefix ?? '',
+      length: account?.length ?? 0,
+      // 브라우저 저장소는 OS 키체인을 쓰지 않아 잠기지 않는다
+      locked: false,
+      lockReason: null,
+      // 브라우저 작업 공간의 저장 방식은 계정 설정에 따로 안내한다 (ui.browserAccountStorage)
+      plaintextStorage: false
+    }
   }
   if (channel === 'nai:revealToken')
     return { token: activeAccount(await readBrowserState())?.token ?? null }
@@ -416,7 +425,11 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
         void token
         return account
       }),
-      activeId: state.activeAccountId
+      activeId: state.activeAccountId,
+      locked: false,
+      lockReason: null,
+      // 브라우저 작업 공간의 저장 방식은 계정 설정에 따로 안내한다 (ui.browserAccountStorage)
+      plaintextStorage: false
     }
   }
   if (channel === 'nai:addAccount') {
@@ -473,7 +486,7 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
       return state.activeAccountId
     })
     emit('nai:accountChanged', { accountId: activeId, reason: 'deleted' })
-    return { activeId }
+    return { activeId, locked: false, lockReason: null }
   }
   if (channel === 'nai:balance') {
     const account = activeAccount(await readBrowserState())

@@ -1,0 +1,11 @@
+# pnpm 11 reads settings only from this file, not from package.json.
+allowBuilds:
+  better-sqlite3: true
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+  fsevents: true
+
+# Don't resolve a package version until it has been published for 3 days
+# (in minutes). pnpm 11 defaults to 1 day.
+minimumReleaseAge: 4320

@@ -247,6 +247,33 @@ export const KO = {
   'ui.autoSwitchNaiAccounts': '계정 자동 전환',
   'ui.autoSwitchNaiAccountsHint':
     'V5 게이지가 바닥나면 다음 V5 생성 전에 게이지가 남은 다른 계정으로 바꿉니다. 끄면 지금 계정으로 계속 생성합니다 (Anlas 사용).',
+  'ui.anlasGuardBlockPaid': '무료가 아니면 생성하지 않기',
+  'ui.anlasGuardBlockPaidHint':
+    'Anlas가 드는 요청(생성·바이브 인코딩·업스케일·디렉터 툴)은 보내지 않고 이유를 알려 줍니다.',
+  'ui.anlasGuardDailyCap': '하루 Anlas 상한',
+  'ui.anlasGuardDailyCapHint':
+    '오늘(자정부터) 쓴 Anlas에 이번 요청을 더해 상한을 넘으면 보내지 않고 남은 예약을 멈춥니다.',
+  'ui.anlasGuardDailyCapAmount': '하루 Anlas 상한 값',
+  'ui.anlasGuardTodayValueOfValue': '오늘 {0} / {1} Anlas',
+  'ui.anlasGuardWillBlockValue': '무료가 아니라 생성하지 않습니다: {0}',
+  'ui.anlasGuardBlockedPaid':
+    '무료 범위를 벗어나 보내지 않았습니다: {0} (예상 {1} Anlas). 설정 > 생성의 "무료가 아니면 생성하지 않기"를 끄면 보낼 수 있습니다.',
+  'ui.anlasGuardBlockedPaidBatch':
+    '{0}장 중 {1}장이 무료 범위를 벗어나 예약하지 않았습니다: {2} (예상 {3} Anlas). 설정 > 생성의 "무료가 아니면 생성하지 않기"를 끄면 보낼 수 있습니다.',
+  'ui.anlasGuardBlockedDailyCap':
+    '하루 Anlas 상한을 넘어 보내지 않았습니다: 오늘 {0} + 이번 {1} > 상한 {2} Anlas. 설정 > 생성에서 상한을 바꿀 수 있습니다.',
+  'ui.anlasGuardQueueStopped': '남은 예약 {0}장도 멈췄습니다.',
+  'ui.nais3GenerationStopped': 'NAIS3 생성 중단',
+  'ui.anlasPaidReasonNotOpus': 'Opus 구독 아님',
+  'ui.anlasPaidReasonSubscriptionUnknown': '구독 정보 확인 실패',
+  'ui.anlasPaidReasonOpusUsage': 'V5 게이지 소진 또는 확인 실패',
+  'ui.anlasPaidReasonResolution': '해상도 1024² 초과',
+  'ui.anlasPaidReasonSteps': '스텝 28 초과',
+  'ui.anlasPaidReasonCharacterReference': '캐릭터 레퍼런스',
+  'ui.anlasPaidReasonVibeEncoding': '새 바이브 인코딩',
+  'ui.anlasPaidReasonMultiVibe': '바이브 5개 이상',
+  'ui.anlasPaidReasonBackgroundRemoval': '배경 제거 (항상 유료)',
+  'ui.anlasPaidReasonUpscale': '업스케일 (항상 1 Anlas)',
   'ui.depletedWillSwitchToAnAvailableAccountBeforeTheNextV5Generation':
     '소진됨 · 다음 V5 생성 전에 사용 가능한 계정으로 전환합니다.',
   'ui.depletedV5GenerationsWillUseAnlasUntilItRecharges':

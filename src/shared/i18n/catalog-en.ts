@@ -252,6 +252,33 @@ export const EN = {
   'ui.autoSwitchNaiAccounts': 'Switch accounts automatically',
   'ui.autoSwitchNaiAccountsHint':
     'When the V5 gauge runs out, switch to another account that still has gauge before the next V5 generation. Turn off to keep using this account (with Anlas).',
+  'ui.anlasGuardBlockPaid': 'Only generate when free',
+  'ui.anlasGuardBlockPaidHint':
+    'Requests that cost Anlas (generation, vibe encoding, upscale, director tools) are not sent, and the reason is shown.',
+  'ui.anlasGuardDailyCap': 'Daily Anlas limit',
+  'ui.anlasGuardDailyCapHint':
+    'If Anlas spent today (since midnight) plus the next request would go over the limit, it is not sent and the rest of the queue stops.',
+  'ui.anlasGuardDailyCapAmount': 'Daily Anlas limit amount',
+  'ui.anlasGuardTodayValueOfValue': 'Today {0} / {1} Anlas',
+  'ui.anlasGuardWillBlockValue': 'Not free, so it will not be generated: {0}',
+  'ui.anlasGuardBlockedPaid':
+    'Not sent because it is outside the free range: {0} (about {1} Anlas). Turn off "Only generate when free" in Settings > Generate to send it.',
+  'ui.anlasGuardBlockedPaidBatch':
+    'Not queued: {1} of {0} images {1|is|are} outside the free range: {2} (about {3} Anlas). Turn off "Only generate when free" in Settings > Generate to send them.',
+  'ui.anlasGuardBlockedDailyCap':
+    'Not sent because it would go over the daily Anlas limit: today {0} + this {1} > limit {2} Anlas. You can change the limit in Settings > Generate.',
+  'ui.anlasGuardQueueStopped': 'Stopped {0} more queued {0|image|images}.',
+  'ui.nais3GenerationStopped': 'NAIS3 generation stopped',
+  'ui.anlasPaidReasonNotOpus': 'not an Opus subscription',
+  'ui.anlasPaidReasonSubscriptionUnknown': 'could not check the subscription',
+  'ui.anlasPaidReasonOpusUsage': 'V5 gauge empty or unknown',
+  'ui.anlasPaidReasonResolution': 'resolution over 1024²',
+  'ui.anlasPaidReasonSteps': 'over 28 steps',
+  'ui.anlasPaidReasonCharacterReference': 'character reference',
+  'ui.anlasPaidReasonVibeEncoding': 'new vibe encoding',
+  'ui.anlasPaidReasonMultiVibe': '5 or more vibes',
+  'ui.anlasPaidReasonBackgroundRemoval': 'background removal (always paid)',
+  'ui.anlasPaidReasonUpscale': 'upscale (always 1 Anlas)',
   'ui.depletedWillSwitchToAnAvailableAccountBeforeTheNextV5Generation':
     'Depleted · Will switch to an available account before the next V5 generation.',
   'ui.depletedV5GenerationsWillUseAnlasUntilItRecharges':

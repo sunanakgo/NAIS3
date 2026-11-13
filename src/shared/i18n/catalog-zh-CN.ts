@@ -246,6 +246,33 @@ export const ZH_CN = {
   'ui.autoSwitchNaiAccounts': '自动切换账户',
   'ui.autoSwitchNaiAccountsHint':
     'V5 额度耗尽时，在下一次 V5 生成前切换到仍有额度的其他账户。关闭后将继续使用当前账户（消耗 Anlas）。',
+  'ui.anlasGuardBlockPaid': '非免费时不生成',
+  'ui.anlasGuardBlockPaidHint':
+    '消耗 Anlas 的请求（生成、氛围编码、放大、导演工具）不会发送，并显示原因。',
+  'ui.anlasGuardDailyCap': '每日 Anlas 上限',
+  'ui.anlasGuardDailyCapHint':
+    '今天（从零点起）已用的 Anlas 加上本次请求超过上限时，不会发送，并停止剩余队列。',
+  'ui.anlasGuardDailyCapAmount': '每日 Anlas 上限数值',
+  'ui.anlasGuardTodayValueOfValue': '今天 {0} / {1} Anlas',
+  'ui.anlasGuardWillBlockValue': '非免费，不会生成：{0}',
+  'ui.anlasGuardBlockedPaid':
+    '超出免费范围，未发送：{0}（约 {1} Anlas）。在 设置 > 生成 中关闭“非免费时不生成”即可发送。',
+  'ui.anlasGuardBlockedPaidBatch':
+    '{0} 张中有 {1} 张超出免费范围，未加入队列：{2}（约 {3} Anlas）。在 设置 > 生成 中关闭“非免费时不生成”即可发送。',
+  'ui.anlasGuardBlockedDailyCap':
+    '会超过每日 Anlas 上限，未发送：今天 {0} + 本次 {1} > 上限 {2} Anlas。可在 设置 > 生成 中修改上限。',
+  'ui.anlasGuardQueueStopped': '其余 {0} 张预约也已停止。',
+  'ui.nais3GenerationStopped': 'NAIS3 生成已停止',
+  'ui.anlasPaidReasonNotOpus': '非 Opus 订阅',
+  'ui.anlasPaidReasonSubscriptionUnknown': '无法确认订阅信息',
+  'ui.anlasPaidReasonOpusUsage': 'V5 额度耗尽或无法确认',
+  'ui.anlasPaidReasonResolution': '分辨率超过 1024²',
+  'ui.anlasPaidReasonSteps': '步数超过 28',
+  'ui.anlasPaidReasonCharacterReference': '角色参考',
+  'ui.anlasPaidReasonVibeEncoding': '新的氛围编码',
+  'ui.anlasPaidReasonMultiVibe': '5 组以上氛围',
+  'ui.anlasPaidReasonBackgroundRemoval': '去除背景（始终收费）',
+  'ui.anlasPaidReasonUpscale': '放大（始终 1 Anlas）',
   'ui.depletedWillSwitchToAnAvailableAccountBeforeTheNextV5Generation':
     '已耗尽 · 下一次 V5 生成前将切换到可用账户。',
   'ui.depletedV5GenerationsWillUseAnlasUntilItRecharges':

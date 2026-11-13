@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { CharacterPromptInput, GenerationRequest } from '../src/shared/types'
+import type {
+  CharacterPromptInput,
+  GenerationRequest,
+  QueueHalt,
+  QueueItem
+} from '../src/shared/types'
 import { GenerationQueue } from '../src/main/queue/generation-queue'
 import { FinishedQueueLog, MAX_FINISHED_QUEUE_ITEMS } from '../src/shared/queue-status'
 
@@ -12,6 +17,11 @@ class HttpErr extends Error {
     super(`http ${status}`)
     this.name = 'NaiHttpError'
   }
+}
+
+/** AnlasGuardError를 흉내낸 오류 — 큐는 haltQueue 필드만 본다 */
+class HaltErr extends Error {
+  readonly haltQueue = true
 }
 
 const REQ = {} as GenerationRequest // count=1이면 seed 접근 없음
@@ -280,5 +290,31 @@ describe('FinishedQueueLog', () => {
     expect(log.record('b')).toEqual([])
     expect(log.record('c')).toEqual(['a'])
     expect(log.record('d')).toEqual(['b'])
+  })
+})
+
+describe('GenerationQueue 정지 (Anlas 가드)', () => {
+  it('보내기 전에 막히면 그 항목과 남은 예약을 취소로 돌리고 이유를 알린다', async () => {
+    const generate = vi.fn(async (): Promise<string> => {
+      throw new HaltErr('하루 Anlas 상한')
+    })
+    const q = new GenerationQueue(generate)
+    q.setDelayMs(0)
+    const halted: QueueHalt[] = []
+    const cancelled: string[] = []
+    q.on('halted', (halt: QueueHalt) => halted.push(halt))
+    q.on('cancelled', (items: QueueItem[]) => cancelled.push(...items.map((item) => item.id)))
+
+    const ids = q.enqueue({ ...REQ, seed: 1 }, 3)
+
+    await vi.waitFor(() => expect(halted).toHaveLength(1))
+    expect(halted[0]).toEqual({ reason: '하루 Anlas 상한', stopped: 2 })
+    // 재시도하지 않고, 남은 항목은 보내지 않는다
+    expect(generate).toHaveBeenCalledTimes(1)
+    // 취소 이벤트로 씬 예약이 되돌아간다
+    expect([...cancelled].sort()).toEqual([...ids].sort())
+    const items = q.status().items
+    expect(items.map((item) => item.state)).toEqual(['cancelled', 'cancelled', 'cancelled'])
+    expect(items.find((item) => item.id === ids[0])?.error).toBe('하루 Anlas 상한')
   })
 })

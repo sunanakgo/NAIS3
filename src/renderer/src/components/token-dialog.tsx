@@ -21,6 +21,7 @@ import {
   opusUsagePercentSegments,
   opusUsagePurchasedPercent
 } from '@shared/anlas'
+import { normalizeDailyAnlasCap } from '@shared/anlas-guard'
 import { isLang, LANGUAGES, SUPPORTED_LANGUAGES, type MessageId } from '@shared/i18n'
 import type { NaiAccountInfo, NaiTokenStoreLockReason } from '@shared/types'
 import discordSvg from '../assets/discord.svg'
@@ -291,6 +292,7 @@ function GenerationSection(): React.JSX.Element {
           onCheckedChange={setDirectorInstantRun}
         />
       </Row>
+      {window.nais.runtime !== 'browser' && <AnlasGuardRows />}
       <Row
         label={t('ui.generationDelayValueS', (delay / 1000).toFixed(1))}
         hint={t('ui.intervalBetweenConsecutiveGenerations')}
@@ -382,6 +384,77 @@ function GenerationSection(): React.JSX.Element {
         />
       </Row>
     </div>
+  )
+}
+
+/** 무료 범위 지킴이 — 메인 프로세스 큐에서만 지켜지므로 브라우저 버전에선 숨긴다 */
+function AnlasGuardRows(): React.JSX.Element {
+  const t = useT()
+  const guard = useGenerationStore((s) => s.anlasGuard)
+  const setGuard = useGenerationStore((s) => s.setAnlasGuard)
+  const [capText, setCapText] = useState(String(guard.dailyCap))
+  const [shownCap, setShownCap] = useState(guard.dailyCap)
+  const [spentToday, setSpentToday] = useState<number | null>(null)
+
+  // 저장된 상한이 바뀌면 입력란도 맞춘다 (렌더 중 동기화 — effect에서 setState하지 않게)
+  if (shownCap !== guard.dailyCap) {
+    setShownCap(guard.dailyCap)
+    setCapText(String(guard.dailyCap))
+  }
+  // 생성 후 잔액이 갱신되면(메인이 로그를 먼저 남김) 오늘 사용량도 다시 읽는다
+  useEffect(() => {
+    const refresh = (): void => {
+      void window.nais.invoke('nai:anlasUsage', undefined).then(({ today }) => setSpentToday(today))
+    }
+    refresh()
+    return window.nais.on('anlas:balance', refresh)
+  }, [])
+
+  const commitCap = (): void => {
+    const dailyCap = normalizeDailyAnlasCap(capText)
+    setCapText(String(dailyCap))
+    if (dailyCap !== guard.dailyCap) setGuard({ dailyCap })
+  }
+  const overCap = guard.dailyCapEnabled && spentToday !== null && spentToday >= guard.dailyCap
+
+  return (
+    <>
+      <Row label={t('ui.anlasGuardBlockPaid')} hint={t('ui.anlasGuardBlockPaidHint')}>
+        <Switch
+          aria-label={t('ui.anlasGuardBlockPaid')}
+          checked={guard.blockPaid}
+          onCheckedChange={(blockPaid) => setGuard({ blockPaid })}
+        />
+      </Row>
+      <Row label={t('ui.anlasGuardDailyCap')} hint={t('ui.anlasGuardDailyCapHint')}>
+        <div className="flex items-center gap-2">
+          <span
+            className={cn('text-[11.5px] tabular-nums', overCap ? 'text-danger-ink' : 'text-muted')}
+          >
+            {t('ui.anlasGuardTodayValueOfValue', spentToday ?? '-', guard.dailyCap)}
+          </span>
+          <Input
+            className="h-8 w-20 text-right font-mono"
+            aria-label={t('ui.anlasGuardDailyCapAmount')}
+            type="number"
+            min={0}
+            step={10}
+            inputMode="numeric"
+            value={capText}
+            onChange={(e) => setCapText(e.target.value)}
+            onBlur={commitCap}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur()
+            }}
+          />
+          <Switch
+            aria-label={t('ui.anlasGuardDailyCap')}
+            checked={guard.dailyCapEnabled}
+            onCheckedChange={(dailyCapEnabled) => setGuard({ dailyCapEnabled })}
+          />
+        </div>
+      </Row>
+    </>
   )
 }
 

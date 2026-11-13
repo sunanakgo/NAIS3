@@ -11,6 +11,7 @@ import type {
   CharacterPromptInput,
   GenerationDelayRandomization,
   GenerationRequest,
+  QueueHalt,
   QueueItem,
   QueueStatus,
   SceneReservation
@@ -120,6 +121,18 @@ export class GenerationQueue extends EventEmitter {
     this.emitChanged()
   }
 
+  /** 대기 중인 항목을 모두 취소로 돌리고 돌려준다 ('cancelled' 이벤트는 호출한 쪽이 낸다) */
+  private cancelPending(): QueueItem[] {
+    const cancelled: QueueItem[] = []
+    for (const item of this.items.values()) {
+      if (item.state !== 'pending') continue
+      item.state = 'cancelled'
+      cancelled.push(item)
+    }
+    for (const item of cancelled) this.markFinished(item)
+    return cancelled
+  }
+
   /**
    * Called after scenes are deleted or replaced (single/bulk/preset delete, backup restore).
    * SQLite may reuse the numeric IDs, so nothing in the queue may keep pointing at them:
@@ -171,11 +184,17 @@ export class GenerationQueue extends EventEmitter {
         const controller = new AbortController()
         this.controllers.set(next.id, controller)
         this.emitChanged()
+        let halt: string | undefined
         try {
           next.filePath = await this.generateWithRetry(next, controller)
           next.state = 'done'
         } catch (e) {
-          if (controller.signal.aborted || isAbortError(e)) {
+          if (!controller.signal.aborted && isHaltError(e)) {
+            // 보내기 전에 막힌 요청(Anlas 가드) — 취소로 돌려 씬 예약을 되돌리고 남은 예약도 멈춘다
+            next.state = 'cancelled'
+            next.error = e.message
+            halt = e.message
+          } else if (controller.signal.aborted || isAbortError(e)) {
             next.state = 'cancelled'
             // A late successful response is still done; only a confirmed abort restores it.
             this.emit('cancelled', [next])
@@ -187,6 +206,11 @@ export class GenerationQueue extends EventEmitter {
           this.controllers.delete(next.id)
           next.retrying = false
           this.markFinished(next)
+        }
+        if (halt !== undefined) {
+          const stopped = this.cancelPending()
+          this.emit('cancelled', [next, ...stopped])
+          this.emit('halted', { reason: halt, stopped: stopped.length } satisfies QueueHalt)
         }
         this.emitChanged()
         if (this.nextPending()) {
@@ -273,6 +297,11 @@ function isAbortError(e: unknown): boolean {
   return (
     e instanceof Error && (e.name === 'AbortError' || e.message.toLowerCase().includes('abort'))
   )
+}
+
+/** 남은 예약까지 멈춰야 하는 오류인지 (AnlasGuardError.haltQueue) */
+function isHaltError(e: unknown): e is Error {
+  return e instanceof Error && (e as { haltQueue?: unknown }).haltQueue === true
 }
 
 /** 전이성(재시도 가능) 오류인지 — NaiHttpError.status가 429/5xx 계열일 때만 */

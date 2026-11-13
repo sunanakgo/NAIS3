@@ -121,6 +121,12 @@ export interface QueueStatus {
   delayMs: number
 }
 
+/** Anlas 가드가 요청을 막아 큐를 멈춤 — reason은 사용자에게 보일 이유, stopped는 함께 멈춘 대기 항목 수 */
+export interface QueueHalt {
+  reason: string
+  stopped: number
+}
+
 export interface GenerationDelayRandomization {
   enabled: boolean
   minusMs: number
@@ -492,7 +498,8 @@ export interface IpcInvokeMap {
   'nai:anlasUsage': { req: void; res: { today: number; week: number } }
   'scenes:enqueueReserved': {
     req: { casts: { castId: string; request: GenerationRequest }[]; seedLocked: boolean }
-    res: { ids: string[] }
+    /** blocked: Anlas 가드가 예약 전에 막은 이유 (ids는 빈 배열) */
+    res: { ids: string[]; blocked?: string }
   }
   'queue:enqueue': {
     req: {
@@ -501,7 +508,8 @@ export interface IpcInvokeMap {
       /** When provided, each queue item independently samples one candidate. */
       randomCharacterPrompts?: CharacterPromptInput[]
     }
-    res: { ids: string[] }
+    /** blocked: Anlas 가드가 예약 전에 막은 이유 (ids는 빈 배열) */
+    res: { ids: string[]; blocked?: string }
   }
   'queue:cancel': { req: { ids: string[] }; res: void }
   'queue:status': { req: void; res: QueueStatus }
@@ -580,7 +588,11 @@ export interface IpcInvokeMap {
   /** 생성 지연 시간(ms)과 랜덤 범위 설정 — 큐에 즉시 반영 + 영속 */
   'gen:setDelay': { req: { ms: number; randomization?: GenerationDelayRandomization }; res: void }
   /** 큐 완료 네이티브 알림 (창이 포커스 없을 때만 표시) */
-  'notify:done': { req: { done: number; failed: number }; res: void }
+  'notify:done': {
+    /** stopped: 큐가 Anlas 가드로 멈춘 이유 */
+    req: { done: number; failed: number; stopped?: string }
+    res: void
+  }
   /** 디렉터 툴 실행 — 결과를 히스토리에 저장하고 파일 경로 + 결과 base64 반환 */
   'director:run': {
     req: { method: DirectorMethod; imageBase64: string; prompt?: string; defry?: number }
@@ -786,6 +798,7 @@ export interface IpcInvokeMap {
 /** 메인 → 렌더러 이벤트 채널 */
 export interface IpcEventMap {
   'queue:changed': QueueStatus
+  'queue:halted': QueueHalt
   /** 생성 완료 등으로 잔액이 갱신될 때 */
   'anlas:balance': {
     anlas: number

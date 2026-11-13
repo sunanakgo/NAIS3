@@ -395,7 +395,8 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
       prefix: account?.prefix ?? '',
       length: account?.length ?? 0,
       // 브라우저 저장소는 OS 키체인을 쓰지 않아 잠기지 않는다
-      locked: false
+      locked: false,
+      lockReason: null
     }
   }
   if (channel === 'nai:revealToken')
@@ -423,7 +424,8 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
         return account
       }),
       activeId: state.activeAccountId,
-      locked: false
+      locked: false,
+      lockReason: null
     }
   }
   if (channel === 'nai:addAccount') {

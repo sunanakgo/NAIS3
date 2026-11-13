@@ -1,7 +1,8 @@
 import { CheckCircle2, type LucideIcon } from 'lucide-react'
 import { motion, type MotionProps } from 'motion/react'
-import { isValidElement, useEffect, useRef, useState } from 'react'
+import { isValidElement, useContext, useEffect, useRef, useState } from 'react'
 import { cn } from '../../lib/utils'
+import { IntroContext } from './intro-context'
 
 /** 단계 본문이 받는 값 — 마쳐야 넘어가는 단계(계정·불러오기)와 온보딩 전체의 이동 잠금 */
 export interface StepProps {
@@ -13,12 +14,15 @@ export interface StepProps {
   onBusyChange: (busy: boolean) => void
 }
 
-/** 첫 등장 시 단계 머리(아이콘·제목)를 이 간격으로 차례차례 들인다 (카드가 떠오른 뒤) */
-function introIn(order: number): MotionProps {
+const HIDDEN = { opacity: 0, y: 12 }
+const SHOWN = { opacity: 1, y: 0 }
+
+/** 첫 등장 시 단계 머리(아이콘·제목)를 이 간격으로 차례차례 들인다 (로고가 제자리에 앉은 뒤) */
+function introIn(order: number, revealed: boolean): MotionProps {
   return {
-    initial: { opacity: 0, y: 12 },
-    animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.6, delay: 0.35 + order * 0.12, ease: [0.22, 1, 0.36, 1] }
+    initial: HIDDEN,
+    animate: revealed ? SHOWN : HIDDEN,
+    transition: { duration: 0.6, delay: order * 0.12, ease: [0.22, 1, 0.36, 1] }
   }
 }
 
@@ -36,16 +40,18 @@ export function StepHeading({
   focusOnMount: boolean
 }): React.JSX.Element {
   const ref = useRef<HTMLHeadingElement>(null)
+  const { revealed } = useContext(IntroContext)
   // 마운트 시점 값만 본다 — 퇴장 애니메이션 중인 이전 단계 제목이 포커스를 가져가지 않게
   const [focus] = useState(focusOnMount)
-  const enter = (order: number): MotionProps => (focus ? {} : introIn(order))
+  const enter = (order: number): MotionProps => (focus ? {} : introIn(order, revealed))
   useEffect(() => {
     if (focus) ref.current?.focus({ preventScroll: true })
   }, [focus])
   return (
     // 아래에 내용이 이어질 때만 띄운다 — 소개 화면은 머리만으로 가운데 정렬
     <div className="mb-8 flex flex-col items-center text-center last:mb-0! short:mb-6 shorter:mb-5">
-      <motion.div className="mb-6" {...enter(0)}>
+      {/* 직접 그린 그림(소개 로고)은 스스로 등장한다 */}
+      <motion.div className="mb-6" {...(isValidElement(icon) ? {} : enter(0))}>
         {isValidElement(icon) ? icon : <HeroIcon icon={icon} />}
       </motion.div>
       <motion.h2

@@ -392,9 +392,14 @@ function AnlasGuardRows(): React.JSX.Element {
   const guard = useGenerationStore((s) => s.anlasGuard)
   const setGuard = useGenerationStore((s) => s.setAnlasGuard)
   const [capText, setCapText] = useState(String(guard.dailyCap))
+  const [shownCap, setShownCap] = useState(guard.dailyCap)
   const [spentToday, setSpentToday] = useState<number | null>(null)
 
-  useEffect(() => setCapText(String(guard.dailyCap)), [guard.dailyCap])
+  // 저장된 상한이 바뀌면 입력란도 맞춘다 (렌더 중 동기화 — effect에서 setState하지 않게)
+  if (shownCap !== guard.dailyCap) {
+    setShownCap(guard.dailyCap)
+    setCapText(String(guard.dailyCap))
+  }
   // 생성 후 잔액이 갱신되면(메인이 로그를 먼저 남김) 오늘 사용량도 다시 읽는다
   useEffect(() => {
     const refresh = (): void => {

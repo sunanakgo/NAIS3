@@ -191,16 +191,17 @@ export function formatAnlasGuardBlock(block: AnlasGuardBlock, tr: Translate = ko
 
 /**
  * 잔액 스냅샷으로 쓴 Anlas를 센다 — 연속 스냅샷 사이 감소분의 합 (충전·구매로 늘어난 구간은 무시).
- * breaks에 든 행은 다른 계정으로 바뀐 첫 스냅샷이라, 그 직전과의 차이는 사용량이 아니다.
+ * breaks에 든 행은 다른 계정으로 바뀐 첫 스냅샷이라, 바로 앞 행(다른 계정)과의 차이 대신
+ * 값으로 준 "그 계정 직전 잔액 대비 감소분"을 센다 (모르면 0).
  */
 export function anlasUsageFromSnapshots(
   rows: readonly { id: number; balance: number }[],
-  breaks: ReadonlySet<number> = new Set()
+  breaks: ReadonlyMap<number, number> = new Map()
 ): number {
   let used = 0
   for (let i = 1; i < rows.length; i++) {
-    if (breaks.has(rows[i].id)) continue
-    const drop = rows[i - 1].balance - rows[i].balance
+    const carried = breaks.get(rows[i].id)
+    const drop = carried ?? rows[i - 1].balance - rows[i].balance
     if (drop > 0) used += drop
   }
   return used

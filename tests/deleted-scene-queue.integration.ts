@@ -3,7 +3,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { closeDb, getDb, initDb } from '../src/main/db'
-import { restoreBackupDetachingScenes } from '../src/main/backup/restore-queue'
+import { restoreBackupDatabase } from '../src/main/backup/repo'
 import type { BackupDatabaseV1 } from '../src/main/backup/types'
 import { saveGeneratedImage } from '../src/main/images/storage'
 import { GenerationQueue } from '../src/main/queue/generation-queue'
@@ -168,8 +168,8 @@ describe('queued generation for deleted scenes', () => {
         files: []
       }
       if (result === 'failed') {
-        expect(() => restoreBackupDetachingScenes(queue, backup)).toThrow()
-      } else restoreBackupDetachingScenes(queue, backup)
+        expect(() => restoreBackupDatabase(backup)).toThrow()
+      } else restoreBackupDatabase(backup)
       const states = queue
         .status()
         .items.filter((item) => ids.includes(item.id))
@@ -220,7 +220,7 @@ describe('saving a generated image for a deleted scene', () => {
     expect(getDb().prepare('SELECT scene_id FROM images').pluck().get()).toBe(sceneId)
   })
 
-  it('removes the written file when the history INSERT fails', async () => {
+  it('keeps the paid original on disk when the history INSERT fails', async () => {
     getDb().exec(
       `CREATE TEMP TRIGGER reject_images BEFORE INSERT ON images
        BEGIN SELECT RAISE(ABORT, 'insert rejected'); END`
@@ -229,7 +229,26 @@ describe('saving a generated image for a deleted scene', () => {
       saveGeneratedImage({ png: await pixel(), sentPayload: '{}', seed: 1, kind: 't2i' })
     ).rejects.toThrow('insert rejected')
     const picturesRoot = join(environment.directory, 'NAIS3')
-    expect(filesUnder(picturesRoot)).toEqual([])
+    expect(filesUnder(picturesRoot)).toHaveLength(1)
     expect(getDb().prepare('SELECT COUNT(*) FROM images').pluck().get()).toBe(0)
+  })
+
+  it('links the scene resolved at INSERT time, not the one passed before the thumbnail', async () => {
+    const sceneId = createScene(1, 'Before')
+    let current: number | undefined = sceneId
+    const saving = saveGeneratedImage({
+      png: await pixel(),
+      sentPayload: '{}',
+      seed: 1,
+      kind: 'scene',
+      sceneId,
+      sceneName: 'Before',
+      resolveSceneId: () => current
+    })
+    // Deleted while the thumbnail is made: the queue clears the job's sceneId
+    current = undefined
+    const saved = await saving
+    expect(saved.sceneId).toBeUndefined()
+    expect(getDb().prepare('SELECT scene_id FROM images').pluck().get()).toBeNull()
   })
 })

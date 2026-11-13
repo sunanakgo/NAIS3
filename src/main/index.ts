@@ -308,6 +308,7 @@ const startup = app.whenReady().then(async () => {
           seed: request.seed,
           kind: sceneJob ? 'scene' : source ? (source.maskBase64 ? 'inpaint' : 'i2i') : 't2i',
           sceneId,
+          resolveSceneId: () => rawRequest.sceneId,
           format: imageFormat,
           sceneName: scene?.name,
           scenePresetName: scene ? (getPresetName(scene.presetId) ?? undefined) : undefined,

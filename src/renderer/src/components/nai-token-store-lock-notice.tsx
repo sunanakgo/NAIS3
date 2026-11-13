@@ -12,10 +12,13 @@ import { Button } from './ui/button'
  */
 export function NaiTokenStoreLockNotice({
   reason,
+  plaintextStorage,
   onCleared,
   className
 }: {
   reason: NaiTokenStoreLockReason
+  /** 키체인을 쓸 수 없는 실행 — 지운 뒤 다시 넣는 토큰은 평문으로 저장된다 */
+  plaintextStorage: boolean
   /** 삭제를 마친 뒤 — 호출한 쪽이 계정 목록을 다시 읽는다 */
   onCleared: () => void
   className?: string
@@ -24,7 +27,9 @@ export function NaiTokenStoreLockNotice({
 
   async function clearLockedTokens(): Promise<void> {
     const ok = await askConfirm(t('ui.clearLockedNaiTokens'), {
-      message: t('ui.clearLockedNaiTokensConfirm'),
+      message: plaintextStorage
+        ? `${t('ui.clearLockedNaiTokensConfirm')}\n\n${t('ui.naiTokenPlaintextStorageWarning')}`
+        : t('ui.clearLockedNaiTokensConfirm'),
       confirmLabel: t('ui.delete'),
       danger: true
     })

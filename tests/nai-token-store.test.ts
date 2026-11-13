@@ -150,6 +150,12 @@ describe('NAI 토큰 저장소: 키체인을 쓸 수 없는 실행', () => {
     expect(env.settings).toEqual(before)
   })
 
+  it('키체인을 쓸 수 없으면 새 토큰이 평문 폴백으로 저장된다고 알린다', () => {
+    expect(store.isNaiTokenEncryptionAvailable()).toBe(true)
+    env.state.available = false
+    expect(store.isNaiTokenEncryptionAvailable()).toBe(false)
+  })
+
   it('평문 폴백은 이전 버전과 같은 형식으로 저장하고 그대로 다시 읽힌다', () => {
     env.state.available = false
     const account = store.addNaiAccount('pst-plain-token', 'Plain')

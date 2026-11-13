@@ -229,6 +229,8 @@ export const ZH_CN = {
     '无法解密已保存的 NAI 令牌：系统钥匙串（密钥环）已锁定或不可用。请解锁钥匙串后重新启动应用，无需重新输入令牌。',
   'ui.naiTokenStoreCorrupt':
     '已保存的 NAI 令牌数据已损坏，无法读取。解锁钥匙串或重启应用无法解决此问题，请删除已保存的令牌后重新添加。',
+  'ui.naiTokenPlaintextStorageWarning':
+    '当前无法使用系统钥匙串，添加的令牌将不加密（仅 base64 编码）保存在此设备上。',
   'ui.clearLockedNaiTokens': '删除锁定的令牌',
   'ui.clearLockedNaiTokensConfirm':
     '这将删除所有当前无法读取的已保存 NAI 令牌。如果只是钥匙串被锁定，请改为解锁后重新启动应用；删除后需要重新添加令牌。',

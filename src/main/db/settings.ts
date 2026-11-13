@@ -247,6 +247,14 @@ export function deleteNaiToken(): void {
   })()
 }
 
+/**
+ * 새로 저장하는 토큰을 OS 키체인으로 암호화할 수 있는지.
+ * false면 encrypt()가 base64 평문 폴백으로 저장하므로 UI가 저장 전에 경고한다.
+ */
+export function isNaiTokenEncryptionAvailable(): boolean {
+  return safeStorage.isEncryptionAvailable()
+}
+
 /** 마스킹 표시용 메타 (WHIMS 프로바이더 키 UI 패턴) */
 export function getNaiTokenInfo(): {
   hasToken: boolean

@@ -396,7 +396,9 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
       length: account?.length ?? 0,
       // 브라우저 저장소는 OS 키체인을 쓰지 않아 잠기지 않는다
       locked: false,
-      lockReason: null
+      lockReason: null,
+      // 브라우저 작업 공간의 저장 방식은 계정 설정에 따로 안내한다 (ui.browserAccountStorage)
+      plaintextStorage: false
     }
   }
   if (channel === 'nai:revealToken')
@@ -425,7 +427,9 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
       }),
       activeId: state.activeAccountId,
       locked: false,
-      lockReason: null
+      lockReason: null,
+      // 브라우저 작업 공간의 저장 방식은 계정 설정에 따로 안내한다 (ui.browserAccountStorage)
+      plaintextStorage: false
     }
   }
   if (channel === 'nai:addAccount') {

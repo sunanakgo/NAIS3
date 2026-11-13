@@ -29,7 +29,8 @@ assert.equal(packaged.version, version, 'Packaged app version mismatch')
 assert.equal(packaged.name, 'nais3', 'Packaged app name mismatch')
 
 // Load the shipped dependencies straight from app.asar, exactly as the app does at
-// runtime. Extracting the archive first would hide native libraries that were left
+// runtime. Linux skips native sharp here: the app never loads it there (see the
+// WebAssembly check below), and on Ubuntu 26.04 its bundled GLib crashes Electron. Extracting the archive first would hide native libraries that were left
 // packed inside app.asar (dlopen cannot read them there). Node mode avoids opening
 // the GUI, touching userData, or invoking the updater.
 const output = execFileSync(
@@ -46,13 +47,17 @@ const output = execFileSync(
     db.exec('CREATE TABLE smoke (value INTEGER); INSERT INTO smoke VALUES (42)');
     assert.equal(db.prepare('SELECT value FROM smoke').get().value, 42);
     db.close();
-    const sharp = require(path.join(root, 'node_modules/sharp'));
-    sharp({create:{width:2,height:2,channels:4,background:'#ffffff'}}).png().toBuffer()
-      .then(async png => {
-        const metadata = await sharp(png).metadata();
-        assert.equal(metadata.width, 2);
-        console.log('Packaged native runtime passed: ' + process.platform + ' ' + process.arch);
-      }).catch(error => { console.error(error); process.exitCode = 1; });
+    if (process.platform === 'linux') {
+      console.log('Packaged native runtime passed: ' + process.platform + ' ' + process.arch);
+    } else {
+      const sharp = require(path.join(root, 'node_modules/sharp'));
+      sharp({create:{width:2,height:2,channels:4,background:'#ffffff'}}).png().toBuffer()
+        .then(async png => {
+          const metadata = await sharp(png).metadata();
+          assert.equal(metadata.width, 2);
+          console.log('Packaged native runtime passed: ' + process.platform + ' ' + process.arch);
+        }).catch(error => { console.error(error); process.exitCode = 1; });
+    }
   `,
     asar,
     arch

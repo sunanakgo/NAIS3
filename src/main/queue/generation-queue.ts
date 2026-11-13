@@ -12,7 +12,8 @@ import type {
   GenerationDelayRandomization,
   GenerationRequest,
   QueueItem,
-  QueueStatus
+  QueueStatus,
+  SceneReservation
 } from '../../shared/types'
 
 /**
@@ -74,11 +75,19 @@ export class GenerationQueue extends EventEmitter {
   }
 
   /** Publish a batch only after its synchronous reservation commit succeeds. */
-  enqueueRequests(requests: GenerationRequest[], commit: () => void): string[] {
-    const entries = requests.map((request): QueueItem => ({
+  enqueueRequests(
+    requests: GenerationRequest[],
+    commit: () => void,
+    reservations?: SceneReservation[]
+  ): string[] {
+    if (reservations && reservations.length !== requests.length) {
+      throw new Error('Reservation count must match request count')
+    }
+    const entries = requests.map((request, index): QueueItem => ({
       id: randomUUID(),
       state: 'pending',
-      request
+      request,
+      ...(reservations ? { reservation: reservations[index] } : {})
     }))
     try {
       for (const item of entries) this.items.set(item.id, item)
@@ -95,16 +104,27 @@ export class GenerationQueue extends EventEmitter {
   }
 
   cancel(ids: string[]): void {
+    const cancelled: QueueItem[] = []
     for (const id of ids) {
       const item = this.items.get(id)
       if (item && item.state === 'pending') {
         item.state = 'cancelled'
         this.markFinished(item)
+        cancelled.push(item)
       } else if (item && item.state === 'generating') {
         this.controllers.get(id)?.abort()
       }
     }
+    if (cancelled.length > 0) this.emit('cancelled', cancelled)
     this.emitChanged()
+  }
+
+  /** Deleted scenes may have their numeric IDs reused by SQLite. */
+  forgetSceneReservations(sceneIds: number[]): void {
+    const deleted = new Set(sceneIds)
+    for (const item of this.items.values()) {
+      if (item.reservation && deleted.has(item.reservation.sceneId)) delete item.reservation
+    }
   }
 
   setDelayMs(ms: number, randomization?: GenerationDelayRandomization): void {
@@ -136,6 +156,8 @@ export class GenerationQueue extends EventEmitter {
         } catch (e) {
           if (controller.signal.aborted || isAbortError(e)) {
             next.state = 'cancelled'
+            // A late successful response is still done; only a confirmed abort restores it.
+            this.emit('cancelled', [next])
           } else {
             next.state = 'failed'
             next.error = e instanceof Error ? e.message : String(e)

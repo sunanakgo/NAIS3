@@ -6,9 +6,11 @@
 
 **NovelAI Image Studio 3** — NovelAI 이미지 생성을 위한 데스크톱 앱
 
-[![Discord](https://img.shields.io/badge/Discord-문의-5865F2?logo=discord&logoColor=white)](https://discord.gg/bFxP5Qvaz)
+[![Discord](https://img.shields.io/badge/Discord-문의-5865F2?logo=discord&logoColor=white)](https://discord.gg/29XXFxHhyu)
 [![Patreon](https://img.shields.io/badge/Patreon-후원-FF424D?logo=patreon&logoColor=white)](https://www.patreon.com/c/sunakgo)
 [![License](https://img.shields.io/badge/License-GPL--3.0-blue)](LICENSE)
+
+한국어 · [English](README.en.md)
 
 </div>
 
@@ -73,7 +75,7 @@ API 토큰은 개발용 브라우저 프로필에 저장되며, 작업 데이터
 
 ## 문의 · 후원
 
-- 💬 **Discord**: <https://discord.gg/bFxP5Qvaz>
+- 💬 **Discord**: <https://discord.gg/29XXFxHhyu>
 - ❤️ **Patreon**: <https://www.patreon.com/c/sunakgo>
 
 ## Thanks to

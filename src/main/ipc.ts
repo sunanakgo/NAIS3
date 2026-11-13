@@ -71,6 +71,7 @@ import {
 import { listImages, getImagePayload, saveGeneratedImage } from './images/storage'
 import {
   enqueueReservedScenes,
+  bindSceneReservationRecovery,
   listPresets,
   createPreset,
   renamePreset,
@@ -889,5 +890,6 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     for (const win of BrowserWindow.getAllWindows()) win.setBackgroundColor(color)
   })
 
+  bindSceneReservationRecovery(ctx.queue, () => broadcast('scenes:reservationsChanged', {}))
   ctx.queue.on('changed', (status) => broadcast('queue:changed', status))
 }

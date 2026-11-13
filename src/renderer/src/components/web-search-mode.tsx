@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight, Home, Loader2, Minus, Plus, RotateCw, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useT } from '../lib/i18n'
+import { PAGE_NAV_ANIMATION_MS } from './page-nav'
 import { cn } from '../lib/utils'
 import { askText } from '../stores/dialog-store'
 import { HOME_URL, useWebSearchStore } from '../stores/websearch-store'
@@ -23,6 +24,7 @@ interface WebviewElement extends HTMLElement {
   canGoForward(): boolean
   setZoomFactor(factor: number): void
   getURL(): string
+  setAudioMuted(muted: boolean): void
 }
 
 /** 주소창 입력 → URL (스킴 없으면 https, 도메인 형태가 아니면 단부루 태그 검색) */
@@ -34,7 +36,11 @@ function toUrl(input: string): string {
   return `${HOME_URL}/posts?tags=${encodeURIComponent(t.replace(/\s+/g, '_'))}`
 }
 
-export function WebSearchMode(): React.JSX.Element {
+/**
+ * 떠난 뒤에도 잠시 숨겨 둔 채 남아 있으므로 `active`로 보이는지 알려 준다.
+ * 숨겨진 동안엔 소리를 끄고 포커스를 빼서, 다른 탭에서 영상 소리나 키 입력이 새지 않게 한다.
+ */
+export function WebSearchMode({ active }: { active: boolean }): React.JSX.Element {
   const t = useT()
   const url = useWebSearchStore((s) => s.url)
   const zoom = useWebSearchStore((s) => s.zoom)
@@ -46,13 +52,19 @@ export function WebSearchMode(): React.JSX.Element {
   const removeQuickLink = useWebSearchStore((s) => s.removeQuickLink)
 
   const webviewRef = useRef<WebviewElement | null>(null)
+  const activeRef = useRef(active)
   const [inputUrl, setInputUrl] = useState(url)
   const [canBack, setCanBack] = useState(false)
   const [canForward, setCanForward] = useState(false)
   const [loading, setLoading] = useState(false)
   const [editLinks, setEditLinks] = useState(false)
-  // src는 마운트 시 한 번만 — 이후 이동은 loadURL (src 갱신은 리로드를 유발)
-  const [initialSrc] = useState(() => useWebSearchStore.getState().url)
+  // <webview>는 상단 탭 pill 애니메이션이 끝난 뒤에 붙인다. 게스트 WebContents·렌더러 프로세스
+  // 생성과 첫 페이지 로딩이 CPU/GPU를 독차지해서, 같이 돌리면 컴포지터 애니메이션까지 끊긴다
+  const [settled, setSettled] = useState(false)
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettled(true), PAGE_NAV_ANIMATION_MS)
+    return () => clearTimeout(timer)
+  }, [])
 
   useEffect(() => {
     if (!loaded) void useWebSearchStore.getState().hydrate()
@@ -71,7 +83,10 @@ export function WebSearchMode(): React.JSX.Element {
     }
     const onStart = (): void => setLoading(true)
     const onStop = (): void => setLoading(false)
-    const onDomReady = (): void => wv.setZoomFactor(useWebSearchStore.getState().zoom)
+    const onDomReady = (): void => {
+      wv.setZoomFactor(useWebSearchStore.getState().zoom)
+      wv.setAudioMuted(!activeRef.current)
+    }
     wv.addEventListener('did-navigate', onNavigate)
     wv.addEventListener('did-navigate-in-page', onNavigate)
     wv.addEventListener('did-start-loading', onStart)
@@ -84,7 +99,21 @@ export function WebSearchMode(): React.JSX.Element {
       wv.removeEventListener('did-stop-loading', onStop)
       wv.removeEventListener('dom-ready', onDomReady)
     }
-  }, [setUrl])
+    // webview는 늦게 붙으므로 붙은 뒤에 다시 묶는다
+  }, [setUrl, settled])
+
+  useEffect(() => {
+    activeRef.current = active
+    const wv = webviewRef.current
+    if (!wv || !settled) return
+    if (!active) wv.blur()
+    // dom-ready 전에는 webContents가 없어 호출하면 throw — 그때는 onDomReady가 맞춘다
+    try {
+      wv.setAudioMuted(!active)
+    } catch {
+      /* 아직 준비 전 */
+    }
+  }, [active, settled])
 
   function navigate(to: string): void {
     void webviewRef.current?.loadURL(toUrl(to))
@@ -189,17 +218,29 @@ export function WebSearchMode(): React.JSX.Element {
 
       {/* 브라우저 — <webview>는 그냥 DOM 요소라 레이아웃/모달과 충돌 없음 */}
       <div className="min-h-0 flex-1 bg-white">
-        <webview
-          ref={(el) => {
-            webviewRef.current = el as WebviewElement | null
-          }}
-          src={initialSrc}
-          // eslint-disable-next-line react/no-unknown-property -- Electron webview 전용 속성
-          partition="persist:websearch"
-          className="h-full w-full"
-        />
+        {settled && <Webview webviewRef={webviewRef} />}
       </div>
     </div>
+  )
+}
+
+/** src는 마운트 시 한 번만 — 이후 이동은 loadURL (src 갱신은 리로드를 유발) */
+function Webview({
+  webviewRef
+}: {
+  webviewRef: React.RefObject<WebviewElement | null>
+}): React.JSX.Element {
+  const [initialSrc] = useState(() => useWebSearchStore.getState().url)
+  return (
+    <webview
+      ref={(el) => {
+        webviewRef.current = el as WebviewElement | null
+      }}
+      src={initialSrc}
+      // eslint-disable-next-line react/no-unknown-property -- Electron webview 전용 속성
+      partition="persist:websearch"
+      className="h-full w-full"
+    />
   )
 }
 

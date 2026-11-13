@@ -1,4 +1,4 @@
-import type { GenerationRequest, Scene } from './types'
+import type { GenerationRequest, Scene, SceneReservation } from './types'
 
 export function appendPrompt(base: string, add: string): string {
   const b = base.trim().replace(/,\s*$/, '')
@@ -31,8 +31,13 @@ export function planSceneReservations(
   casts: { castId: string; request: GenerationRequest }[],
   seedLocked: boolean,
   randomSeed: () => number
-): { requests: GenerationRequest[]; remaining: Map<number, Record<string, number>> } {
+): {
+  requests: GenerationRequest[]
+  reservations: SceneReservation[]
+  remaining: Map<number, Record<string, number>>
+} {
   const requests: GenerationRequest[] = []
+  const reservations: SceneReservation[] = []
   const remaining = new Map(scenes.map((scene) => [scene.id, { ...scene.reserves }]))
   const seen = new Set<string>()
   for (const { castId, request } of casts) {
@@ -47,9 +52,10 @@ export function planSceneReservations(
           ...base,
           seed: seedLocked && request.seed >= 0 ? (request.seed + i) % 4294967296 : randomSeed()
         })
+        reservations.push({ sceneId: scene.id, castId })
       }
       delete remaining.get(scene.id)![castId]
     }
   }
-  return { requests, remaining }
+  return { requests, reservations, remaining }
 }

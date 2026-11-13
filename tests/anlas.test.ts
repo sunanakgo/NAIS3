@@ -6,6 +6,7 @@ import {
   estimateAnlas,
   formatAnlasEstimate,
   formatOpusUsageRefill,
+  isOpusUsageDepleted,
   opusUsagePercentSegments,
   opusUsagePurchasedPercent,
   opusUsageRefillPercentPerDay,
@@ -67,6 +68,14 @@ describe('Anlas 추정 (NAI 웹 공식 이식)', () => {
     expect(opusUsagePurchasedPercent(usage)).toBe(0)
     expect(opusUsagePurchasedPercent({ ...usage, purchasedPercent: -5 })).toBe(0)
     expect(opusUsagePurchasedPercent({ ...usage, purchasedPercent: 200 })).toBe(200)
+  })
+
+  it('게이지 소진은 음수이거나 일반 게이지와 Extra Usage가 모두 바닥난 경우다', () => {
+    const usage = { percent: 0, isNegative: false, timeUntilNextPercent: 100 }
+    expect(isOpusUsageDepleted(usage)).toBe(true)
+    expect(isOpusUsageDepleted({ ...usage, purchasedPercent: 30 })).toBe(false)
+    expect(isOpusUsageDepleted({ ...usage, percent: 5 })).toBe(false)
+    expect(isOpusUsageDepleted({ ...usage, percent: 5, isNegative: true })).toBe(true)
   })
 
   it('V5 Usage 막대는 100% 단위 구간으로 나눈다', () => {

@@ -10,6 +10,14 @@ export function opusUsagePurchasedPercent(usage: OpusUsageStatus): number {
   return Math.max(0, usage.purchasedPercent ?? 0)
 }
 
+/**
+ * V5 게이지를 더 쓸 수 없는지 — 일반 게이지를 다 쓰면 Extra Usage(부스트)를 이어서 쓰므로
+ * 둘 다 바닥나야 소진이다. 메인의 계정 전환·가드 판정과 렌더러 미리 알림이 같이 쓴다.
+ */
+export function isOpusUsageDepleted(usage: OpusUsageStatus): boolean {
+  return usage.isNegative || Math.max(0, usage.percent) + opusUsagePurchasedPercent(usage) <= 0
+}
+
 /** NAI 웹 `usageRefillRatePerDay`: 1%당 주기(초)를 하루 충전량으로 환산, 0 = 충전 정지 */
 export function opusUsageRefillPercentPerDay(usage: OpusUsageStatus): number {
   return usage.timeUntilNextPercent <= 0

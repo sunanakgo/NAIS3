@@ -6,24 +6,25 @@ import {
   type Transition
 } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
+import {
+  behind,
+  edgeShadow,
+  FRONT,
+  PAGE_SWAP,
+  PAGE_TURN,
+  RECEDE_SHIFT,
+  RECEDE_STYLE
+} from '../lib/page-turn'
 import { useSidePageStore, type SidePage } from '../stores/side-page-store'
-
-const PAGE_TURN: Transition = { duration: 0.32, ease: [0.22, 1, 0.36, 1] }
-// OS의 동작 줄이기 설정이 켜져 있으면 화면 전체가 미끄러지지 않고 바로 바뀐다
-const PAGE_SWAP: Transition = { duration: 0 }
 
 const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
 
-// 넘김은 x가 아니라 transform 문자열로 — Motion이 브라우저(WAAPI) 애니메이션으로 돌려 컴포지터에서 움직인다.
-// x로 움직이면 매 프레임 메인 스레드가 값을 쓰고 화면 전체(히스토리 썸네일·블러 포함)를 다시 그려
-// 레티나에선 몇 프레임밖에 안 보인다. 두 장 모두 미리 별도 레이어(will-change)로 올려 두고,
-// 배경을 칠해 불투명 레이어로 만든다 (투명 레이어는 Windows에서 서브픽셀 글꼴이 꺼진다).
+// 넘기는 장도 transform 문자열로 컴포지터에서 움직인다 (lib/page-turn). 두 장 모두 미리 별도 레이어로 올려
+// 두고 배경을 칠한다 — 레티나에서 화면 전체(히스토리 썸네일·블러 포함)를 매 프레임 다시 그리면 몇 프레임밖에 안 보인다
 const turned = (percent: number): string => `translateX(${percent}%)`
-const LAYER_STYLE = { willChange: 'transform' } as const
-// 페이지가 덮어 올 때 작업 화면은 왼쪽으로 조금 물러나며 작아지고 흐려진다 (opacity도 컴포지터에서 돈다)
-const WORK_FRONT = { transform: 'translateX(0%) scale(1)', opacity: 1 }
-const WORK_BEHIND = { transform: 'translateX(-12%) scale(0.94)', opacity: 0.4 }
-const WORK_STYLE = { willChange: 'transform, opacity' } as const
+const LAYER_STYLE = { willChange: 'transform', boxShadow: edgeShadow('left') } as const
+// 페이지가 덮어 올 때 작업 화면은 왼쪽으로 조금 물러나며 작아지고 흐려진다
+const WORK_BEHIND = behind(-RECEDE_SHIFT)
 
 // 열 때마다 새 장으로 — id로 키를 잡으면 덮이는 중에 같은 페이지를 다시 열 때 그 장이 되살아나
 // 편집기 안 상태(모자이크의 칠한 칸 기록 등)가 이전 것 그대로 남는다. open이 넘긴 객체마다 번호를 매긴다
@@ -73,9 +74,9 @@ export function SidePageHost({ children }: { children: React.ReactNode }): React
     <div className="relative min-h-0 flex-1 overflow-hidden">
       <motion.div
         className="absolute inset-0 flex gap-3 bg-paper px-3 pb-3"
-        style={WORK_STYLE}
+        style={RECEDE_STYLE}
         initial={false}
-        animate={page ? WORK_BEHIND : WORK_FRONT}
+        animate={page ? WORK_BEHIND : FRONT}
         transition={transition}
         inert={!!page}
       >
@@ -139,8 +140,8 @@ function PageLayer({
     <motion.div
       ref={ref}
       tabIndex={-1}
-      // 왼쪽 가장자리 그림자로 작업 화면 위를 덮는 장임을 드러낸다 (다 넘어오면 영역 밖이라 잘린다)
-      className="absolute inset-0 bg-paper px-3 pb-3 shadow-[-16px_0_40px_rgba(0,0,0,0.3)] outline-none"
+      // 왼쪽 가장자리 그림자(LAYER_STYLE)로 작업 화면 위를 덮는 장임을 드러낸다 (다 넘어오면 영역 밖이라 잘린다)
+      className="absolute inset-0 bg-paper px-3 pb-3 outline-none"
       style={LAYER_STYLE}
       initial={{ transform: turned(100) }}
       animate={{ transform: turned(0) }}

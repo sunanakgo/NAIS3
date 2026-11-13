@@ -214,6 +214,22 @@ function BarButton({
   )
 }
 
+/** 패널 접기/펴기 — 열림 상태는 여기서만 구독해 누를 때 타이틀 바 전체가 다시 그려지지 않게 한다 */
+function PanelToggle({ side }: { side: 'left' | 'right' }): React.JSX.Element {
+  const t = useT()
+  const open = useLayoutStore((s) => (side === 'left' ? s.leftOpen : s.rightOpen))
+  const toggle = useLayoutStore((s) => (side === 'left' ? s.toggleLeft : s.toggleRight))
+  return side === 'left' ? (
+    <BarButton onClick={toggle} active={open} title={t('ui.togglePromptPanel.6ab7472')}>
+      <PanelLeft size={15} />
+    </BarButton>
+  ) : (
+    <BarButton onClick={toggle} active={open} title={t('ui.toggleHistoryPanel.b5c0fb9')}>
+      <PanelRight size={15} />
+    </BarButton>
+  )
+}
+
 /** 개발 서버로 띄운 창임을 표시 (배포 빌드엔 없음) */
 function DevBadge(): React.JSX.Element | null {
   if (!import.meta.env.DEV) return null
@@ -264,10 +280,6 @@ function WindowControls(): React.JSX.Element {
 
 export function Titlebar(): React.JSX.Element {
   const t = useT()
-  const leftOpen = useLayoutStore((s) => s.leftOpen)
-  const rightOpen = useLayoutStore((s) => s.rightOpen)
-  const toggleLeft = useLayoutStore((s) => s.toggleLeft)
-  const toggleRight = useLayoutStore((s) => s.toggleRight)
   const setSettingsOpen = useLayoutStore((s) => s.setSettingsOpen)
   const onboardingOpen = useLayoutStore((s) => s.onboardingOpen)
   const onboardingFinished = useLayoutStore((s) => s.onboardingFinished)
@@ -336,9 +348,7 @@ export function Titlebar(): React.JSX.Element {
         <PageNav />
       </div>
 
-      <BarButton onClick={toggleLeft} active={leftOpen} title={t('ui.togglePromptPanel.6ab7472')}>
-        <PanelLeft size={15} />
-      </BarButton>
+      <PanelToggle side="left" />
 
       <UpdateButton />
 
@@ -361,13 +371,7 @@ export function Titlebar(): React.JSX.Element {
       {isMac && <OpusUsageChip />}
       {isMac && <AnlasChips balance={anlasBalance} cost={anlasCost} />}
 
-      <BarButton
-        onClick={toggleRight}
-        active={rightOpen}
-        title={t('ui.toggleHistoryPanel.b5c0fb9')}
-      >
-        <PanelRight size={15} />
-      </BarButton>
+      <PanelToggle side="right" />
       {isMac && (
         <div className="no-drag mx-0.5">
           <ThemeToggle />

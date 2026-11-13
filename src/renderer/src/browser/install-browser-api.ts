@@ -486,7 +486,7 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
       return state.activeAccountId
     })
     emit('nai:accountChanged', { accountId: activeId, reason: 'deleted' })
-    return { activeId }
+    return { activeId, locked: false, lockReason: null }
   }
   if (channel === 'nai:balance') {
     const account = activeAccount(await readBrowserState())

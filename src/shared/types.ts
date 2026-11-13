@@ -468,7 +468,18 @@ export interface IpcInvokeMap {
     }
   }
   'nai:revealAccountToken': { req: { id: string }; res: { token: string | null } }
-  'nai:deleteAccount': { req: { id: string }; res: { activeId: string | null } }
+  /**
+   * locked = 저장된 토큰을 읽을 수 없어 지우지 않음 (activeId: null이 "활성 계정 없음"과 구분되도록).
+   * 잠긴 값은 nai:deleteToken으로만 지운다
+   */
+  'nai:deleteAccount': {
+    req: { id: string }
+    res: {
+      activeId: string | null
+      locked: boolean
+      lockReason: NaiTokenStoreLockReason | null
+    }
+  }
   /** 잔액 조회 (스냅샷 로그에도 기록) */
   'nai:balance': {
     req: void

@@ -342,7 +342,8 @@ const startup = app.whenReady().then(async () => {
   registerIpcHandlers({ dbVersion, queue })
 
   app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
+    // zoom: false(기본값)는 Cmd/Ctrl+'-'만 막고 Cmd/Ctrl+'='는 그대로 둬서 확대만 되고 축소가 안 됐다
+    optimizer.watchWindowShortcuts(window, { zoom: true })
   })
 
   // mac dock 아이콘 (dev 미리보기용 — 패키징 앱은 icns 사용)

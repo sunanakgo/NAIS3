@@ -96,10 +96,18 @@ export interface PromptParts {
 
 export type QueueItemState = 'pending' | 'generating' | 'done' | 'failed' | 'cancelled'
 
+export interface SceneReservation {
+  sceneId: number
+  /** Empty string means the sidebar cast. */
+  castId: string
+}
+
 export interface QueueItem {
   id: string
   state: QueueItemState
   request: GenerationRequest
+  /** Only reservation handoffs carry this; ad-hoc generations must not restore reservations. */
+  reservation?: SceneReservation
   error?: string
   /** 생성 완료 시 저장된 이미지 파일 경로 */
   filePath?: string
@@ -756,6 +764,7 @@ export interface IpcEventMap {
   }
   /** 씬에 새 이미지가 생성됨 (목록/상세 갱신). filePath로 카드 즉시 낙관적 갱신 */
   'scenes:changed': { sceneId: number; filePath: string }
+  'scenes:reservationsChanged': Record<string, never>
   /** 바이브 인코딩 완료 — 카드의 인코딩 표시 갱신용 */
   'vibes:encoded': Record<string, never>
   /** 자동 업데이트 상태 (GitHub release) */

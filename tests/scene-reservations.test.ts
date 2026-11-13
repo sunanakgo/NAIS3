@@ -41,6 +41,12 @@ describe('scene reservation handoff', () => {
     ])
     expect(plan.remaining.get(2)).toEqual({ deleted: 3 })
     expect(plan.remaining.get(1)).toEqual({})
+    expect(plan.reservations).toEqual([
+      { sceneId: 2, castId: '' },
+      { sceneId: 2, castId: '' },
+      { sceneId: 1, castId: '' },
+      { sceneId: 2, castId: 'cast' }
+    ])
     expect(scenes[0].reserves).toEqual({ '': 2, cast: 1, deleted: 3 })
     expect(plan.requests[0].promptParts?.detail).toBe('detail, scene')
     expect(plan.requests[0].negativePrompt).toBe('bad, worse')

@@ -14,6 +14,7 @@ import {
 import { getDb } from '../db'
 import { getSetting, setSetting } from '../db/settings'
 import { libraryRoot } from '../images/storage'
+import { sceneEvents } from '../scenes/events'
 
 const FILE_BACKED_TABLES = new Set<BackupTableName>([
   'vibe_images',
@@ -186,6 +187,9 @@ export function restoreBackupDatabase(database: BackupDatabaseV1): { imported: n
     let imported = 0
     const db = getDb()
     const included = new Set(database.includedTables)
+    const replacedScenes = included.has('gen_scenes')
+      ? (db.prepare('SELECT id FROM gen_scenes').all() as { id: number }[])
+      : []
     const transaction = db.transaction(() => {
       for (const table of [...BACKUP_TABLES].reverse()) {
         if (included.has(table)) db.prepare(`DELETE FROM ${table}`).run()
@@ -207,6 +211,12 @@ export function restoreBackupDatabase(database: BackupDatabaseV1): { imported: n
       }
     })
     transaction()
+    if (replacedScenes.length > 0) {
+      sceneEvents.emit(
+        'deleted',
+        replacedScenes.map((scene) => scene.id)
+      )
+    }
     return { imported }
   } catch (error) {
     if (wroteFiles && existsSync(importRoot)) {

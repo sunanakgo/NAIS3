@@ -277,4 +277,50 @@ describe('browser runtime regressions', () => {
     ])
     random.mockRestore()
   })
+  it.each(['scenes:delete', 'scenes:bulkDelete', 'scenePresets:delete'] as const)(
+    'stops queued jobs for scenes removed by %s and keeps the running image out of them',
+    async (channel) => {
+      state.scenePresets = [
+        { id: 1, name: 'Kept', defaultWidth: null, defaultHeight: null },
+        { id: 2, name: 'Doomed', defaultWidth: null, defaultHeight: null }
+      ] as BrowserState['scenePresets']
+      state.scenes = [
+        { id: 5, presetId: 2, name: 'Doomed', imageCount: 0, reserves: {}, reserveCount: 0 }
+      ] as unknown as BrowserState['scenes']
+      let releaseGeneration!: () => void
+      const generationStarted = vi.fn()
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url: string) => {
+          if (url.endsWith('/generate')) {
+            generationStarted()
+            await new Promise<void>((resolve) => (releaseGeneration = resolve))
+            return Response.json({ base64: 'YQ==', payloadJson: '{}', vibeEncodings: [] })
+          }
+          return Response.json({ anlas: 100, tier: 'opus' })
+        })
+      )
+      await api.invoke('gen:setDelay', { ms: 0 })
+      const { ids } = await api.invoke('queue:enqueue', {
+        request: { ...DEFAULT_REQUEST, sceneId: 5 },
+        count: 3
+      })
+      await vi.waitFor(() => expect(generationStarted).toHaveBeenCalledTimes(1))
+
+      if (channel === 'scenes:delete') await api.invoke(channel, { id: 5 })
+      else if (channel === 'scenes:bulkDelete') await api.invoke(channel, { ids: [5] })
+      else await api.invoke(channel, { id: 2 })
+
+      releaseGeneration()
+      await vi.waitFor(async () => {
+        const status = await api.invoke('queue:status', undefined)
+        expect(status.running).toBe(false)
+        expect(
+          status.items.filter((item) => ids.includes(item.id)).map((item) => item.state)
+        ).toEqual(['done', 'cancelled', 'cancelled'])
+      })
+      expect(generationStarted).toHaveBeenCalledTimes(1)
+      expect(state.images[0].sceneId).toBeNull()
+    }
+  )
 })

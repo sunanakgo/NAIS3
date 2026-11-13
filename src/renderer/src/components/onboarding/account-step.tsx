@@ -26,6 +26,8 @@ export function AccountStep({ done, onDone }: StepProps): React.JSX.Element {
   const [connected, setConnected] = useState<string[]>([])
   // 저장된 토큰이 있지만 읽을 수 없는 이유 — 이 동안은 새 토큰을 받지 않는다
   const [lockReason, setLockReason] = useState<NaiTokenStoreLockReason | null>(null)
+  // OS 키체인을 쓸 수 없어 연결하는 토큰이 평문(base64)으로 저장되는 실행
+  const [plaintextStorage, setPlaintextStorage] = useState(false)
   // 방금 연결했으면 사라진 입력란 대신 결과 상자로 포커스를 옮긴다
   const [justConnected, setJustConnected] = useState(false)
   const linked = done || justConnected || connected.length > 0
@@ -40,10 +42,11 @@ export function AccountStep({ done, onDone }: StepProps): React.JSX.Element {
   const loadAccounts = useCallback((): void => {
     void window.nais
       .invoke('nai:listAccounts', undefined)
-      .then(({ accounts, lockReason: nextLockReason }) => {
+      .then(({ accounts, lockReason: nextLockReason, plaintextStorage: plaintext }) => {
         setConnected(accounts.map((account) => account.label))
         // 토큰은 저장돼 있지만 읽을 수 없다 — 안내와 "잠긴 토큰 삭제" 탈출구를 보여 준다
         setLockReason(nextLockReason ?? null)
+        setPlaintextStorage(plaintext === true)
       })
       .catch(() => undefined)
   }, [])
@@ -121,6 +124,7 @@ export function AccountStep({ done, onDone }: StepProps): React.JSX.Element {
         <NaiTokenStoreLockNotice
           className="mb-3 text-[13px]"
           reason={lockReason}
+          plaintextStorage={plaintextStorage}
           onCleared={loadAccounts}
         />
       )}
@@ -159,6 +163,11 @@ export function AccountStep({ done, onDone }: StepProps): React.JSX.Element {
       {status === 'fail' && (
         <p id={errorId} role="alert" className="mt-2 text-[13px] text-danger-ink">
           {error}
+        </p>
+      )}
+      {plaintextStorage && !lockReason && (
+        <p className="mt-2 text-[13px] text-danger-ink">
+          {t('ui.naiTokenPlaintextStorageWarning')}
         </p>
       )}
       <p className={FOOT_NOTE}>{t('ui.onboardingTokenPrivacy')}</p>

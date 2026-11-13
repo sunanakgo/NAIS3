@@ -61,6 +61,7 @@ import {
   getNaiToken,
   getNaiTokenInfo,
   getNaiTokenStoreLock,
+  isNaiTokenEncryptionAvailable,
   isNaiTokenStoreLocked,
   getSetting,
   setActiveNaiAccount,
@@ -189,6 +190,7 @@ async function naiAccountInfos(): Promise<{
   activeId: string | null
   locked: boolean
   lockReason: NaiTokenStoreLockReason | null
+  plaintextStorage: boolean
 }> {
   const lockReason = getNaiTokenStoreLock()
   const accounts = getNaiAccounts()
@@ -209,7 +211,13 @@ async function naiAccountInfos(): Promise<{
       }
     })
   )
-  return { accounts: infos, activeId, locked: lockReason !== null, lockReason }
+  return {
+    accounts: infos,
+    activeId,
+    locked: lockReason !== null,
+    lockReason,
+    plaintextStorage: !isNaiTokenEncryptionAvailable()
+  }
 }
 
 function naiTokenStoreLockMessage(reason: NaiTokenStoreLockReason): string {
@@ -244,7 +252,10 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     return result
   })
 
-  handle('nai:tokenStatus', () => getNaiTokenInfo())
+  handle('nai:tokenStatus', () => ({
+    ...getNaiTokenInfo(),
+    plaintextStorage: !isNaiTokenEncryptionAvailable()
+  }))
   handle('nai:revealToken', () => ({ token: getNaiToken() }))
   handle('nai:deleteToken', () => {
     deleteNaiToken()

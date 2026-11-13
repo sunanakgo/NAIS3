@@ -660,6 +660,8 @@ function AccountSection(): React.JSX.Element {
   // 저장된 토큰이 있지만 지금은 읽을 수 없는 이유 (키체인 잠김 / 값 손상)
   const [lockReason, setLockReason] = useState<NaiTokenStoreLockReason | null>(null)
   const locked = lockReason !== null
+  // OS 키체인을 쓸 수 없어 새로 저장하는 토큰이 평문(base64)으로 저장되는 실행
+  const [plaintextStorage, setPlaintextStorage] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [revealed, setRevealed] = useState<Record<string, string>>({})
   const [usage, setUsage] = useState<{ today: number; week: number } | null>(null)
@@ -675,9 +677,10 @@ function AccountSection(): React.JSX.Element {
     (includeBalance = true): void => {
       void window.nais
         .invoke('nai:listAccounts', undefined)
-        .then(({ accounts: next, lockReason: nextLockReason }) => {
+        .then(({ accounts: next, lockReason: nextLockReason, plaintextStorage: plaintext }) => {
           setAccounts(next)
           setLockReason(nextLockReason)
+          setPlaintextStorage(plaintext)
         })
       void window.nais.invoke('nai:anlasUsage', undefined).then(setUsage)
       if (includeBalance) void refreshAnlas().catch(() => undefined)
@@ -792,7 +795,11 @@ function AccountSection(): React.JSX.Element {
       </div>
 
       {lockReason && (
-        <NaiTokenStoreLockNotice reason={lockReason} onCleared={() => refresh(false)} />
+        <NaiTokenStoreLockNotice
+          reason={lockReason}
+          plaintextStorage={plaintextStorage}
+          onCleared={() => refresh(false)}
+        />
       )}
 
       <div className="grid min-w-0 grid-cols-[7rem_minmax(0,1fr)_auto] gap-1.5">
@@ -825,6 +832,9 @@ function AccountSection(): React.JSX.Element {
           {status === 'checking' ? t('ui.checking') : t('ui.add')}
         </Button>
       </div>
+      {plaintextStorage && !locked && (
+        <p className="text-[11.5px] text-danger-ink">{t('ui.naiTokenPlaintextStorageWarning')}</p>
+      )}
       {status === 'ok' && <span className="text-[12px] text-accent-ink">{message}</span>}
       {status === 'fail' && <span className="text-[12px] text-danger-ink">{message}</span>}
 

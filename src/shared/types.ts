@@ -429,6 +429,8 @@ export interface IpcInvokeMap {
       length: number
       locked: boolean
       lockReason: NaiTokenStoreLockReason | null
+      /** OS 키체인 암호화를 쓸 수 없어 새로 저장하는 토큰이 base64 평문으로 저장됨 */
+      plaintextStorage: boolean
     }
   }
   'nai:revealToken': { req: void; res: { token: string | null } }
@@ -441,6 +443,8 @@ export interface IpcInvokeMap {
       activeId: string | null
       locked: boolean
       lockReason: NaiTokenStoreLockReason | null
+      /** OS 키체인 암호화를 쓸 수 없어 새로 저장하는 토큰이 base64 평문으로 저장됨 */
+      plaintextStorage: boolean
     }
   }
   'nai:addAccount': {

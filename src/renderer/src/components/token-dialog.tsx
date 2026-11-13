@@ -758,7 +758,14 @@ function AccountSection(): React.JSX.Element {
     if (!ok) return
     setBusyId(account.id)
     try {
-      const { activeId } = await window.nais.invoke('nai:deleteAccount', { id: account.id })
+      const { activeId, locked: storeLocked } = await window.nais.invoke('nai:deleteAccount', {
+        id: account.id
+      })
+      // 저장소를 읽을 수 없어 지우지 못했다 — 잔액을 비우지 말고 잠김 안내를 다시 읽어 보여 준다
+      if (storeLocked) {
+        refresh(false)
+        return
+      }
       setRevealed((current) => {
         const next = { ...current }
         delete next[account.id]

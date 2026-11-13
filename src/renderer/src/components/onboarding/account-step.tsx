@@ -1,11 +1,12 @@
 import { ExternalLink, KeyRound } from 'lucide-react'
-import { useEffect, useId, useState } from 'react'
-import type { IpcInvokeMap } from '@shared/types'
+import { useCallback, useEffect, useId, useState } from 'react'
+import type { IpcInvokeMap, NaiTokenStoreLockReason } from '@shared/types'
 import { useT } from '../../lib/i18n'
 import { cn } from '../../lib/utils'
 import { useGenerationStore } from '../../stores/generation-store'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
+import { NaiTokenStoreLockNotice } from '../nai-token-store-lock-notice'
 import { ResultBox, type StepProps } from './parts'
 import { FOOT_NOTE, PANEL } from './styles'
 
@@ -23,6 +24,8 @@ export function AccountStep({ done, onDone }: StepProps): React.JSX.Element {
   const [error, setError] = useState('')
   // 연결된 계정 라벨 (이전 단계에서 돌아왔거나 백업에 계정이 있던 경우 포함)
   const [connected, setConnected] = useState<string[]>([])
+  // 저장된 토큰이 있지만 읽을 수 없는 이유 — 이 동안은 새 토큰을 받지 않는다
+  const [lockReason, setLockReason] = useState<NaiTokenStoreLockReason | null>(null)
   // 방금 연결했으면 사라진 입력란 대신 결과 상자로 포커스를 옮긴다
   const [justConnected, setJustConnected] = useState(false)
   const linked = done || justConnected || connected.length > 0
@@ -34,25 +37,20 @@ export function AccountStep({ done, onDone }: StepProps): React.JSX.Element {
 
   // 이미 있는 계정만 목록으로 읽는다 — 계정마다 잔액을 물어 느리고 실패할 수 있어서,
   // 방금 연결한 계정은 addAccount가 돌려준 이름으로 덧붙인다
-  useEffect(() => {
+  const loadAccounts = useCallback((): void => {
     void window.nais
       .invoke('nai:listAccounts', undefined)
-      .then(({ accounts, lockReason }) => {
+      .then(({ accounts, lockReason: nextLockReason }) => {
         setConnected(accounts.map((account) => account.label))
-        // 토큰은 저장돼 있지만 읽을 수 없다 — 키체인 잠김이면 다시 입력하지 말라고,
-        // 손상이면 지우고 다시 등록하라고 알린다
-        if (lockReason) {
-          setStatus('fail')
-          setError(
-            lockReason === 'corrupt' ? t('ui.naiTokenStoreCorrupt') : t('ui.naiTokenStoreLocked')
-          )
-        }
+        // 토큰은 저장돼 있지만 읽을 수 없다 — 안내와 "잠긴 토큰 삭제" 탈출구를 보여 준다
+        setLockReason(nextLockReason ?? null)
       })
       .catch(() => undefined)
-  }, [t])
+  }, [])
+  useEffect(loadAccounts, [loadAccounts])
 
   async function connect(): Promise<void> {
-    if (!draft.trim() || status === 'checking') return
+    if (!draft.trim() || status === 'checking' || lockReason) return
     setStatus('checking')
     let result: IpcInvokeMap['nai:addAccount']['res']
     try {
@@ -119,6 +117,13 @@ export function AccountStep({ done, onDone }: StepProps): React.JSX.Element {
           </li>
         ))}
       </ol>
+      {lockReason && (
+        <NaiTokenStoreLockNotice
+          className="mb-3 text-[13px]"
+          reason={lockReason}
+          onCleared={loadAccounts}
+        />
+      )}
       <div className="flex gap-2">
         <div className="relative min-w-0 flex-1">
           <KeyRound
@@ -132,6 +137,7 @@ export function AccountStep({ done, onDone }: StepProps): React.JSX.Element {
             autoComplete="off"
             spellCheck={false}
             aria-label={t('ui.onboardingTokenLabel')}
+            disabled={lockReason !== null}
             aria-invalid={status === 'fail'}
             aria-describedby={status === 'fail' ? errorId : undefined}
             onChange={(e) => {
@@ -144,7 +150,7 @@ export function AccountStep({ done, onDone }: StepProps): React.JSX.Element {
         <Button
           size="lg"
           className="h-12 px-6 text-[15px]"
-          disabled={!draft.trim() || status === 'checking'}
+          disabled={!draft.trim() || status === 'checking' || lockReason !== null}
           onClick={() => void connect()}
         >
           {status === 'checking' ? t('ui.checking') : t('ui.onboardingConnect')}

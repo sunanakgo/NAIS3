@@ -49,6 +49,10 @@ export function SidePageHost({ children }: { children: React.ReactNode }): React
   const page = useSidePageStore((s) => s.page)
   // 페이지가 다 넘어간 뒤에야 ready — 무거운 계산을 넘김과 같이 돌리면 메인 스레드가 막혀 끊긴다
   const [turnedTo, setTurnedTo] = useState<SidePage | null>(null)
+  // 닫히거나 다른 페이지로 바뀌면 곧바로 놓는다 — 덮이는 장은 AnimatePresence가 마지막 화면 그대로
+  // 그리므로 보이는 것은 같고, render가 연 이미지(base64)도 붙잡고 있지 않는다. exit가 끝난 뒤
+  // (onExitComplete) 놓으면 장이 DOM에서 빠진 다음이라, 그 사이 같은 페이지를 다시 열면 처음부터 ready였다
+  if (turnedTo && turnedTo !== page) setTurnedTo(null)
   const transition = useReducedMotion() ? PAGE_SWAP : PAGE_TURN
   const opener = useRef<HTMLElement | null>(null)
 
@@ -82,13 +86,7 @@ export function SidePageHost({ children }: { children: React.ReactNode }): React
       >
         {children}
       </motion.div>
-      <AnimatePresence
-        initial={false}
-        // 덮인 페이지를 계속 쥐고 있지 않게 — render가 연 이미지(base64)를 붙잡고 있다
-        onExitComplete={() =>
-          setTurnedTo((t) => (t === useSidePageStore.getState().page ? t : null))
-        }
-      >
+      <AnimatePresence initial={false}>
         {page && (
           <PageLayer
             key={pageKey(page)}

@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { app } from 'electron'
-import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'fs'
+import { mkdirSync, readdirSync, writeFileSync } from 'fs'
 import { isAbsolute, join, relative } from 'path'
 import sharp from '../sharp'
 import { isThumbnailSource, thumbnailUrl, type ThumbnailSource } from '../../shared/thumbnail-url'
@@ -184,6 +184,11 @@ export async function saveGeneratedImage(input: {
   kind:
     't2i' | 'i2i' | 'inpaint' | 'scene' | 'upscale' | 'director' | LocalEditKind | DirectorMethod
   sceneId?: number
+  /**
+   * Scene to link, read right before the INSERT. The thumbnail is made in between, and a scene
+   * deleted then (its ID possibly reused by a restore) must not get this image.
+   */
+  resolveSceneId?: () => number | undefined
   /** 저장 파일 확장자 (NAI가 반환한 실제 포맷). 기본 png */
   format?: 'png' | 'webp'
   /** 씬 생성이면 씬 이름 — 씬루트/<프리셋>/<씬 이름>/ 아래에 저장 (NAIS2 구조와 동일 계층) */
@@ -256,7 +261,7 @@ export async function saveGeneratedImage(input: {
         input.kind,
         input.seed,
         payloadWithLocalMetadata(input.sentPayload, input.localMetadata),
-        input.sceneId ?? null
+        (input.resolveSceneId ? input.resolveSceneId() : input.sceneId) ?? null
       ) as { id: number; scene_id: number | null }
 
     return {
@@ -265,8 +270,9 @@ export async function saveGeneratedImage(input: {
       ...(row.scene_id !== null ? { sceneId: row.scene_id } : {})
     }
   } catch (error) {
-    // No history row points at the file, so it would be an orphan nobody can find or delete.
-    rmSync(filePath, { force: true })
+    // Keep the file: it is the only copy of an image the Anlas were already spent on.
+    // An orphan in the save folder is better than losing it.
+    console.error('Failed to record a saved image in history:', filePath, error)
     throw error
   }
 }

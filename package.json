@@ -6,16 +6,7 @@
   "author": "sunanakgo",
   "license": "GPL-3.0",
   "homepage": "https://github.com/sunanakgo/NAIS3",
-  "packageManager": "pnpm@10.14.0",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "better-sqlite3",
-      "electron",
-      "electron-winstaller",
-      "esbuild",
-      "fsevents"
-    ]
-  },
+  "packageManager": "pnpm@11.28.11",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",

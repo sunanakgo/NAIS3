@@ -46,7 +46,9 @@ export default function App(): React.JSX.Element {
   const centerMode = useLayoutStore((s) => s.centerMode)
   const sidebarWidth = useLayoutStore((s) => s.sidebarWidth)
   const onboardingOpen = useLayoutStore((s) => s.onboardingOpen)
-  const webActive = centerMode === 'websearch'
+  const webHidden = useLayoutStore((s) => s.hiddenPages.includes('websearch'))
+  // 숨긴 웹 탭은 <webview>를 내리므로, 어떤 경로로든 그 모드에 오면 빈 화면 대신 미리보기를 보여 준다
+  const webActive = centerMode === 'websearch' && !webHidden
   const webMounted = useWebSearchKeepAlive(webActive)
   const [ready, setReady] = useState(false)
   const [resizing, setResizing] = useState(false)

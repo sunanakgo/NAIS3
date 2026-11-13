@@ -8,7 +8,12 @@ import {
   Notification,
   shell
 } from 'electron'
-import type { IpcEventMap, IpcInvokeMap, NaiAccountInfo } from '../shared/types'
+import type {
+  IpcEventMap,
+  IpcInvokeMap,
+  NaiAccountInfo,
+  NaiTokenStoreLockReason
+} from '../shared/types'
 import {
   createCharacter,
   createFolder,
@@ -55,6 +60,8 @@ import {
   getNaiAccountToken,
   getNaiToken,
   getNaiTokenInfo,
+  getNaiTokenStoreLock,
+  isNaiTokenEncryptionAvailable,
   getSetting,
   setActiveNaiAccount,
   setNaiToken,
@@ -161,6 +168,11 @@ import { basename } from 'path'
 import sharp from './sharp'
 import { verifyToken } from './nai/client'
 import { t } from './i18n'
+import {
+  catchTokenStoreLock,
+  lockedTokenStoreResult,
+  tokenStoreLockedResult
+} from './nai/token-store-lock'
 import type { GenerationQueue } from './queue/generation-queue'
 
 /** IpcInvokeMap 계약을 강제하는 handle 등록 헬퍼 */
@@ -177,7 +189,14 @@ export function broadcast<C extends keyof IpcEventMap>(channel: C, payload: IpcE
   }
 }
 
-async function naiAccountInfos(): Promise<{ accounts: NaiAccountInfo[]; activeId: string | null }> {
+async function naiAccountInfos(): Promise<{
+  accounts: NaiAccountInfo[]
+  activeId: string | null
+  locked: boolean
+  lockReason: NaiTokenStoreLockReason | null
+  plaintextStorage: boolean
+}> {
+  const lockReason = getNaiTokenStoreLock()
   const accounts = getNaiAccounts()
   const activeId = getActiveNaiAccount()?.id ?? null
   const infos = await Promise.all(
@@ -196,7 +215,13 @@ async function naiAccountInfos(): Promise<{ accounts: NaiAccountInfo[]; activeId
       }
     })
   )
-  return { accounts: infos, activeId }
+  return {
+    accounts: infos,
+    activeId,
+    locked: lockReason !== null,
+    lockReason,
+    plaintextStorage: !isNaiTokenEncryptionAvailable()
+  }
 }
 
 function localDateStamp(date = new Date()): string {
@@ -214,21 +239,32 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
 
   // 검증 성공 시에만 저장 — 잘못된 토큰이 조용히 저장되는 것 방지
   handle('nai:setToken', async ({ token }) => {
+    const locked = lockedTokenStoreResult()
+    if (locked) return locked
     const result = await verifyToken(token)
-    if (result.valid) setNaiToken(token)
-    return result
+    if (!result.valid) return result
+    return catchTokenStoreLock(() => {
+      setNaiToken(token)
+      return result
+    }, tokenStoreLockedResult)
   })
 
-  handle('nai:tokenStatus', () => getNaiTokenInfo())
+  handle('nai:tokenStatus', () => ({
+    ...getNaiTokenInfo(),
+    plaintextStorage: !isNaiTokenEncryptionAvailable()
+  }))
   handle('nai:revealToken', () => ({ token: getNaiToken() }))
   handle('nai:deleteToken', () => {
     deleteNaiToken()
   })
   handle('nai:listAccounts', () => naiAccountInfos())
   handle('nai:addAccount', async ({ token, label }) => {
+    const locked = lockedTokenStoreResult()
+    if (locked) return locked
     const result = await verifyToken(token)
     if (!result.valid) return result
-    const account = addNaiAccount(token, label)
+    const account = catchTokenStoreLock(() => addNaiAccount(token, label), tokenStoreLockedResult)
+    if (!('id' in account)) return account
     broadcast('nai:accountChanged', {
       accountId: account.id,
       reason: 'added',
@@ -237,7 +273,10 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     return { ...result, accountId: account.id, label: account.label }
   })
   handle('nai:setActiveAccount', async ({ id }) => {
-    const active = setActiveNaiAccount(id)
+    const active = catchTokenStoreLock(
+      () => setActiveNaiAccount(id),
+      () => false
+    )
     const token = active ? getNaiAccountToken(id) : null
     if (!token) return { active: false, anlas: null, tier: null }
     const balance = await fetchAnlasBalance(token)
@@ -254,11 +293,18 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     return { active: true, ...balance }
   })
   handle('nai:revealAccountToken', ({ id }) => ({ token: getNaiAccountToken(id) }))
-  handle('nai:deleteAccount', ({ id }) => {
-    const activeId = deleteNaiAccount(id)
-    broadcast('nai:accountChanged', { accountId: activeId, reason: 'deleted' })
-    return { activeId }
-  })
+  handle('nai:deleteAccount', ({ id }) =>
+    // 잠긴 동안은 계정 목록이 비어 있어 지울 대상도 없다 — 잠긴 값은 nai:deleteToken으로만 지운다.
+    // "활성 계정 없음"과 구분되도록 locked로 알린다
+    catchTokenStoreLock(
+      () => {
+        const activeId = deleteNaiAccount(id)
+        broadcast('nai:accountChanged', { accountId: activeId, reason: 'deleted' })
+        return { activeId, locked: false, lockReason: null }
+      },
+      (lockReason) => ({ activeId: null, locked: true, lockReason })
+    )
+  )
   handle('nai:balance', async () => {
     const token = getNaiToken()
     if (!token) return { anlas: null, tier: null }

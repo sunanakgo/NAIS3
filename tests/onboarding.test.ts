@@ -9,6 +9,7 @@ import { Onboarding } from '../src/renderer/src/components/onboarding'
 import { Titlebar } from '../src/renderer/src/components/titlebar'
 import { useLanguageStore } from '../src/renderer/src/lib/i18n'
 import { useGenerationStore } from '../src/renderer/src/stores/generation-store'
+import { useDialogStore } from '../src/renderer/src/stores/dialog-store'
 import { useLayoutStore } from '../src/renderer/src/stores/layout-store'
 import { useThemeStore } from '../src/renderer/src/stores/theme-store'
 import { bindShortcuts } from '../src/renderer/src/stores/shortcuts-store'
@@ -246,6 +247,72 @@ describe('onboarding flow', () => {
     expect(invoke.mock.calls.filter(([channel]) => channel === 'nai:listAccounts')).toHaveLength(1)
     expect(document.activeElement?.textContent).toContain('연결됨 — 계정 1')
     expect(button('다음').disabled).toBe(false)
+  })
+
+  it.each([
+    ['keychain', '키체인 잠금을 푼 뒤', false],
+    ['corrupt', '데이터가 손상되어', false],
+    ['keychain', '키체인 잠금을 푼 뒤', true]
+  ])(
+    'blocks new tokens and offers to clear them when the saved tokens are unreadable (%s, plaintext %s)',
+    async (lockReason, message, plaintextStorage) => {
+      let storeLock: string | null = lockReason
+      const base = invoke.getMockImplementation()!
+      invoke.mockImplementation(async (channel: string, request?: Record<string, string>) => {
+        if (channel === 'nai:listAccounts') {
+          return {
+            accounts,
+            activeId: null,
+            locked: storeLock !== null,
+            lockReason: storeLock,
+            plaintextStorage
+          }
+        }
+        if (channel === 'nai:deleteToken') {
+          storeLock = null
+          return undefined
+        }
+        return base(channel, request)
+      })
+      await act(async () => root.render(h(Onboarding)))
+      await next(5)
+
+      const input = container.querySelector<HTMLInputElement>(
+        'input[aria-label="NovelAI API 토큰"]'
+      )!
+      expect(input.disabled).toBe(true)
+      expect(button('연결').disabled).toBe(true)
+      expect(container.querySelector('[role="alert"]')?.textContent).toContain(message)
+
+      await click('잠긴 토큰 삭제')
+      const confirm = useDialogStore.getState().confirm
+      expect(confirm?.title).toBe('잠긴 토큰 삭제')
+      // 키체인 없는 실행이면 지운 뒤 다시 넣는 토큰이 평문으로 저장된다고 먼저 경고한다
+      expect(confirm?.message?.includes('암호화되지 않은 채')).toBe(plaintextStorage)
+      expect(invoke).not.toHaveBeenCalledWith('nai:deleteToken', undefined)
+      await act(async () => useDialogStore.getState()._resolveConfirm(true))
+
+      expect(invoke).toHaveBeenCalledWith('nai:deleteToken', undefined)
+      expect(container.textContent).not.toContain('잠긴 토큰 삭제')
+      expect(input.disabled).toBe(false)
+      expect(container.textContent?.includes('암호화되지 않은 채')).toBe(plaintextStorage)
+    }
+  )
+
+  it('warns before connecting when tokens would be saved without the OS keychain', async () => {
+    const base = invoke.getMockImplementation()!
+    invoke.mockImplementation(async (channel: string, request?: Record<string, string>) => {
+      if (channel === 'nai:listAccounts') {
+        return { accounts, activeId: null, locked: false, lockReason: null, plaintextStorage: true }
+      }
+      return base(channel, request)
+    })
+    await act(async () => root.render(h(Onboarding)))
+    await next(5)
+
+    expect(container.textContent).toContain('암호화되지 않은 채(base64 인코딩만)')
+    const input = container.querySelector<HTMLInputElement>('input[aria-label="NovelAI API 토큰"]')!
+    expect(input.disabled).toBe(false)
   })
 
   it('moves focus to the heading of each new step', async () => {

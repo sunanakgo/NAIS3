@@ -152,10 +152,11 @@ export function Onboarding(): React.JSX.Element {
           >
             <section
               aria-label={t('ui.onboardingWelcomeTitle')}
-              className="relative isolate flex h-full max-h-[720px] w-full max-w-[880px] flex-col overflow-hidden rounded-2xl"
+              className="relative isolate flex h-full max-h-[720px] w-full max-w-[880px] flex-col rounded-2xl"
               style={{ zoom }}
             >
-              {/* 카드 바탕 — 로고가 앉은 뒤에 드러난다. 내용 뒤에 깔리도록 맨 아래 층 */}
+              {/* 카드 바탕 — 로고가 앉은 뒤에 드러난다. 내용 뒤에 깔리도록 맨 아래 층.
+                  section에 overflow-hidden을 두면 이 층의 shadow가 잘리므로 두지 않는다 */}
               <motion.div
                 aria-hidden
                 className="absolute inset-0 -z-10 rounded-2xl border border-line bg-surface shadow-xl"

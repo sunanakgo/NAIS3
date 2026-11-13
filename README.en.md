@@ -6,6 +6,7 @@
 
 **NovelAI Image Studio 3** — A desktop app for NovelAI image generation
 
+[![Discord](https://img.shields.io/badge/Discord-Contact-5865F2?logo=discord&logoColor=white)](https://discord.gg/29XXFxHhyu)
 [![Patreon](https://img.shields.io/badge/Patreon-Support-FF424D?logo=patreon&logoColor=white)](https://www.patreon.com/c/sunakgo)
 [![License](https://img.shields.io/badge/License-GPL--3.0-blue)](LICENSE)
 
@@ -72,8 +73,9 @@ Translations are managed in per-language catalogs with stable message IDs.
 See the [translation contribution guide](CONTRIBUTING.md) for instructions on editing text and adding languages.
 Validate translation changes with `pnpm i18n:check`.
 
-## Support
+## Contact & support
 
+- 💬 **Discord**: <https://discord.gg/29XXFxHhyu>
 - ❤️ **Patreon**: <https://www.patreon.com/c/sunakgo>
 
 ## Thanks to

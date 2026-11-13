@@ -1,4 +1,4 @@
-import { opusUsagePurchasedPercent } from '../../shared/anlas'
+import { isOpusUsageDepleted } from '../../shared/anlas'
 import { inpaintingModelFor, isV5Model } from '../../shared/nai-models'
 import type { GenerationRequest, OpusUsageStatus, SubscriptionInfo } from '../../shared/types'
 import {
@@ -25,19 +25,10 @@ export interface NaiAccountSelection {
   rotated: boolean
 }
 
-/** 일반 게이지를 다 쓰면 Extra Usage(부스트)를 이어서 쓴다. */
-function remainingOpusUsage(usage: OpusUsageStatus): number {
-  return Math.max(0, usage.percent) + opusUsagePurchasedPercent(usage)
-}
-
 /** 구독이 만료된 계정도 게이지를 쓸 수 없으니 소진된 것과 같이 다른 계정을 찾는다. */
 export function isOpusUsageExhausted(balance: NaiAccountBalance): boolean {
   if (balance.expired) return true
-  return (
-    balance.tier === 'opus' &&
-    !!balance.usage &&
-    (balance.usage.isNegative || remainingOpusUsage(balance.usage) <= 0)
-  )
+  return balance.tier === 'opus' && !!balance.usage && isOpusUsageDepleted(balance.usage)
 }
 
 /** 실제 서버에 전달될 모델이 V5 충전 게이지를 쓰는지 판정한다. */
@@ -47,12 +38,7 @@ export function requestUsesV5Usage(request: GenerationRequest): boolean {
 }
 
 function hasAvailableOpusUsage(balance: NaiAccountBalance): boolean {
-  return (
-    balance.tier === 'opus' &&
-    !!balance.usage &&
-    !balance.usage.isNegative &&
-    remainingOpusUsage(balance.usage) > 0
-  )
+  return balance.tier === 'opus' && !!balance.usage && !isOpusUsageDepleted(balance.usage)
 }
 
 /**

@@ -17,6 +17,7 @@ import {
   effectiveGenerationStrength,
   estimateAnlas,
   formatAnlasEstimate,
+  isOpusUsageDepleted,
   type AnlasEstimateInput
 } from '@shared/anlas'
 import { formatAnlasPaidReasons, generationCharge } from '@shared/anlas-guard'
@@ -187,7 +188,8 @@ export function PromptPanel(): React.JSX.Element {
       ),
       charRefCount: capabilities.characterReferences ? enabledCrefs : 0,
       isOpus: subscriptionTier === 'opus',
-      opusUsageExhausted: opusUsage?.isNegative,
+      // 메인 판정(isOpusUsageExhausted)과 같은 기준이어야 미리 알림이 실제 차단과 맞는다
+      opusUsageExhausted: opusUsage ? isOpusUsageDepleted(opusUsage) : undefined,
       batchCount,
       vibeCount: capabilities.vibes ? enabledVibes : 0,
       unencodedVibes: capabilities.vibes ? unencodedVibes : 0

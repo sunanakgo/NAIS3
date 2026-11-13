@@ -158,6 +158,56 @@ function validateRows(database: BackupDatabaseV1): Partial<Record<BackupTableNam
   return result
 }
 
+/**
+ * Generation history (`images`) is not part of a backup, but `images.scene_id` references
+ * `gen_scenes(id) ON DELETE SET NULL`. Replacing `gen_scenes` during restore would therefore
+ * unlink every image from its scene. A `PRAGMA foreign_key_list` audit of every table after
+ * all migrations shows this is the only foreign key from a table outside BACKUP_TABLES into
+ * one inside it (the folder links point between backup tables, and gen_scenes.preset_id has
+ * no declared FK), so nothing else is nulled or cascaded.
+ *
+ * A link is put back only when the restored data holds what is recognisably the same scene:
+ * the same id and the same creation time. A numeric id alone is not trusted, because a backup
+ * from another machine or an older state can reuse an id for an unrelated scene; such images
+ * stay unlinked (NULL) rather than joining the wrong gallery. `created_at` is set once when the
+ * scene is created, never edited, and travels in every backup, so it tells those scenes apart.
+ * Names are deliberately not compared: renaming a scene or its preset after taking the backup
+ * must not unlink the scene's own images.
+ * Scene covers and image counts are derived from `images.scene_id` by the scene queries,
+ * so restoring the links keeps them consistent as well.
+ */
+const SCENE_IDENTITY_SQL = 'SELECT id, created_at FROM gen_scenes'
+
+function captureSceneLinks(db: ReturnType<typeof getDb>): {
+  /** created_at of every scene before the restore, by id */
+  scenes: Map<number, string>
+  images: { id: number; scene_id: number }[]
+} {
+  const images = db.prepare('SELECT id, scene_id FROM images WHERE scene_id IS NOT NULL').all() as {
+    id: number
+    scene_id: number
+  }[]
+  const rows = db.prepare(SCENE_IDENTITY_SQL).all() as { id: number; created_at: string }[]
+  return { scenes: new Map(rows.map((row) => [row.id, row.created_at])), images }
+}
+
+/** Relink images to scenes that survived the restore; returns the ids of those scenes. */
+function restoreSceneLinks(
+  db: ReturnType<typeof getDb>,
+  captured: ReturnType<typeof captureSceneLinks>
+): Set<number> {
+  const restoredCreatedAt = db.prepare('SELECT created_at FROM gen_scenes WHERE id = ?').pluck()
+  const same = new Set<number>()
+  for (const [id, createdAt] of captured.scenes) {
+    if (restoredCreatedAt.get(id) === createdAt) same.add(id)
+  }
+  const relink = db.prepare('UPDATE images SET scene_id = ? WHERE id = ?')
+  for (const image of captured.images) {
+    if (same.has(image.scene_id)) relink.run(image.scene_id, image.id)
+  }
+  return same
+}
+
 /** Restore a validated snapshot, replacing only the tables declared by that format. */
 export function restoreBackupDatabase(database: BackupDatabaseV1): { imported: number } {
   const tables = validateRows(database)
@@ -187,10 +237,9 @@ export function restoreBackupDatabase(database: BackupDatabaseV1): { imported: n
     let imported = 0
     const db = getDb()
     const included = new Set(database.includedTables)
-    const replacedScenes = included.has('gen_scenes')
-      ? (db.prepare('SELECT id FROM gen_scenes').all() as { id: number }[])
-      : []
+    let replacedSceneIds: number[] = []
     const transaction = db.transaction(() => {
+      const sceneLinks = included.has('gen_scenes') ? captureSceneLinks(db) : null
       for (const table of [...BACKUP_TABLES].reverse()) {
         if (included.has(table)) db.prepare(`DELETE FROM ${table}`).run()
       }
@@ -206,17 +255,18 @@ export function restoreBackupDatabase(database: BackupDatabaseV1): { imported: n
           imported++
         }
       }
+      if (sceneLinks) {
+        // A scene that is recognisably the same keeps its links and its queued jobs; only the
+        // ones that were really replaced count as deleted for the generation queue.
+        const kept = restoreSceneLinks(db, sceneLinks)
+        replacedSceneIds = [...sceneLinks.scenes.keys()].filter((id) => !kept.has(id))
+      }
       if (typeof database.mainParams === 'string') {
         setSetting('main_params', database.mainParams)
       }
     })
     transaction()
-    if (replacedScenes.length > 0) {
-      sceneEvents.emit(
-        'deleted',
-        replacedScenes.map((scene) => scene.id)
-      )
-    }
+    if (replacedSceneIds.length > 0) sceneEvents.emit('deleted', replacedSceneIds)
     return { imported }
   } catch (error) {
     if (wroteFiles && existsSync(importRoot)) {

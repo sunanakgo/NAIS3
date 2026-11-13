@@ -156,6 +156,13 @@ export interface SubscriptionInfo {
   expired?: boolean
 }
 
+/**
+ * 저장된 NAI 토큰을 지금 쓸 수 없는 이유.
+ * keychain = OS 키체인이 잠겨 해독할 수 없음 (잠금을 풀고 재시작하면 돌아온다),
+ * corrupt = 해독은 되지만 내용이 손상됨 (삭제 후 다시 등록해야 한다).
+ */
+export type NaiTokenStoreLockReason = 'keychain' | 'corrupt'
+
 /** 렌더러에 노출되는 NAI 계정 메타. 실제 토큰은 명시적으로 공개할 때만 전달한다. */
 export interface NaiAccountInfo {
   id: string
@@ -416,11 +423,36 @@ export interface IpcInvokeMap {
     req: { token: string }
     res: { valid: boolean; subscription?: SubscriptionInfo; error?: string }
   }
-  'nai:tokenStatus': { req: void; res: { hasToken: boolean; prefix: string; length: number } }
+  /**
+   * locked = 저장된 토큰이 있지만 지금은 읽을 수 없어 변경을 거부함, lockReason = 그 이유
+   * (locked가 false면 null)
+   */
+  'nai:tokenStatus': {
+    req: void
+    res: {
+      hasToken: boolean
+      prefix: string
+      length: number
+      locked: boolean
+      lockReason: NaiTokenStoreLockReason | null
+      /** OS 키체인 암호화를 쓸 수 없어 새로 저장하는 토큰이 base64 평문으로 저장됨 */
+      plaintextStorage: boolean
+    }
+  }
   'nai:revealToken': { req: void; res: { token: string | null } }
   'nai:deleteToken': { req: void; res: void }
   /** 암호화 저장된 NAI 계정 목록과 각 계정의 현재 구독 상태 */
-  'nai:listAccounts': { req: void; res: { accounts: NaiAccountInfo[]; activeId: string | null } }
+  'nai:listAccounts': {
+    req: void
+    res: {
+      accounts: NaiAccountInfo[]
+      activeId: string | null
+      locked: boolean
+      lockReason: NaiTokenStoreLockReason | null
+      /** OS 키체인 암호화를 쓸 수 없어 새로 저장하는 토큰이 base64 평문으로 저장됨 */
+      plaintextStorage: boolean
+    }
+  }
   'nai:addAccount': {
     req: { token: string; label?: string }
     res: {
@@ -442,7 +474,18 @@ export interface IpcInvokeMap {
     }
   }
   'nai:revealAccountToken': { req: { id: string }; res: { token: string | null } }
-  'nai:deleteAccount': { req: { id: string }; res: { activeId: string | null } }
+  /**
+   * locked = 저장된 토큰을 읽을 수 없어 지우지 않음 (activeId: null이 "활성 계정 없음"과 구분되도록).
+   * 잠긴 값은 nai:deleteToken으로만 지운다
+   */
+  'nai:deleteAccount': {
+    req: { id: string }
+    res: {
+      activeId: string | null
+      locked: boolean
+      lockReason: NaiTokenStoreLockReason | null
+    }
+  }
   /** 잔액 조회 (스냅샷 로그에도 기록) */
   'nai:balance': {
     req: void

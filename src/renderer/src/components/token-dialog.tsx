@@ -23,7 +23,7 @@ import {
 } from '@shared/anlas'
 import { normalizeDailyAnlasCap } from '@shared/anlas-guard'
 import { isLang, LANGUAGES, SUPPORTED_LANGUAGES, type MessageId } from '@shared/i18n'
-import type { NaiAccountInfo } from '@shared/types'
+import type { NaiAccountInfo, NaiTokenStoreLockReason } from '@shared/types'
 import discordSvg from '../assets/discord.svg'
 import nais3Logo from '../assets/nais3-logo.svg'
 import { importBackup } from '../lib/backup-import'
@@ -46,6 +46,7 @@ import {
   useShortcutsStore,
   type ShortcutAction
 } from '../stores/shortcuts-store'
+import { NaiTokenStoreLockNotice } from './nai-token-store-lock-notice'
 import { ThemeToggle } from './theme-toggle'
 import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
@@ -729,6 +730,11 @@ function AccountSection(): React.JSX.Element {
   const [status, setStatus] = useState<'idle' | 'checking' | 'ok' | 'fail'>('idle')
   const [message, setMessage] = useState('')
   const [accounts, setAccounts] = useState<NaiAccountInfo[]>([])
+  // 저장된 토큰이 있지만 지금은 읽을 수 없는 이유 (키체인 잠김 / 값 손상)
+  const [lockReason, setLockReason] = useState<NaiTokenStoreLockReason | null>(null)
+  const locked = lockReason !== null
+  // OS 키체인을 쓸 수 없어 새로 저장하는 토큰이 평문(base64)으로 저장되는 실행
+  const [plaintextStorage, setPlaintextStorage] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [revealed, setRevealed] = useState<Record<string, string>>({})
   const [usage, setUsage] = useState<{ today: number; week: number } | null>(null)
@@ -742,9 +748,13 @@ function AccountSection(): React.JSX.Element {
 
   const refresh = useCallback(
     (includeBalance = true): void => {
-      void window.nais.invoke('nai:listAccounts', undefined).then(({ accounts: next }) => {
-        setAccounts(next)
-      })
+      void window.nais
+        .invoke('nai:listAccounts', undefined)
+        .then(({ accounts: next, lockReason: nextLockReason, plaintextStorage: plaintext }) => {
+          setAccounts(next)
+          setLockReason(nextLockReason)
+          setPlaintextStorage(plaintext)
+        })
       void window.nais.invoke('nai:anlasUsage', undefined).then(setUsage)
       if (includeBalance) void refreshAnlas().catch(() => undefined)
     },
@@ -821,7 +831,14 @@ function AccountSection(): React.JSX.Element {
     if (!ok) return
     setBusyId(account.id)
     try {
-      const { activeId } = await window.nais.invoke('nai:deleteAccount', { id: account.id })
+      const { activeId, locked: storeLocked } = await window.nais.invoke('nai:deleteAccount', {
+        id: account.id
+      })
+      // 저장소를 읽을 수 없어 지우지 못했다 — 잔액을 비우지 말고 잠김 안내를 다시 읽어 보여 준다
+      if (storeLocked) {
+        refresh(false)
+        return
+      }
       setRevealed((current) => {
         const next = { ...current }
         delete next[account.id]
@@ -857,12 +874,21 @@ function AccountSection(): React.JSX.Element {
         </p>
       </div>
 
+      {lockReason && (
+        <NaiTokenStoreLockNotice
+          reason={lockReason}
+          plaintextStorage={plaintextStorage}
+          onCleared={() => refresh(false)}
+        />
+      )}
+
       <div className="grid min-w-0 grid-cols-[7rem_minmax(0,1fr)_auto] gap-1.5">
         <Input
           className="w-28 shrink-0"
           value={label}
           placeholder={t('ui.accountValue', accounts.length + 1)}
           maxLength={60}
+          disabled={locked}
           onChange={(e) => setLabel(e.target.value)}
         />
         <Input
@@ -871,21 +897,29 @@ function AccountSection(): React.JSX.Element {
           placeholder="pst-..."
           autoComplete="off"
           spellCheck={false}
+          disabled={locked}
           onChange={(e) => {
             setDraft(e.target.value)
             setStatus('idle')
           }}
           onKeyDown={(e) => e.key === 'Enter' && void addAccount()}
         />
-        <Button variant="accent" disabled={status === 'checking'} onClick={() => void addAccount()}>
+        <Button
+          variant="accent"
+          disabled={status === 'checking' || locked}
+          onClick={() => void addAccount()}
+        >
           {status === 'checking' ? t('ui.checking') : t('ui.add')}
         </Button>
       </div>
+      {plaintextStorage && !locked && (
+        <p className="text-[11.5px] text-danger-ink">{t('ui.naiTokenPlaintextStorageWarning')}</p>
+      )}
       {status === 'ok' && <span className="text-[12px] text-accent-ink">{message}</span>}
       {status === 'fail' && <span className="text-[12px] text-danger-ink">{message}</span>}
 
       <div className="min-w-0 space-y-1.5">
-        {accounts.length === 0 ? (
+        {accounts.length === 0 && !locked ? (
           <div className="rounded-lg border border-dashed border-line p-4 text-center text-[11.5px] text-faint">
             {t('ui.noAccountsRegistered')}
           </div>

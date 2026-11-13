@@ -227,6 +227,8 @@ describe('cancelled scene reservations', () => {
         id: sceneId,
         preset_id: 1,
         name: 'Imported',
+        // Another scene that only reuses the id: it was created at another time
+        created_at: '2001-01-01 00:00:00',
         reserve_count: 3,
         reserve_json: JSON.stringify({ 'cast-a': 3 })
       }

@@ -289,12 +289,18 @@ const startup = app.whenReady().then(async () => {
           signal
         )
 
-    const scene = request.sceneId ? getScene(request.sceneId) : null
+    // Read the scene at save time from the queue-owned request: deleting the scene during
+    // generation clears its sceneId (SQLite may hand the ID to a new scene). A scene that is
+    // gone anyway saves to plain history instead of failing after the Anlas were spent.
+    const sceneJob = request.sceneId !== undefined
+    const scene = rawRequest.sceneId ? getScene(rawRequest.sceneId) : null
+    const sceneId = scene ? scene.id : undefined
     const localMetadata = localPromptMetadata(request)
 
     // 자동저장 OFF: 메인 생성은 파일로 저장하지 않는다 — 원본은 메모리(최근 20장)에만,
     // 히스토리에는 썸네일 행으로 남는다 (NAIS2 방식). 씬 생성은 항상 씬 폴더에 저장.
-    const ephemeral = !scene && getSetting('auto_save') === '0'
+    // A scene job whose scene was deleted still keeps its paid original on disk.
+    const ephemeral = !sceneJob && getSetting('auto_save') === '0'
     const saved = ephemeral
       ? await saveEphemeralImage({
           png,
@@ -309,14 +315,9 @@ const startup = app.whenReady().then(async () => {
           png,
           sentPayload,
           seed: request.seed,
-          kind: request.sceneId
-            ? 'scene'
-            : source
-              ? source.maskBase64
-                ? 'inpaint'
-                : 'i2i'
-              : 't2i',
-          sceneId: request.sceneId,
+          kind: sceneJob ? 'scene' : source ? (source.maskBase64 ? 'inpaint' : 'i2i') : 't2i',
+          sceneId,
+          resolveSceneId: () => rawRequest.sceneId,
           format: imageFormat,
           sceneName: scene?.name,
           scenePresetName: scene ? (getPresetName(scene.presetId) ?? undefined) : undefined,
@@ -324,8 +325,8 @@ const startup = app.whenReady().then(async () => {
         })
 
     // 씬 생성이면 해당 씬 갱신 알림 (목록 썸네일/개수, 상세 이미지 갱신용)
-    if (request.sceneId)
-      broadcast('scenes:changed', { sceneId: request.sceneId, filePath: saved.filePath })
+    if (saved.sceneId)
+      broadcast('scenes:changed', { sceneId: saved.sceneId, filePath: saved.filePath })
 
     // 생성 후 잔액 갱신 (실사용량 추적의 진실 공급원) — 실패해도 생성 흐름엔 영향 없음
     void fetchAnlasBalance(token).then(({ anlas, tier, usage }) => {
@@ -351,7 +352,8 @@ const startup = app.whenReady().then(async () => {
   registerIpcHandlers({ dbVersion, queue })
 
   app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
+    // zoom: false(기본값)는 Cmd/Ctrl+'-'만 막고 Cmd/Ctrl+'='는 그대로 둬서 확대만 되고 축소가 안 됐다
+    optimizer.watchWindowShortcuts(window, { zoom: true })
   })
 
   // mac dock 아이콘 (dev 미리보기용 — 패키징 앱은 icns 사용)

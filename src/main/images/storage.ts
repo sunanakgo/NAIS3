@@ -17,6 +17,8 @@ import { getSetting } from '../db/settings'
 export interface SavedImage {
   id: number
   filePath: string
+  /** Scene the row was actually linked to (absent when none, or when the scene was gone) */
+  sceneId?: number
 }
 
 /** 기본 저장 폴더 (설정 미지정 시) */
@@ -182,6 +184,11 @@ export async function saveGeneratedImage(input: {
   kind:
     't2i' | 'i2i' | 'inpaint' | 'scene' | 'upscale' | 'director' | LocalEditKind | DirectorMethod
   sceneId?: number
+  /**
+   * Scene to link, read right before the INSERT. The thumbnail is made in between, and a scene
+   * deleted then (its ID possibly reused by a restore) must not get this image.
+   */
+  resolveSceneId?: () => number | undefined
   /** 저장 파일 확장자 (NAI가 반환한 실제 포맷). 기본 png */
   format?: 'png' | 'webp'
   /** 씬 생성이면 씬 이름 — 씬루트/<프리셋>/<씬 이름>/ 아래에 저장 (NAIS2 구조와 동일 계층) */
@@ -233,26 +240,41 @@ export async function saveGeneratedImage(input: {
     filePath = writeNewFile(monthDir, `NAIS3_${stamp}_${input.seed}`, ext, fileBuffer)
   }
 
-  // 썸네일: 카드가 커질 수 있어 640px로 (화질 열화 방지). webp q90
-  const thumbnail = await sharp(input.png)
-    .resize(640, 640, { fit: 'inside' })
-    .webp({ quality: 90 })
-    .toBuffer()
+  try {
+    // 썸네일: 카드가 커질 수 있어 640px로 (화질 열화 방지). webp q90
+    const thumbnail = await sharp(input.png)
+      .resize(640, 640, { fit: 'inside' })
+      .webp({ quality: 90 })
+      .toBuffer()
 
-  const result = getDb()
-    .prepare(
-      'INSERT INTO images (file_path, thumbnail, kind, seed, payload_json, scene_id) VALUES (?, ?, ?, ?, ?, ?)'
-    )
-    .run(
+    // The scene can be deleted while the thumbnail is made. Linking only a scene that still
+    // exists keeps the INSERT from failing on images.scene_id's foreign key.
+    const row = getDb()
+      .prepare(
+        `INSERT INTO images (file_path, thumbnail, kind, seed, payload_json, scene_id)
+         VALUES (?, ?, ?, ?, ?, (SELECT id FROM gen_scenes WHERE id = ?))
+         RETURNING id, scene_id`
+      )
+      .get(
+        filePath,
+        thumbnail,
+        input.kind,
+        input.seed,
+        payloadWithLocalMetadata(input.sentPayload, input.localMetadata),
+        (input.resolveSceneId ? input.resolveSceneId() : input.sceneId) ?? null
+      ) as { id: number; scene_id: number | null }
+
+    return {
+      id: Number(row.id),
       filePath,
-      thumbnail,
-      input.kind,
-      input.seed,
-      payloadWithLocalMetadata(input.sentPayload, input.localMetadata),
-      input.sceneId ?? null
-    )
-
-  return { id: Number(result.lastInsertRowid), filePath }
+      ...(row.scene_id !== null ? { sceneId: row.scene_id } : {})
+    }
+  } catch (error) {
+    // Keep the file: it is the only copy of an image the Anlas were already spent on.
+    // An orphan in the save folder is better than losing it.
+    console.error('Failed to record a saved image in history:', filePath, error)
+    throw error
+  }
 }
 
 /**

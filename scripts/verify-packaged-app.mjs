@@ -133,8 +133,9 @@ if (platform === 'linux') {
 // The app migrates the database in a worker thread (src/main/db/migrate.worker.ts). Run the
 // shipped worker from app.asar: it must load better-sqlite3 inside a worker and apply every
 // migration. The target version comes from the worker itself, which rejects a newer database.
+// electron-vite 6 emits ?modulePath workers under out/main/chunks/; older versions used out/main/.
 const [migrationWorker, ...extraWorkers] = listPackage(asar, { isPack: false }).filter((file) =>
-  /^[\\/]out[\\/]main[\\/]migrate\.worker-[^\\/]+\.js$/.test(file)
+  /^[\\/]out[\\/]main[\\/](?:chunks[\\/])?migrate\.worker-[^\\/]+\.js$/.test(file)
 )
 assert.ok(migrationWorker && extraWorkers.length === 0, 'Expected one packaged migration worker')
 const workspace = mkdtempSync(join(tmpdir(), 'nais3-packaged-worker-'))

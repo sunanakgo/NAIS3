@@ -11,6 +11,7 @@ import {
   importNais,
   restoreBackupDatabase
 } from '../src/main/backup/repo'
+import { sceneEvents } from '../src/main/scenes/events'
 import { createPreset, createScene, listScenes } from '../src/main/scenes/repo'
 
 const environment = vi.hoisted(() => ({ directory: '' }))
@@ -108,19 +109,19 @@ describe('backup restore keeps generation history linked to scenes', () => {
     expect(sceneSummary()).toEqual(before)
   })
 
-  it('does not re-link images to a scene that kept its id but has another name', () => {
+  it('keeps the links of a scene renamed after the backup was taken', () => {
     const { database } = captureBackupDatabase()
     const scenes = database.tables.gen_scenes ?? []
     const row = scenes.find((scene) => scene.id === sceneA)
     expect(row).toBeDefined()
-    row!.name = 'Someone else’s scene'
+    row!.name = 'Old name'
 
     restoreBackupDatabase(database)
 
-    for (const id of imagesA) expect(sceneOf(id)).toBeNull()
+    for (const id of imagesA) expect(sceneOf(id)).toBe(sceneA)
     expect(sceneOf(imageB)).toBe(sceneB)
     const renamed = sceneSummary().find((scene) => scene.id === sceneA)
-    expect(renamed).toMatchObject({ name: 'Someone else’s scene', imageCount: 0, cover: '' })
+    expect(renamed).toMatchObject({ name: 'Old name', imageCount: 3 })
   })
 
   it('does not re-link images to an unrelated scene that only shares the id and names', () => {
@@ -137,7 +138,7 @@ describe('backup restore keeps generation history linked to scenes', () => {
     expect(sceneOf(imageB)).toBe(sceneB)
   })
 
-  it('does not re-link images when the scene preset has another name', () => {
+  it('keeps the links when the scene preset was renamed after the backup', () => {
     const { database } = captureBackupDatabase()
     const preset = (database.tables.scene_presets ?? []).find((row) => row.id === presetId)
     expect(preset).toBeDefined()
@@ -145,7 +146,23 @@ describe('backup restore keeps generation history linked to scenes', () => {
 
     restoreBackupDatabase(database)
 
-    for (const id of [...imagesA, imageB]) expect(sceneOf(id)).toBeNull()
+    for (const id of imagesA) expect(sceneOf(id)).toBe(sceneA)
+    expect(sceneOf(imageB)).toBe(sceneB)
+  })
+
+  it('reports only the scenes that were really replaced as deleted', () => {
+    const { database } = captureBackupDatabase()
+    const row = (database.tables.gen_scenes ?? []).find((scene) => scene.id === sceneA)
+    row!.created_at = '2001-01-01 00:00:00'
+    const deleted: number[][] = []
+    const onDeleted = (ids: number[]): void => void deleted.push(ids)
+    sceneEvents.on('deleted', onDeleted)
+    try {
+      restoreBackupDatabase(database)
+    } finally {
+      sceneEvents.off('deleted', onDeleted)
+    }
+    expect(deleted).toEqual([[sceneA]])
   })
 
   it('leaves the link NULL when the backup lacks the scene', () => {

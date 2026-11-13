@@ -1,5 +1,6 @@
 import { safeStorage } from 'electron'
 import { randomUUID } from 'crypto'
+import type { NaiTokenStoreLockReason } from '../../shared/types'
 import { getDb } from './index'
 
 export function getSetting(key: string): string | null {
@@ -52,23 +53,35 @@ function encrypt(value: string): string {
 }
 
 /**
- * 해독 성공 = 문자열, 값이 있지만 지금은 읽을 수 없음 = null (잠김).
+ * 해독 결과. ok = 읽음, locked = 지금은 열 수 없음(키체인 잠김), corrupt = 열렸지만 내용이 손상됨.
  * 값은 암호문일 수도, 키체인이 없던 실행이 쓴 평문 폴백일 수도 있다. 평문으로 읽은 값은
  * 검증을 통과해야 쓴다 — 키체인을 못 여는 실행이 암호문을 평문으로 오인하고
  * 그 쓰레기 값으로 원본을 덮어쓰지 않도록.
  */
-function decrypt(value: string, isValidPlaintext: (plaintext: string) => boolean): string | null {
+type DecryptResult = { status: 'ok'; plaintext: string } | { status: 'locked' | 'corrupt' }
+
+/** safeStorage(OSCrypt) 암호문은 플랫폼과 무관하게 'v10'/'v11' 같은 머리로 시작한다 */
+function looksEncrypted(buf: Buffer): boolean {
+  return /^v1\d$/.test(buf.subarray(0, 3).toString('latin1'))
+}
+
+function decrypt(value: string, isValidPlaintext: (plaintext: string) => boolean): DecryptResult {
   const buf = Buffer.from(value, 'base64')
+  // 키체인이 값을 실제로 열었는데도 검증에 실패했다면 잠김이 아니라 손상이다
+  let opened = false
   if (safeStorage.isEncryptionAvailable()) {
     try {
       const plaintext = safeStorage.decryptString(buf)
-      if (isValidPlaintext(plaintext)) return plaintext
+      if (isValidPlaintext(plaintext)) return { status: 'ok', plaintext }
+      opened = true
     } catch {
       // 평문 폴백이었는지 아래에서 검증한다
     }
   }
   const plaintext = buf.toString('utf-8')
-  return isValidPlaintext(plaintext) ? plaintext : null
+  if (isValidPlaintext(plaintext)) return { status: 'ok', plaintext }
+  // 암호문처럼 보이는데 열지 못했으면 키체인 문제로 본다 (덮어쓰면 안 되는 쪽으로 보수적으로)
+  return { status: opened || !looksEncrypted(buf) ? 'corrupt' : 'locked' }
 }
 
 function parseAccountState(plaintext: string): StoredNaiAccountState | null {
@@ -124,58 +137,79 @@ function saveNaiAccountState(state: StoredNaiAccountState): void {
 }
 
 interface LoadedNaiAccountState {
-  locked: boolean
+  /** 저장된 토큰을 지금 쓸 수 없는 이유. null = 정상 */
+  lock: NaiTokenStoreLockReason | null
   state: StoredNaiAccountState
 }
 
 const EMPTY_STATE = (): StoredNaiAccountState => ({ version: 1, activeId: null, accounts: [] })
 
 /**
- * 읽기 경로. 저장된 값이 있는데 해독·파싱할 수 없으면 "잠김"으로 보고 아무것도 쓰지 않는다
- * (키체인이 잠긴 실행 한 번이 저장된 토큰을 영구히 덮어쓰지 않도록).
- * 쓰기는 다계정 키가 아예 없을 때의 구버전 단일 토큰 이전뿐이다.
+ * 읽기 경로. 저장된 값이 있는데 쓸 수 없으면 잠김(keychain) 또는 손상(corrupt)으로 보고하고
+ * 아무것도 쓰지 않는다 (키체인이 잠긴 실행 한 번이 저장된 토큰을 영구히 덮어쓰지 않도록).
+ * 쓰기는 구버전 단일 토큰 키로 다계정 키를 만들 때뿐이다 — 다계정 키가 아예 없거나,
+ * 해독은 되지만 내용이 손상돼 되살릴 수 없을 때. 해독하지 못한 값은 절대 덮어쓰지 않는다.
  */
 function loadNaiAccountState(): LoadedNaiAccountState {
   const stored = getSetting(ACCOUNTS_KEY)
   if (stored !== null) {
-    const plaintext = decrypt(stored, isValidAccountStateText)
-    const parsed = plaintext === null ? null : parseAccountState(plaintext)
-    return parsed ? { locked: false, state: parsed } : { locked: true, state: EMPTY_STATE() }
+    const result = decrypt(stored, isValidAccountStateText)
+    const parsed = result.status === 'ok' ? parseAccountState(result.plaintext) : null
+    if (parsed) return { lock: null, state: parsed }
+    if (result.status !== 'corrupt') return { lock: 'keychain', state: EMPTY_STATE() }
+    // 손상된 다계정 값은 구버전 단일 토큰이 읽히면 그것으로 복구한다
   }
 
   const legacy = getSetting(TOKEN_KEY)
-  if (legacy === null) return { locked: false, state: EMPTY_STATE() }
-  const token = decrypt(legacy, isSaneToken)?.trim()
-  if (!token) return { locked: true, state: EMPTY_STATE() }
+  if (legacy === null) {
+    return { lock: stored === null ? null : 'corrupt', state: EMPTY_STATE() }
+  }
+  const result = decrypt(legacy, isSaneToken)
+  // 구버전 키가 키체인 때문에 안 열리면 잠금을 풀었을 때 복구될 수 있으니 잠김으로 안내한다
+  if (result.status !== 'ok') {
+    return { lock: result.status === 'locked' ? 'keychain' : 'corrupt', state: EMPTY_STATE() }
+  }
   const id = randomUUID()
   const migrated: StoredNaiAccountState = {
     version: 1,
     activeId: id,
-    accounts: [{ id, label: '계정 1', token }]
+    accounts: [{ id, label: '계정 1', token: result.plaintext.trim() }]
   }
   saveNaiAccountState(migrated)
-  return { locked: false, state: migrated }
+  return { lock: null, state: migrated }
 }
 
 /** 저장된 토큰을 지금은 읽을 수 없어 변경을 거부할 때 던진다 */
 export class NaiTokenStoreLockedError extends Error {
-  constructor() {
-    super('NAI token store is locked: the OS keychain cannot decrypt the saved tokens')
+  readonly reason: NaiTokenStoreLockReason
+
+  constructor(reason: NaiTokenStoreLockReason) {
+    super(
+      reason === 'corrupt'
+        ? 'NAI token store is corrupt: the saved tokens decrypt but cannot be parsed'
+        : 'NAI token store is locked: the OS keychain cannot decrypt the saved tokens'
+    )
     this.name = 'NaiTokenStoreLockedError'
+    this.reason = reason
   }
 }
 
 /**
- * 저장된 토큰이 있지만 OS 키체인(safeStorage)으로 해독할 수 없는 상태인지.
- * 잠긴 동안 읽기는 빈 계정 목록을 돌려주고, 변경은 NaiTokenStoreLockedError로 거부한다.
+ * 저장된 토큰을 지금 쓸 수 없는 이유 (null = 정상).
+ * keychain = OS 키체인(safeStorage)으로 해독할 수 없음, corrupt = 해독은 되지만 내용이 손상됨.
+ * 이 동안 읽기는 빈 계정 목록을 돌려주고, 변경은 NaiTokenStoreLockedError로 거부한다.
  */
+export function getNaiTokenStoreLock(): NaiTokenStoreLockReason | null {
+  return loadNaiAccountState().lock
+}
+
 export function isNaiTokenStoreLocked(): boolean {
-  return loadNaiAccountState().locked
+  return getNaiTokenStoreLock() !== null
 }
 
 function loadUnlockedState(): StoredNaiAccountState {
   const loaded = loadNaiAccountState()
-  if (loaded.locked) throw new NaiTokenStoreLockedError()
+  if (loaded.lock) throw new NaiTokenStoreLockedError(loaded.lock)
   return loaded.state
 }
 
@@ -219,11 +253,19 @@ export function getNaiTokenInfo(): {
   prefix: string
   length: number
   locked: boolean
+  lockReason: NaiTokenStoreLockReason | null
 } {
-  const { locked, state } = loadNaiAccountState()
+  const { lock, state } = loadNaiAccountState()
+  const locked = lock !== null
   const token = state.accounts.find((account) => account.id === state.activeId)?.token
-  if (!token) return { hasToken: false, prefix: '', length: 0, locked }
-  return { hasToken: true, prefix: token.slice(0, 4), length: token.length, locked }
+  if (!token) return { hasToken: false, prefix: '', length: 0, locked, lockReason: lock }
+  return {
+    hasToken: true,
+    prefix: token.slice(0, 4),
+    length: token.length,
+    locked,
+    lockReason: lock
+  }
 }
 
 export function getNaiAccounts(): StoredNaiAccount[] {

@@ -113,7 +113,8 @@ describe('NAI 토큰 저장소: 키체인을 쓸 수 없는 실행', () => {
       hasToken: false,
       prefix: '',
       length: 0,
-      locked: true
+      locked: true,
+      lockReason: 'keychain'
     })
     expect(store.isNaiTokenStoreLocked()).toBe(true)
 
@@ -158,7 +159,8 @@ describe('NAI 토큰 저장소: 키체인을 쓸 수 없는 실행', () => {
       hasToken: true,
       prefix: 'pst-',
       length: 'pst-plain-token'.length,
-      locked: false
+      locked: false,
+      lockReason: null
     })
     expect(store.getActiveNaiAccount()).toEqual(account)
 
@@ -235,13 +237,70 @@ describe('NAI 토큰 저장소: 구버전으로 롤백', () => {
 })
 
 describe('NAI 토큰 저장소: 구버전 단일 토큰 이전', () => {
-  it('다계정 키가 손상돼 있으면 구버전 토큰으로 대체하지 않고 잠김으로 둔다', () => {
+  it('다계정 키가 해독은 되지만 손상돼 있으면 읽히는 구버전 토큰으로 복구한다', () => {
     env.settings.set(ACCOUNTS_KEY, legacyEncrypted('{not json'))
     env.settings.set(TOKEN_KEY, legacyEncrypted('pst-legacy'))
+
+    expect(store.getNaiToken()).toBe('pst-legacy')
+    expect(store.getNaiTokenStoreLock()).toBeNull()
+    expect(oldDecrypt(env.settings.get(ACCOUNTS_KEY) as string)).toContain('pst-legacy')
+    // 복구한 계정 id가 읽을 때마다 바뀌지 않는다
+    expect(store.getActiveNaiAccount()?.id).toBe(store.getActiveNaiAccount()?.id)
+  })
+
+  it('키체인 없이 쓴 평문 다계정 값이 손상됐으면 평문 구버전 토큰으로 복구한다', () => {
+    env.state.available = false
+    env.settings.set(ACCOUNTS_KEY, legacyPlain('{"version":1,"accounts":'))
+    env.settings.set(TOKEN_KEY, legacyPlain('pst-legacy'))
+
+    expect(store.getNaiToken()).toBe('pst-legacy')
+    expect(store.getNaiTokenStoreLock()).toBeNull()
+  })
+
+  it.each([
+    ['구버전 키 없음', null],
+    ['구버전 키도 손상', legacyEncrypted('\u0000\u0001 not a token')]
+  ])(
+    '다계정 키가 손상됐고 복구할 구버전 토큰이 없으면(%s) 잠김이 아니라 손상으로 보고한다',
+    (_label, legacy) => {
+      env.settings.set(ACCOUNTS_KEY, legacyEncrypted('{not json'))
+      if (legacy) env.settings.set(TOKEN_KEY, legacy)
+      const before = new Map(env.settings)
+
+      expect(store.getNaiToken()).toBeNull()
+      expect(store.getNaiTokenStoreLock()).toBe('corrupt')
+      expect(store.isNaiTokenStoreLocked()).toBe(true)
+      expect(store.getNaiTokenInfo()).toMatchObject({ locked: true, lockReason: 'corrupt' })
+      expect(() => store.addNaiAccount('pst-new')).toThrow(
+        expect.objectContaining({ name: 'NaiTokenStoreLockedError', reason: 'corrupt' })
+      )
+      expect(env.state.writes).toBe(0)
+      expect(env.settings).toEqual(before)
+    }
+  )
+
+  it('다계정 키가 손상됐어도 구버전 토큰이 키체인 때문에 안 열리면 잠김으로 두고 덮어쓰지 않는다', () => {
+    env.settings.set(ACCOUNTS_KEY, legacyPlain('{not json'))
+    env.settings.set(TOKEN_KEY, legacyEncrypted('pst-legacy'))
+    env.state.available = false
     const before = new Map(env.settings)
 
-    expect(store.getNaiToken()).toBeNull()
-    expect(store.isNaiTokenStoreLocked()).toBe(true)
+    expect(store.getNaiTokenStoreLock()).toBe('keychain')
+    expect(env.state.writes).toBe(0)
+    expect(env.settings).toEqual(before)
+
+    // 잠금이 풀리면 구버전 토큰으로 복구된다
+    env.state.available = true
+    expect(store.getNaiToken()).toBe('pst-legacy')
+  })
+
+  it('해독하지 못한 다계정 값은 구버전 토큰이 읽혀도 손상으로 오인해 덮어쓰지 않는다', () => {
+    env.settings.set(ACCOUNTS_KEY, legacyEncrypted('{not json'))
+    env.settings.set(TOKEN_KEY, legacyPlain('pst-legacy'))
+    env.state.available = false
+    const before = new Map(env.settings)
+
+    expect(store.getNaiTokenStoreLock()).toBe('keychain')
     expect(env.settings).toEqual(before)
   })
 

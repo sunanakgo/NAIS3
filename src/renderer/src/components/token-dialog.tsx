@@ -22,7 +22,7 @@ import {
   opusUsagePurchasedPercent
 } from '@shared/anlas'
 import { isLang, LANGUAGES, SUPPORTED_LANGUAGES, type MessageId } from '@shared/i18n'
-import type { NaiAccountInfo } from '@shared/types'
+import type { NaiAccountInfo, NaiTokenStoreLockReason } from '@shared/types'
 import discordSvg from '../assets/discord.svg'
 import nais3Logo from '../assets/nais3-logo.svg'
 import { importBackup } from '../lib/backup-import'
@@ -656,8 +656,9 @@ function AccountSection(): React.JSX.Element {
   const [status, setStatus] = useState<'idle' | 'checking' | 'ok' | 'fail'>('idle')
   const [message, setMessage] = useState('')
   const [accounts, setAccounts] = useState<NaiAccountInfo[]>([])
-  // 저장된 토큰이 있지만 OS 키체인이 잠겨 해독할 수 없는 상태
-  const [locked, setLocked] = useState(false)
+  // 저장된 토큰이 있지만 지금은 읽을 수 없는 이유 (키체인 잠김 / 값 손상)
+  const [lockReason, setLockReason] = useState<NaiTokenStoreLockReason | null>(null)
+  const locked = lockReason !== null
   const [busyId, setBusyId] = useState<string | null>(null)
   const [revealed, setRevealed] = useState<Record<string, string>>({})
   const [usage, setUsage] = useState<{ today: number; week: number } | null>(null)
@@ -673,9 +674,9 @@ function AccountSection(): React.JSX.Element {
     (includeBalance = true): void => {
       void window.nais
         .invoke('nai:listAccounts', undefined)
-        .then(({ accounts: next, locked: nextLocked }) => {
+        .then(({ accounts: next, lockReason: nextLockReason }) => {
           setAccounts(next)
-          setLocked(nextLocked)
+          setLockReason(nextLockReason)
         })
       void window.nais.invoke('nai:anlasUsage', undefined).then(setUsage)
       if (includeBalance) void refreshAnlas().catch(() => undefined)
@@ -806,7 +807,9 @@ function AccountSection(): React.JSX.Element {
           role="alert"
           className="flex min-w-0 items-start gap-2 rounded-lg border border-danger/50 bg-danger/10 p-2.5 text-[11.5px] text-danger-ink"
         >
-          <p className="min-w-0 flex-1">{t('ui.naiTokenStoreLocked')}</p>
+          <p className="min-w-0 flex-1">
+            {lockReason === 'corrupt' ? t('ui.naiTokenStoreCorrupt') : t('ui.naiTokenStoreLocked')}
+          </p>
           <Button size="sm" variant="ghost" onClick={() => void clearLockedTokens()}>
             {t('ui.clearLockedNaiTokens')}
           </Button>

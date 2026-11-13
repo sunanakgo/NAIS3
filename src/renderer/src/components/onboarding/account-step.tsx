@@ -37,12 +37,15 @@ export function AccountStep({ done, onDone }: StepProps): React.JSX.Element {
   useEffect(() => {
     void window.nais
       .invoke('nai:listAccounts', undefined)
-      .then(({ accounts, locked }) => {
+      .then(({ accounts, lockReason }) => {
         setConnected(accounts.map((account) => account.label))
-        // 토큰은 저장돼 있지만 키체인이 잠겨 읽을 수 없다 — 다시 입력하지 말라고 알린다
-        if (locked) {
+        // 토큰은 저장돼 있지만 읽을 수 없다 — 키체인 잠김이면 다시 입력하지 말라고,
+        // 손상이면 지우고 다시 등록하라고 알린다
+        if (lockReason) {
           setStatus('fail')
-          setError(t('ui.naiTokenStoreLocked'))
+          setError(
+            lockReason === 'corrupt' ? t('ui.naiTokenStoreCorrupt') : t('ui.naiTokenStoreLocked')
+          )
         }
       })
       .catch(() => undefined)

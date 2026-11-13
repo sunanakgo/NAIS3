@@ -8,7 +8,12 @@ import {
   Notification,
   shell
 } from 'electron'
-import type { IpcEventMap, IpcInvokeMap, NaiAccountInfo } from '../shared/types'
+import type {
+  IpcEventMap,
+  IpcInvokeMap,
+  NaiAccountInfo,
+  NaiTokenStoreLockReason
+} from '../shared/types'
 import {
   createCharacter,
   createFolder,
@@ -55,6 +60,7 @@ import {
   getNaiAccountToken,
   getNaiToken,
   getNaiTokenInfo,
+  getNaiTokenStoreLock,
   isNaiTokenStoreLocked,
   getSetting,
   setActiveNaiAccount,
@@ -182,8 +188,9 @@ async function naiAccountInfos(): Promise<{
   accounts: NaiAccountInfo[]
   activeId: string | null
   locked: boolean
+  lockReason: NaiTokenStoreLockReason | null
 }> {
-  const locked = isNaiTokenStoreLocked()
+  const lockReason = getNaiTokenStoreLock()
   const accounts = getNaiAccounts()
   const activeId = getActiveNaiAccount()?.id ?? null
   const infos = await Promise.all(
@@ -202,12 +209,17 @@ async function naiAccountInfos(): Promise<{
       }
     })
   )
-  return { accounts: infos, activeId, locked }
+  return { accounts: infos, activeId, locked: lockReason !== null, lockReason }
 }
 
-/** 키체인이 잠겨 저장된 토큰을 읽을 수 없으면 덮어쓰지 않고 안내 문구로 거절한다 */
+function naiTokenStoreLockMessage(reason: NaiTokenStoreLockReason): string {
+  return reason === 'corrupt' ? t('ui.naiTokenStoreCorrupt') : t('ui.naiTokenStoreLocked')
+}
+
+/** 저장된 토큰을 읽을 수 없으면 덮어쓰지 않고 이유에 맞는 안내 문구로 거절한다 */
 function lockedTokenStoreResult(): { valid: false; error: string } | null {
-  return isNaiTokenStoreLocked() ? { valid: false, error: t('ui.naiTokenStoreLocked') } : null
+  const reason = getNaiTokenStoreLock()
+  return reason ? { valid: false, error: naiTokenStoreLockMessage(reason) } : null
 }
 
 function localDateStamp(date = new Date()): string {

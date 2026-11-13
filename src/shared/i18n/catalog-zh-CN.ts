@@ -227,9 +227,11 @@ export const ZH_CN = {
   'ui.add': '添加',
   'ui.naiTokenStoreLocked':
     '无法解密已保存的 NAI 令牌：系统钥匙串（密钥环）已锁定或不可用。请解锁钥匙串后重新启动应用，无需重新输入令牌。',
+  'ui.naiTokenStoreCorrupt':
+    '已保存的 NAI 令牌数据已损坏，无法读取。解锁钥匙串或重启应用无法解决此问题，请删除已保存的令牌后重新添加。',
   'ui.clearLockedNaiTokens': '删除锁定的令牌',
   'ui.clearLockedNaiTokensConfirm':
-    '这将删除所有无法通过钥匙串解密的已保存 NAI 令牌。仅在钥匙串无法再解锁时使用；删除后需要重新添加令牌。',
+    '这将删除所有当前无法读取的已保存 NAI 令牌。如果只是钥匙串被锁定，请改为解锁后重新启动应用；删除后需要重新添加令牌。',
   'ui.noAccountsRegistered': '尚未添加账户。',
   'ui.active': '当前使用',
   'ui.v5GaugeUnavailable': '无法获取 V5 额度',

@@ -150,6 +150,13 @@ export interface SubscriptionInfo {
   expired?: boolean
 }
 
+/**
+ * 저장된 NAI 토큰을 지금 쓸 수 없는 이유.
+ * keychain = OS 키체인이 잠겨 해독할 수 없음 (잠금을 풀고 재시작하면 돌아온다),
+ * corrupt = 해독은 되지만 내용이 손상됨 (삭제 후 다시 등록해야 한다).
+ */
+export type NaiTokenStoreLockReason = 'keychain' | 'corrupt'
+
 /** 렌더러에 노출되는 NAI 계정 메타. 실제 토큰은 명시적으로 공개할 때만 전달한다. */
 export interface NaiAccountInfo {
   id: string
@@ -410,17 +417,31 @@ export interface IpcInvokeMap {
     req: { token: string }
     res: { valid: boolean; subscription?: SubscriptionInfo; error?: string }
   }
-  /** locked = 저장된 토큰이 있지만 OS 키체인이 잠겨 지금은 해독할 수 없음 */
+  /**
+   * locked = 저장된 토큰이 있지만 지금은 읽을 수 없어 변경을 거부함, lockReason = 그 이유
+   * (locked가 false면 null)
+   */
   'nai:tokenStatus': {
     req: void
-    res: { hasToken: boolean; prefix: string; length: number; locked: boolean }
+    res: {
+      hasToken: boolean
+      prefix: string
+      length: number
+      locked: boolean
+      lockReason: NaiTokenStoreLockReason | null
+    }
   }
   'nai:revealToken': { req: void; res: { token: string | null } }
   'nai:deleteToken': { req: void; res: void }
   /** 암호화 저장된 NAI 계정 목록과 각 계정의 현재 구독 상태 */
   'nai:listAccounts': {
     req: void
-    res: { accounts: NaiAccountInfo[]; activeId: string | null; locked: boolean }
+    res: {
+      accounts: NaiAccountInfo[]
+      activeId: string | null
+      locked: boolean
+      lockReason: NaiTokenStoreLockReason | null
+    }
   }
   'nai:addAccount': {
     req: { token: string; label?: string }

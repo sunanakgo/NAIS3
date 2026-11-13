@@ -43,7 +43,9 @@ export function recordNav(): void {
 function apply(v: View): void {
   applying = true
   try {
-    useLayoutStore.getState().setCenterMode(v.mode)
+    const layout = useLayoutStore.getState()
+    // 기록 뒤에 설정에서 숨긴 페이지로는 돌아가지 않는다 — 숨긴 웹 탭은 <webview>가 내려가 있어 빈 화면이 된다
+    layout.setCenterMode(v.mode !== 'main' && layout.hiddenPages.includes(v.mode) ? 'main' : v.mode)
     useScenesStore.getState().select(v.sceneId)
   } finally {
     applying = false

@@ -1,4 +1,5 @@
-import { BrowserWindow, dialog } from 'electron'
+import { BrowserWindow } from 'electron'
+import { showOpenDialog } from '../dialogs'
 import { readFileSync } from 'fs'
 import sharp from '../sharp'
 import type {
@@ -185,7 +186,7 @@ export function deleteFolder(id: number): void {
 /** 파일 선택 → 192px webp 썸네일로 저장. 취소하면 null */
 export async function pickCharacterThumbnail(id: number): Promise<string | null> {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-  const result = await dialog.showOpenDialog(win, {
+  const result = await showOpenDialog(win, {
     title: t('ui.chooseCharacterImage'),
     properties: ['openFile'],
     filters: [{ name: t('ui.image'), extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }]

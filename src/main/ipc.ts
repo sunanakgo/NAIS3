@@ -2,12 +2,14 @@ import {
   app,
   BrowserWindow,
   clipboard,
-  dialog,
+  ClipboardItem,
   ipcMain,
   nativeImage,
   Notification,
   shell
 } from 'electron'
+import type { NativeImage } from 'electron'
+import { showOpenDialog, showSaveDialog } from './dialogs'
 import type {
   IpcEventMap,
   IpcInvokeMap,
@@ -388,7 +390,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   handle('backup:export', async () => {
     const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
     const stamp = localDateStamp()
-    const result = await dialog.showSaveDialog(win, {
+    const result = await showSaveDialog(win, {
       title: t('ui.exportData'),
       defaultPath: `NAIS3-backup-${stamp}.nais`,
       filters: [{ name: t('ui.naisBackup'), extensions: ['nais'] }]
@@ -405,7 +407,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
 
   handle('backup:exportLegacy', async () => {
     const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-    const result = await dialog.showSaveDialog(win, {
+    const result = await showSaveDialog(win, {
       title: t('ui.exportLegacyJson'),
       defaultPath: `NAIS3-backup-${localDateStamp()}.json`,
       filters: [{ name: 'JSON', extensions: ['json'] }]
@@ -421,7 +423,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
 
   handle('backup:import', async () => {
     const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-    const result = await dialog.showOpenDialog(win, {
+    const result = await showOpenDialog(win, {
       title: t('ui.importArchiveOrLegacyBackup'),
       filters: [{ name: t('ui.naisBackup'), extensions: ['nais', 'json'] }],
       properties: ['openFile']
@@ -646,7 +648,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     const memBuf = memory ? getMemoryImage(filePath) : null
     if (memory && !memBuf) return { saved: false } // 원본 만료 (자동저장 꺼짐 생성분)
     const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-    const result = await dialog.showSaveDialog(win, {
+    const result = await showSaveDialog(win, {
       title: t('ui.saveAs'),
       defaultPath: memory ? `NAIS3_${Date.now()}.png` : basename(filePath),
       filters: [{ name: 'PNG', extensions: ['png'] }]
@@ -659,7 +661,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
 
   handle('images:saveBase64As', async ({ base64, defaultName }) => {
     const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-    const result = await dialog.showSaveDialog(win, {
+    const result = await showSaveDialog(win, {
       title: t('ui.saveImage'),
       defaultPath: defaultName ?? `NAIS3_${Date.now()}.png`,
       filters: [{ name: 'PNG', extensions: ['png'] }]
@@ -669,18 +671,22 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     return { saved: true }
   })
 
-  handle('images:copy', ({ filePath }) => {
+  // Electron 44+ clipboard follows the W3C API: write() takes ClipboardItems and is async
+  const copyImage = async (img: NativeImage): Promise<{ copied: boolean }> => {
+    if (img.isEmpty()) return { copied: false }
+    const png = new Blob([new Uint8Array(img.toPNG())], { type: 'image/png' })
+    await clipboard.write([new ClipboardItem({ 'image/png': png })])
+    return { copied: true }
+  }
+
+  handle('images:copy', async ({ filePath }) => {
     if (isMemoryPath(filePath)) {
       const buf = getMemoryImage(filePath)
       if (!buf) return { copied: false }
-      clipboard.writeImage(nativeImage.createFromBuffer(buf))
-      return { copied: true }
+      return copyImage(nativeImage.createFromBuffer(buf))
     }
     if (!isUnderImagesRoot(filePath)) return { copied: false }
-    const img = nativeImage.createFromPath(filePath)
-    if (img.isEmpty()) return { copied: false }
-    clipboard.writeImage(img)
-    return { copied: true }
+    return copyImage(nativeImage.createFromPath(filePath))
   })
 
   const saveDirKey = (target?: 'main' | 'scene'): string =>
@@ -697,7 +703,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   })
   handle('settings:pickSaveDir', async (req) => {
     const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-    const result = await dialog.showOpenDialog(win, {
+    const result = await showOpenDialog(win, {
       title: req?.target === 'scene' ? t('ui.chooseSceneSaveFolder') : t('ui.chooseSaveFolder'),
       properties: ['openDirectory', 'createDirectory']
     })

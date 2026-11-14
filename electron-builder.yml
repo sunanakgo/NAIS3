@@ -20,6 +20,8 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md,RESEARCH.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  # better-sqlite3 13+는 모든 OS용 N-API prebuild를 함께 배포한다 — 대상 플랫폼·아키텍처 것만 남긴다
+  - '!node_modules/better-sqlite3/prebuilds/!(${platform}-${arch}).node'
   # @img/sharp-wasm32(~9MB)는 Linux Electron 전용 (src/main/sharp-loader.ts) — mac/win 설치본에서 제외.
   # mac.files/win.files에 두면 안 된다: 플랫폼 files가 있으면 electron-builder가 위 목록을 별도 매처로
   # 나누고, 그 매처는 기본 제외(dist/, .git, node_modules 등)를 받지 못해 프로젝트 루트 전체가 asar에 들어간다.

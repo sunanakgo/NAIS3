@@ -1,7 +1,8 @@
 import { randomUUID } from 'crypto'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
 import { basename, extname, join } from 'path'
-import { BrowserWindow, dialog } from 'electron'
+import { BrowserWindow } from 'electron'
+import { showOpenDialog } from '../dialogs'
 import sharp from '../sharp'
 import type { LibraryImage, LibraryStack } from '../../shared/types'
 import { getDb } from '../db'
@@ -141,7 +142,7 @@ export function reorderImages(ids: number[]): void {
 /** 파일 다이얼로그(다중 선택)로 가져오기 */
 export async function importViaDialog(stackId: number | null): Promise<number> {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-  const result = await dialog.showOpenDialog(win, {
+  const result = await showOpenDialog(win, {
     title: t('ui.addImagesToLibrary'),
     properties: ['openFile', 'multiSelections'],
     filters: [{ name: t('ui.image'), extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
@@ -219,7 +220,7 @@ export function deleteStack(id: number): void {
 export async function exportImages(ids: number[], prefix?: string): Promise<number> {
   if (ids.length === 0) return 0
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-  const result = await dialog.showOpenDialog(win, {
+  const result = await showOpenDialog(win, {
     title: t('ui.chooseExportFolder'),
     properties: ['openDirectory', 'createDirectory']
   })

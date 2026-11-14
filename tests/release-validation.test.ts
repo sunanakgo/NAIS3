@@ -15,7 +15,11 @@ import {
 const version = '1.0.26'
 let directory: string
 
-async function macZip(arch: string, bundleVersion = version): Promise<void> {
+async function macZip(
+  arch: string,
+  bundleVersion = version,
+  { assetCatalog = true } = {}
+): Promise<void> {
   const zip = new JSZip()
   zip.file(
     'NAIS3.app/Contents/Info.plist',
@@ -23,10 +27,14 @@ async function macZip(arch: string, bundleVersion = version): Promise<void> {
     <key>CFBundleShortVersionString</key><string>${bundleVersion}</string>
     <key>CFBundleIdentifier</key><string>com.sunanakgo.nais3</string>
     <key>CFBundleExecutable</key><string>NAIS3</string>
+    <key>CFBundleIconFile</key><string>icon.icns</string>
+    ${assetCatalog ? '<key>CFBundleIconName</key><string>Icon</string>' : ''}
   </dict></plist>`
   )
   zip.file('NAIS3.app/Contents/MacOS/NAIS3', 'fixture executable')
   zip.file('NAIS3.app/Contents/Resources/app.asar', 'fixture archive')
+  zip.file('NAIS3.app/Contents/Resources/icon.icns', 'fixture icns')
+  if (assetCatalog) zip.file('NAIS3.app/Contents/Resources/Assets.car', 'fixture catalog')
   await writeFile(
     join(directory, `nais3-${version}-${arch}-mac.zip`),
     await zip.generateAsync({ type: 'nodebuffer' })
@@ -128,6 +136,11 @@ describe('release validation gates', () => {
     await expect(verifyAssets(directory, version)).rejects.toThrow(
       'Windows update version mismatch'
     )
+  })
+
+  it('rejects a Mac bundle without the Icon Composer asset catalog', async () => {
+    await macZip('arm64', version, { assetCatalog: false })
+    await expect(verifyAssets(directory, version)).rejects.toThrow('Mac asset catalog icon missing')
   })
 
   it('permits absent/draft releases but rejects published releases and API failures', async () => {

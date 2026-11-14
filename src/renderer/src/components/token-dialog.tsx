@@ -9,7 +9,9 @@ import {
   Keyboard,
   KeyRound,
   Image as ImageIcon,
+  Minus,
   Palette,
+  Plus,
   RotateCcw,
   Trash2,
   Upload
@@ -147,6 +149,7 @@ function AppearanceSection(): React.JSX.Element {
           onChange={(e) => setUiFont(e.target.value)}
         />
       </Row>
+      {window.nais.runtime !== 'browser' && <AppZoomRow />}
       <Row label={t('ui.uiSizeValuePx', uiSize)}>
         <Slider
           className="w-44"
@@ -176,6 +179,64 @@ function AppearanceSection(): React.JSX.Element {
         <PageToggles />
       </Row>
     </div>
+  )
+}
+
+/** 앱 화면 배율 — 단축키(Cmd/Ctrl + = · - · 0)를 몰라도 되돌릴 수 있게 */
+function AppZoomRow(): React.JSX.Element {
+  const t = useT()
+  const [factor, setFactor] = useState(1)
+
+  useEffect(() => {
+    let active = true
+    void window.nais.invoke('window:getZoom', undefined).then((res) => {
+      if (active) setFactor(res.factor)
+    })
+    const off = window.nais.on('window:zoomChanged', (res) => setFactor(res.factor))
+    return () => {
+      active = false
+      off()
+    }
+  }, [])
+
+  const zoom = (command: 'in' | 'out' | 'reset'): void => {
+    void window.nais.invoke('window:zoom', { command }).then((res) => setFactor(res.factor))
+  }
+  const percent = Math.round(factor * 100)
+  const shortcut = formatCombo('Mod')
+
+  return (
+    <Row label={t('ui.appZoomValuePercent', percent)} hint={t('ui.appZoomShortcutsHint', shortcut)}>
+      <div className="flex items-center gap-1">
+        <Button
+          size="icon"
+          variant="ghost"
+          aria-label={t('ui.zoomOut')}
+          title={t('ui.zoomOut')}
+          onClick={() => zoom('out')}
+        >
+          <Minus size={14} />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          aria-label={t('ui.zoomIn')}
+          title={t('ui.zoomIn')}
+          onClick={() => zoom('in')}
+        >
+          <Plus size={14} />
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="gap-1"
+          disabled={percent === 100}
+          onClick={() => zoom('reset')}
+        >
+          <RotateCcw size={12} /> {t('ui.resetTo100')}
+        </Button>
+      </div>
+    </Row>
   )
 }
 

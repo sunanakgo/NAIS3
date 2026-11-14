@@ -157,6 +157,8 @@ export const EN = {
   'ui.themePreset': 'Theme Preset',
   'ui.uiFont': 'UI Font',
   'ui.leaveEmptyForDefaultFont': 'Leave empty for default font',
+  'ui.appZoomValuePercent': 'App Zoom — {0}%',
+  'ui.appZoomShortcutsHint': '{0} + = zoom in · {0} + - zoom out · {0} + 0 reset',
   'ui.uiSizeValuePx': 'UI Size — {0}px',
   'ui.promptFontSizeValuePx': 'Prompt Font Size — {0}px',
   'ui.baseCharacterPromptInputBoxes': 'Base/character prompt input boxes',

@@ -888,6 +888,8 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
   if (channel === 'settings:getSaveDir') return { dir: 'Browser downloads', isDefault: true }
   if (channel === 'settings:pickSaveDir') return { dir: null }
   if (channel === 'settings:resetSaveDir') return { dir: 'Browser downloads' }
+  // 브라우저 모드는 브라우저 자체 확대·축소를 쓴다 — 설정의 화면 배율 항목도 숨긴다
+  if (channel === 'window:getZoom' || channel === 'window:zoom') return { factor: 1 }
   if (
     channel === 'window:control' ||
     channel === 'window:setBackground' ||

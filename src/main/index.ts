@@ -25,6 +25,7 @@ import { resolveInitialLanguage, t } from './i18n'
 import { translate, type Lang, type MessageId } from '../shared/i18n'
 import { setupUpdater } from './updater'
 import { showMigrationProgress, type MigrationProgress } from './migration-window'
+import { watchZoomShortcuts } from './zoom'
 import { logBalance } from './nai/anlas-log'
 import { fetchAnlasBalance, generateImageStream, generateImageZip } from './nai/client'
 import {
@@ -86,6 +87,10 @@ function createWindow(): void {
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
   })
+
+  watchZoomShortcuts(mainWindow.webContents, (factor) =>
+    broadcast('window:zoomChanged', { factor })
+  )
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
@@ -352,7 +357,7 @@ const startup = app.whenReady().then(async () => {
   registerIpcHandlers({ dbVersion, queue })
 
   app.on('browser-window-created', (_, window) => {
-    // zoom: false(기본값)는 Cmd/Ctrl+'-'만 막고 Cmd/Ctrl+'='는 그대로 둬서 확대만 되고 축소가 안 됐다
+    // zoom: false(기본값)는 Cmd/Ctrl+'-'를 막는다. 확대·축소 단축키는 watchZoomShortcuts가 처리한다
     optimizer.watchWindowShortcuts(window, { zoom: true })
   })
 

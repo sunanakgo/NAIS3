@@ -156,6 +156,8 @@ export const KO = {
   'ui.themePreset': '테마 프리셋',
   'ui.uiFont': 'UI 폰트',
   'ui.leaveEmptyForDefaultFont': '비우면 기본 폰트',
+  'ui.appZoomValuePercent': '화면 배율 — {0}%',
+  'ui.appZoomShortcutsHint': '{0} + = 확대 · {0} + - 축소 · {0} + 0 원래 크기',
   'ui.uiSizeValuePx': 'UI 크기 — {0}px',
   'ui.promptFontSizeValuePx': '프롬프트 폰트 크기 — {0}px',
   'ui.baseCharacterPromptInputBoxes': '기본/캐릭터 프롬프트 입력 박스',

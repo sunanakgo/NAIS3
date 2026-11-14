@@ -156,6 +156,8 @@ export const ZH_CN = {
   'ui.themePreset': '主题预设',
   'ui.uiFont': 'UI 字体',
   'ui.leaveEmptyForDefaultFont': '留空则使用默认字体',
+  'ui.appZoomValuePercent': '界面缩放 — {0}%',
+  'ui.appZoomShortcutsHint': '{0} + = 放大 · {0} + - 缩小 · {0} + 0 恢复',
   'ui.uiSizeValuePx': 'UI 大小 — {0}px',
   'ui.promptFontSizeValuePx': '提示词字体大小 — {0}px',
   'ui.baseCharacterPromptInputBoxes': '基础/角色提示词输入框',

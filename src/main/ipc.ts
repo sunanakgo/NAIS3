@@ -10,6 +10,7 @@ import {
 } from 'electron'
 import type { NativeImage } from 'electron'
 import { showOpenDialog, showSaveDialog } from './dialogs'
+import { applyZoom } from './zoom'
 import type {
   IpcEventMap,
   IpcInvokeMap,
@@ -972,6 +973,17 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   handle('window:setBackground', ({ color }) => {
     if (!/^#[0-9a-fA-F]{6}$/.test(color)) return
     for (const win of BrowserWindow.getAllWindows()) win.setBackgroundColor(color)
+  })
+
+  handle('window:getZoom', () => {
+    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    return { factor: win ? win.webContents.getZoomFactor() : 1 }
+  })
+
+  handle('window:zoom', ({ command }) => {
+    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    if (!win || !['in', 'out', 'reset'].includes(command)) return { factor: 1 }
+    return { factor: applyZoom(win.webContents, command) }
   })
 
   bindSceneReservationRecovery(ctx.queue, () => broadcast('scenes:reservationsChanged', {}))

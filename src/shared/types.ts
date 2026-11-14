@@ -523,6 +523,10 @@ export interface IpcInvokeMap {
   'window:control': { req: { action: 'minimize' | 'maximize' | 'close' }; res: void }
   /** 리사이즈 시 노출되는 네이티브 창 배경색 (테마 전환 시 갱신) */
   'window:setBackground': { req: { color: string }; res: void }
+  /** 앱 화면 배율 (1 = 100%) */
+  'window:getZoom': { req: void; res: { factor: number } }
+  /** 단축키와 같은 단계로 확대·축소하거나 100%로 되돌린다 */
+  'window:zoom': { req: { command: 'in' | 'out' | 'reset' }; res: { factor: number } }
   'chars:list': { req: void; res: { folders: CharacterFolder[]; items: CharacterCard[] } }
   'chars:create': { req: { name: string; folderId: number | null }; res: { id: number } }
   'chars:update': { req: { id: number; patch: CharacterCardPatch }; res: void }
@@ -821,6 +825,8 @@ export interface IpcEventMap {
   /** 씬에 새 이미지가 생성됨 (목록/상세 갱신). filePath로 카드 즉시 낙관적 갱신 */
   'scenes:changed': { sceneId: number; filePath: string }
   'scenes:reservationsChanged': Record<string, never>
+  /** 단축키로 앱 화면 배율이 바뀜 */
+  'window:zoomChanged': { factor: number }
   /** 바이브 인코딩 완료 — 카드의 인코딩 표시 갱신용 */
   'vibes:encoded': Record<string, never>
   /** 자동 업데이트 상태 (GitHub release) */

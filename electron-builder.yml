@@ -20,6 +20,13 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md,RESEARCH.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  # @img/sharp-wasm32(~9MB)는 Linux Electron 전용 (src/main/sharp-loader.ts) — mac/win 설치본에서 제외.
+  # mac.files/win.files에 두면 안 된다: 플랫폼 files가 있으면 electron-builder가 위 목록을 별도 매처로
+  # 나누고, 그 매처는 기본 제외(dist/, .git, node_modules 등)를 받지 못해 프로젝트 루트 전체가 asar에 들어간다.
+  # 대신 ${os}(mac/win/linux) 매크로를 문자 클래스에 넣어 플랫폼별로 패턴을 바꾼다:
+  # mac → sh[mac]rp-wasm32가 "a"에, win → sharp-[win]asm32가 "w"에 걸리고, linux → [linux]는 둘 다 못 맞춘다.
+  # scripts/verify-packaged-app.mjs가 플랫폼별 포함 여부를 확인한다.
+  - '!node_modules/@img/{sh[${os}]rp-wasm32,sharp-[${os}]asm32}/**'
 asarUnpack:
   - resources/**
   # sharp 네이티브 바이너리는 .node(@img/sharp-<os>-<arch>)와 libvips(@img/sharp-libvips-<os>-<arch>)로 나뉨.
@@ -28,9 +35,6 @@ asarUnpack:
   - node_modules/@img/**
 win:
   executableName: NAIS3
-  files:
-    # @img/sharp-wasm32(~9MB)는 Linux Electron 전용 (src/main/sharp-loader.ts) — win/mac 설치본에서 제외
-    - '!node_modules/@img/sharp-wasm32/**'
   # Windows는 둥근 모서리·여백 규칙이 없어 mac용(여백 큼) 대신 여백 최소 버전 사용
   icon: build/icon-win.png
   target:
@@ -47,8 +51,6 @@ nsis:
 mac:
   # macOS 표준 여백(박스 ~80%) 버전
   icon: build/icon.png
-  files:
-    - '!node_modules/@img/sharp-wasm32/**'
   # zip에 아키텍처 명시 (기본값은 x64에서 arch 생략 → 업데이터가 못 찾음). dmg는 아래 dmg.artifactName이 우선
   artifactName: ${name}-${version}-${arch}-mac.${ext}
   entitlementsInherit: build/entitlements.mac.plist

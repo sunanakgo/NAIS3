@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { extractFile, listPackage } from '@electron/asar'
@@ -27,6 +27,32 @@ const { version } = JSON.parse(readFileSync('package.json', 'utf8'))
 const packaged = JSON.parse(extractFile(asar, 'package.json').toString('utf8'))
 assert.equal(packaged.version, version, 'Packaged app version mismatch')
 assert.equal(packaged.name, 'nais3', 'Packaged app name mismatch')
+
+// app.asar must hold only the built app and its runtime dependencies. A platform-level
+// `files` list in electron-builder.yml once split the file matchers and packed the whole
+// project root, including dist/ with the half-built app, .git and the sources (~292 MB).
+const asarEntries = listPackage(asar, { isPack: false }).map((file) =>
+  file.replace(/\\/g, '/').replace(/^\//, '')
+)
+for (const directory of ['dist', '.git', 'src', 'tests']) {
+  const leaked = asarEntries.filter((file) => file === directory || file.startsWith(`${directory}/`))
+  assert.equal(leaked.length, 0, `app.asar contains ${directory}/: ${leaked.slice(0, 5).join(', ')}`)
+}
+const MAX_ASAR_BYTES = 40 * 1024 * 1024
+const asarBytes = statSync(asar).size
+assert.ok(
+  asarBytes <= MAX_ASAR_BYTES,
+  `app.asar is ${(asarBytes / 1024 / 1024).toFixed(1)} MB, over ${MAX_ASAR_BYTES / 1024 / 1024} MB`
+)
+// @img/sharp-wasm32 ships only on Linux (src/main/sharp-loader.ts); electron-builder.yml
+// excludes it elsewhere with an ${os}-dependent pattern.
+const hasSharpWasm = asarEntries.some((file) => file.startsWith('node_modules/@img/sharp-wasm32/'))
+assert.equal(
+  hasSharpWasm,
+  platform === 'linux',
+  `@img/sharp-wasm32 should ${platform === 'linux' ? '' : 'not '}be packaged on ${platform}`
+)
+console.log(`Packaged app.asar contents verified: ${(asarBytes / 1024 / 1024).toFixed(1)} MB`)
 
 // Load the shipped dependencies straight from app.asar, exactly as the app does at
 // runtime. Linux skips native sharp here: the app never loads it there (see the

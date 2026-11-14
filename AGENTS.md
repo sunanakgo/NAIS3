@@ -87,8 +87,7 @@ passing result.
 - Use a dedicated branch for implementation. Check remotes, the target branch,
   and the actual base/head commits before branch or publication work.
 - Make incremental commits for coherent changes. Use Conventional Commit titles
-  such as `feat:`, `fix:`, `refactor:`, or `docs:`, and sign commits with GPG.
-  Verify signatures with `git verify-commit`.
+  such as `feat:`, `fix:`, `refactor:`, or `docs:`.
 - Keep review-only requests read-only.
 - Push, open pull requests, merge, and publish releases only within the user's
   authorized scope. A request to open a PR does not authorize merging it.

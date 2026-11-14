@@ -101,6 +101,12 @@ export async function verifyAssets(directory, version, target = 'all') {
     assert.equal(value('CFBundleShortVersionString'), version, `Mac app version mismatch: ${name}`)
     assert.equal(value('CFBundleIdentifier'), 'com.sunanakgo.nais3', `Mac app ID mismatch: ${name}`)
     assert.equal(value('CFBundleExecutable'), 'NAIS3', `Mac executable mismatch: ${name}`)
+    // Icon Composer output: Assets.car for macOS 26+ and icon.icns for earlier versions.
+    assert.equal(value('CFBundleIconName'), 'Icon', `Mac asset catalog icon missing: ${name}`)
+    assert.equal(value('CFBundleIconFile'), 'icon.icns', `Mac legacy icon mismatch: ${name}`)
+    for (const file of ['Assets.car', 'icon.icns']) {
+      assert.ok(zip.file(`NAIS3.app/Contents/Resources/${file}`), `Missing ${file}: ${name}`)
+    }
   }
   return expected
 }

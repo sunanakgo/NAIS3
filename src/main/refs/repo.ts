@@ -1,4 +1,5 @@
-import { app, BrowserWindow, dialog } from 'electron'
+import { app, BrowserWindow } from 'electron'
+import { showOpenDialog } from '../dialogs'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'fs'
 import { basename, extname, join } from 'path'
 import { randomUUID } from 'crypto'
@@ -101,7 +102,7 @@ export function listCharRefs(): { folders: ListFolder[]; items: CharRefItem[] } 
 /** 파일 다이얼로그(다중 선택) → refs/로 복사 + 썸네일 생성 + 행 삽입 */
 export async function addRefImages(kind: Kind, folderId: number | null): Promise<number> {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-  const result = await dialog.showOpenDialog(win, {
+  const result = await showOpenDialog(win, {
     title: kind === 'vibe' ? t('ui.addVibeImages') : t('ui.addReferenceImages'),
     properties: ['openFile', 'multiSelections'],
     filters: [{ name: t('ui.image'), extensions: ['png', 'jpg', 'jpeg', 'webp'] }]

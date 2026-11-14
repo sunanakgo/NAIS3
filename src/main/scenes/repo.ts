@@ -1,4 +1,5 @@
-import { BrowserWindow, dialog } from 'electron'
+import { BrowserWindow } from 'electron'
+import { showOpenDialog, showSaveDialog } from '../dialogs'
 import { readFileSync, unlinkSync, writeFileSync } from 'fs'
 import { extname, isAbsolute, relative } from 'path'
 import JSZip from 'jszip'
@@ -590,7 +591,7 @@ export async function exportScenesJson(presetId: number): Promise<boolean> {
     )
     .all(presetId) as Row[]
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-  const result = await dialog.showSaveDialog(win, {
+  const result = await showSaveDialog(win, {
     title: t('ui.exportScenes'),
     defaultPath: 'nais3-scenes.json',
     filters: [{ name: 'JSON', extensions: ['json'] }]
@@ -611,7 +612,7 @@ export async function importScenesJson(
   presetId: number
 ): Promise<IpcInvokeMap['scenes:importJson']['res']> {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-  const result = await dialog.showOpenDialog(win, {
+  const result = await showOpenDialog(win, {
     title: t('ui.importScenes'),
     properties: ['openFile'],
     filters: [{ name: 'JSON', extensions: ['json'] }]
@@ -648,7 +649,7 @@ type ZipEntry = { file_path: string; name: string }
 async function zipFiles(entries: ZipEntry[], defaultName: string): Promise<number> {
   if (entries.length === 0) return 0
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-  const result = await dialog.showSaveDialog(win, {
+  const result = await showSaveDialog(win, {
     title: t('ui.exportZip'),
     defaultPath: defaultName,
     filters: [{ name: 'ZIP', extensions: ['zip'] }]

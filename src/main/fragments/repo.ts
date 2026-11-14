@@ -1,4 +1,5 @@
-import { BrowserWindow, dialog } from 'electron'
+import { BrowserWindow } from 'electron'
+import { showOpenDialog, showSaveDialog } from '../dialogs'
 import { readFileSync, writeFileSync } from 'fs'
 import { basename } from 'path'
 import JSZip from 'jszip'
@@ -181,7 +182,7 @@ export function fragmentSource(): FragmentSource {
 /** txt/zip 가져오기 (다중 선택). txt=파일명이 조각 이름, zip=안의 txt들을 일괄 가져오기 */
 export async function importTxtFragments(): Promise<number> {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-  const result = await dialog.showOpenDialog(win, {
+  const result = await showOpenDialog(win, {
     title: t('ui.importFragmentTxt'),
     properties: ['openFile', 'multiSelections'],
     filters: [{ name: t('ui.textZip'), extensions: ['txt', 'zip'] }]
@@ -211,7 +212,7 @@ export async function exportAllFragmentsZip(): Promise<number> {
     .all() as { name: string; content: string }[]
   if (!rows.length) return 0
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-  const result = await dialog.showSaveDialog(win, {
+  const result = await showSaveDialog(win, {
     title: t('ui.exportAllFragments'),
     defaultPath: 'nais3-fragments.zip',
     filters: [{ name: 'ZIP', extensions: ['zip'] }]
@@ -234,7 +235,7 @@ export async function exportTxtFragment(id: number): Promise<boolean> {
     { name: string; content: string } | undefined
   if (!row) return false
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-  const result = await dialog.showSaveDialog(win, {
+  const result = await showSaveDialog(win, {
     title: t('ui.exportFragment'),
     // Windows 금지 문자 제거 (이름은 사용자 입력)
     defaultPath: `${row.name.replace(/[/\\:*?"<>|]/g, '_') || 'fragment'}.txt`,

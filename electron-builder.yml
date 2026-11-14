@@ -20,6 +20,8 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md,RESEARCH.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  # better-sqlite3 13+는 모든 OS용 N-API prebuild를 함께 배포한다 — 대상 플랫폼·아키텍처 것만 남긴다
+  - '!node_modules/better-sqlite3/prebuilds/!(${platform}-${arch}).node'
 asarUnpack:
   - resources/**
   # sharp 네이티브 바이너리는 .node(@img/sharp-<os>-<arch>)와 libvips(@img/sharp-libvips-<os>-<arch>)로 나뉨.

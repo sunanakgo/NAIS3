@@ -3,8 +3,8 @@ import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// postinstall rebuilds better-sqlite3 for Electron's ABI, not the system Node ABI.
-// Run the real SQLite integration tests in Electron's Node mode on every platform.
+// Run the real SQLite integration tests in Electron's Node mode on every platform, with
+// the same runtime and better-sqlite3 binary the app loads.
 const require = createRequire(import.meta.url)
 const electron = require('electron')
 const vitest = join(dirname(require.resolve('vitest/package.json')), 'vitest.mjs')

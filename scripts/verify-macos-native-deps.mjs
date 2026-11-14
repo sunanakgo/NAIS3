@@ -34,12 +34,13 @@ try {
   extractAll(asarPath, extracted)
   const nativeModules = walk(join(extracted, 'node_modules')).filter(
     (path) =>
-      path.endsWith('.node') && (path.includes('/sharp-') || path.includes('better_sqlite3.node'))
+      path.endsWith('.node') && (path.includes('/sharp-') || path.includes('/better-sqlite3/'))
   )
   if (!nativeModules.some((path) => path.includes('/sharp-'))) {
     throw new Error('sharp 네이티브 모듈을 찾지 못했습니다.')
   }
-  if (!nativeModules.some((path) => path.includes('better_sqlite3.node'))) {
+  // better-sqlite3 13+ loads prebuilds/<platform>-<arch>.node instead of build/Release
+  if (!nativeModules.some((path) => path.includes('/better-sqlite3/'))) {
     throw new Error('better-sqlite3 네이티브 모듈을 찾지 못했습니다.')
   }
 

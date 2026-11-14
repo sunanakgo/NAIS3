@@ -2,12 +2,14 @@ import {
   app,
   BrowserWindow,
   clipboard,
+  ClipboardItem,
   dialog,
   ipcMain,
   nativeImage,
   Notification,
   shell
 } from 'electron'
+import type { NativeImage } from 'electron'
 import type {
   IpcEventMap,
   IpcInvokeMap,
@@ -669,18 +671,22 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     return { saved: true }
   })
 
-  handle('images:copy', ({ filePath }) => {
+  // Electron 44+ clipboard follows the W3C API: write() takes ClipboardItems and is async
+  const copyImage = async (img: NativeImage): Promise<{ copied: boolean }> => {
+    if (img.isEmpty()) return { copied: false }
+    const png = new Blob([new Uint8Array(img.toPNG())], { type: 'image/png' })
+    await clipboard.write([new ClipboardItem({ 'image/png': png })])
+    return { copied: true }
+  }
+
+  handle('images:copy', async ({ filePath }) => {
     if (isMemoryPath(filePath)) {
       const buf = getMemoryImage(filePath)
       if (!buf) return { copied: false }
-      clipboard.writeImage(nativeImage.createFromBuffer(buf))
-      return { copied: true }
+      return copyImage(nativeImage.createFromBuffer(buf))
     }
     if (!isUnderImagesRoot(filePath)) return { copied: false }
-    const img = nativeImage.createFromPath(filePath)
-    if (img.isEmpty()) return { copied: false }
-    clipboard.writeImage(img)
-    return { copied: true }
+    return copyImage(nativeImage.createFromPath(filePath))
   })
 
   const saveDirKey = (target?: 'main' | 'scene'): string =>

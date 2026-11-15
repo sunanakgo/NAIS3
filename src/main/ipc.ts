@@ -626,7 +626,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     deleteFragmentFolder(id)
   })
 
-  handle('tags:search', ({ query, limit }) => ({ items: searchTags(query, limit) }))
+  handle('tags:search', async ({ query, limit }) => ({ items: await searchTags(query, limit) }))
   handle('tokens:count', async ({ texts, model }) => {
     // 토큰 수는 실제 전송본 기준 — 조각(<이름>)·주석을 치환/제거한 결과로 센다.
     // rng 고정(항상 첫 줄)이라 결정적이고, peek이라 <*이름> 순차 카운터를 소모하지 않는다.

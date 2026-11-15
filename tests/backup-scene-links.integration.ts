@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'fs'
+import { mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -90,9 +90,10 @@ describe('backup restore keeps generation history linked to scenes', () => {
 
   it('re-links images through the .nais archive import', async () => {
     const before = sceneSummary()
-    const { archive } = await exportNais('test')
+    const destination = join(environment.directory, 'backup.nais')
+    await exportNais(destination, 'test')
 
-    await importNais(archive)
+    await importNais(readFileSync(destination))
 
     for (const id of imagesA) expect(sceneOf(id)).toBe(sceneA)
     expect(sceneOf(imageB)).toBe(sceneB)

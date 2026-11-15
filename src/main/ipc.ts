@@ -398,8 +398,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     })
     if (result.canceled || !result.filePath) return { saved: false }
     try {
-      const { archive, skippedFiles } = await exportNais(app.getVersion())
-      writeFileSync(result.filePath, archive)
+      const { skippedFiles } = await exportNais(result.filePath, app.getVersion())
       return { saved: true, skippedFiles }
     } catch (error) {
       return { saved: false, error: error instanceof Error ? error.message : String(error) }

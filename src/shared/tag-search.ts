@@ -16,6 +16,8 @@ export interface TagEntry {
   tag: string
   count: number
   type: string
+  /** 인기 순위(0 = 최다). count 동률의 순서까지 확정한다 — 렌더러 캐시가 원본 순서를 재현할 때 쓴다 */
+  rank: number
 }
 
 export interface RawTag {
@@ -37,9 +39,13 @@ export interface TagIndex {
 export const MAX_TAG_LIMIT = 50
 export const DEFAULT_TAG_LIMIT = 8
 
-/** 검색어 정규화 — 대소문자 무시, 밑줄은 공백(단부루 표기 → NAI 프롬프트 표기) */
+/**
+ * 검색어 정규화 — 대소문자 무시, 밑줄은 공백(단부루 표기 → NAI 프롬프트 표기).
+ * 밑줄에서 온 공백은 다듬지 않는다: `cow_`는 "cow 뒤에 단어가 이어짐"이라는 뜻이라
+ * `cowboy shot`이 아니라 `cow print`를 찾아야 한다.
+ */
 export function normalizeTagQuery(query: string): string {
-  return query.trim().toLowerCase().replace(/_/g, ' ').trim()
+  return query.trim().toLowerCase().replace(/_/g, ' ')
 }
 
 export function clampTagLimit(limit: number | undefined): number {
@@ -178,7 +184,8 @@ export function createTagSearcher(index: TagIndex): TagSearcher {
     return {
       tag: index.names[id],
       count: index.counts[id],
-      type: index.typeNames[index.types[id]]
+      type: index.typeNames[index.types[id]],
+      rank: id
     }
   }
 

@@ -30,8 +30,10 @@ function narrow(items: TagEntry[], q: string): TagEntry[] {
     if (item.tag.startsWith(q)) prefix.push(item)
     else if (item.tag.includes(q)) rest.push(item)
   }
-  const byCount = (a: TagEntry, b: TagEntry): number => b.count - a.count
-  return [...prefix.sort(byCount), ...rest.sort(byCount)]
+  // 두 원본 목록(이전 검색어의 접두어/부분 일치)이 섞이므로 순위로 다시 세운다.
+  // count만으로 세우면 동률의 순서가 직접 검색과 달라진다
+  const byRank = (a: TagEntry, b: TagEntry): number => a.rank - b.rank
+  return [...prefix.sort(byRank), ...rest.sort(byRank)]
 }
 
 /** 캐시만으로 답할 수 있으면 결과를, 아니면 null (메인에 물어봐야 함) */

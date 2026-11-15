@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { buildTagIndex, createTagSearcher, type RawTag } from '../src/shared/tag-search'
+import {
+  buildTagIndex,
+  createTagSearcher,
+  type RawTag,
+  type TagEntry,
+  type TagSearcher
+} from '../src/shared/tag-search'
 
 const RAW: RawTag[] = [
   { value: 'long hair', count: 400, type: 'general' },
@@ -9,7 +15,7 @@ const RAW: RawTag[] = [
   { value: 'longshot', count: 200, type: 'artist' }
 ]
 
-function searcher(raw: RawTag[] = RAW) {
+function searcher(raw: RawTag[] = RAW): TagSearcher {
   return createTagSearcher(buildTagIndex(raw))
 }
 
@@ -44,8 +50,19 @@ describe('태그 자동완성', () => {
     ).toEqual(['long sleeves', 'long hair'])
   })
 
-  it('이름·개수·종류를 그대로 돌려준다', () => {
-    expect(searcher().search('longs')).toEqual([{ tag: 'longshot', count: 200, type: 'artist' }])
+  it('이름·개수·종류·인기 순위를 돌려준다', () => {
+    expect(searcher().search('longs')).toEqual([
+      { tag: 'longshot', count: 200, type: 'artist', rank: 4 }
+    ])
+  })
+
+  it('밑줄로 지정한 단어 경계를 보존한다', () => {
+    const s = searcher([
+      { value: 'cowboy shot', count: 900, type: 'general' },
+      { value: 'cow print', count: 100, type: 'general' }
+    ])
+    expect(s.search('cow_').map((tag) => tag.tag)).toEqual(['cow print'])
+    expect(s.search('cow').map((tag) => tag.tag)).toEqual(['cowboy shot', 'cow print'])
   })
 
   it('이어 타이핑·지우기·limit 변경 중에도 전체 스캔과 같은 결과를 낸다', () => {
@@ -59,7 +76,8 @@ describe('태그 자동완성', () => {
     const sorted = raw
       .map((t) => ({ tag: t.value, count: t.count, type: t.type }))
       .sort((a, b) => b.count - a.count)
-    const reference = (q: string, limit: number) => {
+      .map((t, rank) => ({ ...t, rank }))
+    const reference = (q: string, limit: number): TagEntry[] => {
       if (q.length < 2) return []
       const prefix = sorted.filter((t) => t.tag.startsWith(q))
       const rest = sorted.filter((t) => !t.tag.startsWith(q) && t.tag.includes(q))

@@ -564,7 +564,7 @@ export interface IpcInvokeMap {
   'frags:folderDelete': { req: { id: number }; res: void }
   'tags:search': {
     req: { query: string; limit?: number }
-    res: { items: { tag: string; count: number; type: string }[] }
+    res: { items: { tag: string; count: number; type: string; rank: number }[] }
   }
   /** 모델별 토큰 카운트 (V5=Qwen 3.5, 이전 모델=T5) */
   'tokens:count': { req: { texts: string[]; model: string }; res: { counts: number[] } }

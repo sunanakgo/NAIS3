@@ -145,6 +145,12 @@ import {
 import { exportLegacyJson, exportNais, importLegacyJson, importNais } from './backup/repo'
 import { hasZipSignature } from './backup/archive'
 import { importNais2 } from './backup/nais2'
+import {
+  dismissRecoveryNotice,
+  findRecoveryNotice,
+  listRecoverableBackups,
+  restoreRecoverableBackup
+} from './backup/recovery'
 import { startUpdateDownload } from './updater'
 import { countPromptTokens } from './nai/token-counter'
 import {
@@ -478,6 +484,40 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     } catch (e) {
       return { error: e instanceof Error ? e.message : String(e) }
     }
+  })
+  handle('backup:listRecoverable', () => {
+    try {
+      return listRecoverableBackups()
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) }
+    }
+  })
+  // 부가 안내라 실패해도 시작을 방해하지 않는다 — 설정의 백업 목록에서 다시 볼 수 있다
+  handle('backup:recoveryNotice', () => {
+    try {
+      return { backup: findRecoveryNotice() }
+    } catch (e) {
+      console.error('Recovery notice check failed:', e)
+      return { backup: null }
+    }
+  })
+  handle('backup:dismissRecoveryNotice', ({ id }) => {
+    dismissRecoveryNotice(id)
+  })
+  handle('backup:restore', ({ id }) => {
+    // 생성 결과를 쓰는 도중에 DB를 닫지 않는다
+    if (ctx.queue.status().running) return { error: t('ui.recoveryQueueRunning') }
+    try {
+      restoreRecoverableBackup(id)
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) }
+    }
+    // DB는 이미 닫혔다 — 응답이 렌더러에 닿은 뒤 바뀐 DB로 다시 시작한다
+    setTimeout(() => {
+      app.relaunch()
+      app.exit(0)
+    }, 600)
+    return { restarting: true as const }
   })
   handle('scenes:list', ({ presetId }) => ({ items: listScenes(presetId) }))
   handle('scenes:create', ({ presetId, name }) => ({ id: createScene(presetId, name) }))

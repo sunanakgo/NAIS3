@@ -11,6 +11,7 @@ import {
   randomizedGenerationDelayMs
 } from '@shared/generation-delay'
 import { FinishedQueueLog, queueItemSnapshot } from '@shared/queue-status'
+import { emptyWorkspaceCounts } from '@shared/workspace-counts'
 import {
   browserFragmentSource,
   exportBrowserWorkspace,
@@ -918,6 +919,11 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
       return { error: error instanceof Error ? error.message : String(error) }
     }
   }
+  // 브라우저 작업 공간에는 앱이 남기는 DB 백업이 없다 (IndexedDB)
+  if (channel === 'backup:listRecoverable') return { items: [], current: emptyWorkspaceCounts() }
+  if (channel === 'backup:recoveryNotice') return { backup: null }
+  if (channel === 'backup:dismissRecoveryNotice') return undefined
+  if (channel === 'backup:restore') return { error: 'Browser runtime has no database backups' }
   if (channel === 'update:status') return undefined
 
   throw new Error(`Browser runtime does not support ${channel}`)

@@ -26,12 +26,12 @@ export function getDbPath(): string {
   return join(app.getPath('userData'), 'nais3.db')
 }
 
-function getBackupDir(): string {
+export function getBackupDir(): string {
   return join(app.getPath('userData'), 'backups')
 }
 
 /** 업그레이드 직전 DB 원본 복사본 (schema-v{N}/) — backups/와 달리 정리하지 않는다 */
-function getUpgradeBackupDir(): string {
+export function getUpgradeBackupDir(): string {
   return join(app.getPath('userData'), 'upgrade-backups')
 }
 
@@ -125,6 +125,18 @@ export function snapshotBeforeImport(): string {
     join(getBackupDir(), 'pre-import'),
     'pre-import',
     IMPORT_SNAPSHOTS_KEPT
+  )
+}
+
+/** 백업으로 되돌리기 직전 스냅샷 보관 수 — 복원을 되돌릴 수 있게 남긴다 */
+const RESTORE_SNAPSHOTS_KEPT = 3
+
+/** 앱 내부 백업으로 되돌리기 직전 상태를 backups/pre-restore/에 남긴다 (복원 목록에도 나온다) */
+export function snapshotBeforeRestore(): string {
+  return writeTimestampedSnapshot(
+    join(getBackupDir(), 'pre-restore'),
+    'pre-restore',
+    RESTORE_SNAPSHOTS_KEPT
   )
 }
 

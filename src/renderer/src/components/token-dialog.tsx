@@ -49,6 +49,7 @@ import {
   type ShortcutAction
 } from '../stores/shortcuts-store'
 import { NaiTokenStoreLockNotice } from './nai-token-store-lock-notice'
+import { RecoverableBackups } from './recoverable-backups'
 import { ThemeToggle } from './theme-toggle'
 import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
@@ -669,6 +670,8 @@ function StorageSection(): React.JSX.Element {
         </p>
         <BackupButtons />
       </div>
+      {/* 브라우저 작업 공간(IndexedDB)에는 앱이 남기는 DB 백업이 없다 */}
+      {window.nais.runtime !== 'browser' && <RecoverableBackups />}
     </div>
   )
 }

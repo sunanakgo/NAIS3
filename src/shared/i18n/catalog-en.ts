@@ -32,6 +32,8 @@ export const EN = {
   'ui.importArchiveOrLegacyBackup': 'Import data (.nais / NAIS3 JSON / NAIS2 JSON)',
   'ui.naisArchiveRestored': '.nais backup restored ({0} items)',
   'ui.backupMissingImagesSkipped': ' · {0} missing images skipped',
+  'ui.importSnapshotFailed':
+    'Could not back up the current data before importing, so nothing was changed ({0})',
   'ui.nais3JsonRestored': 'NAIS3 JSON restored ({0} items{1})',
   'ui.naisWorkspaceBackup': 'Workspace .nais backup · Supports importing legacy NAIS3/NAIS2 JSON',
   'ui.backupExportError': 'Export error: {0}',

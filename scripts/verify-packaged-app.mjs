@@ -177,11 +177,12 @@ try {
       const [root, workerFile, directory] = process.argv.slice(1);
       const Database = require(path.join(root, 'node_modules/better-sqlite3'));
       const backupDir = path.join(directory, 'backups');
+      const upgradeBackupDir = path.join(directory, 'upgrade-backups');
       // Resolves with every message once the worker exits; fails on a worker error.
       const run = file => new Promise((resolve, reject) => {
         const messages = [];
         const worker = new Worker(path.join(root, workerFile), {
-          workerData: { path: file, backupDir }
+          workerData: { path: file, backupDir, upgradeBackupDir }
         });
         worker.on('message', message => messages.push(message));
         worker.once('error', reject);

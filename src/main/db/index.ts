@@ -29,6 +29,11 @@ function getBackupDir(): string {
   return join(app.getPath('userData'), 'backups')
 }
 
+/** 업그레이드 직전 DB 원본 복사본 (schema-v{N}/) — backups/와 달리 정리하지 않는다 */
+function getUpgradeBackupDir(): string {
+  return join(app.getPath('userData'), 'upgrade-backups')
+}
+
 /**
  * DB 열기 + 마이그레이션 (migrate.ts).
  *
@@ -43,7 +48,7 @@ export function initDb(): { version: number; path: string; isNewDatabase: boolea
   const isNewDatabase = !existsSync(path)
 
   db = openDatabase(path)
-  migrate(db, getBackupDir())
+  migrate(db, getBackupDir(), getUpgradeBackupDir())
 
   return { version: migrations.length, path, isNewDatabase }
 }
@@ -68,7 +73,11 @@ export function migrateInWorker(
   workerFile: string,
   onOpened?: (info: WorkspaceInfo) => void
 ): Promise<boolean> {
-  const workerData: MigrationWorkerData = { path: getDbPath(), backupDir: getBackupDir() }
+  const workerData: MigrationWorkerData = {
+    path: getDbPath(),
+    backupDir: getBackupDir(),
+    upgradeBackupDir: getUpgradeBackupDir()
+  }
   // 새 설치 — initDb가 만들고 마이그레이션한다 (백업이 없어 금방 끝난다)
   if (!existsSync(workerData.path)) return Promise.resolve(true)
   return new Promise((resolve, reject) => {

@@ -32,6 +32,7 @@ export const ZH_CN = {
   'ui.importArchiveOrLegacyBackup': '导入数据（.nais / NAIS3 JSON / NAIS2 JSON）',
   'ui.naisArchiveRestored': '.nais 备份已恢复（{0} 项）',
   'ui.backupMissingImagesSkipped': ' · 已跳过 {0} 张缺失图片',
+  'ui.importSnapshotFailed': '导入前无法备份当前数据，因此未做任何更改（{0}）',
   'ui.nais3JsonRestored': 'NAIS3 JSON 已恢复（{0} 项{1}）',
   'ui.naisWorkspaceBackup': '工作区 .nais 备份 · 支持导入旧版 NAIS3/NAIS2 JSON',
   'ui.backupExportError': '导出错误：{0}',

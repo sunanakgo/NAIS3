@@ -185,7 +185,7 @@ export function writeSnapshot(db: Database.Database, destination: string): void 
  * 스냅샷 도중 강제 종료되면 DB 크기만 한 .tmp(와 그 -journal)가 남는다 — 실행마다 쌓여
  * 디스크를 채우지 않게 정리
  */
-function removeSnapshotTemps(backupDir: string): void {
+export function removeSnapshotTemps(backupDir: string): void {
   if (!existsSync(backupDir)) return
   for (const f of readdirSync(backupDir)) {
     if (f.endsWith('.tmp') || f.endsWith('.tmp-journal'))

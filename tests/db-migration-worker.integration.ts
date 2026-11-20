@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3'
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { createRequire } from 'module'
 import { tmpdir } from 'os'
 import { join, resolve } from 'path'
@@ -17,6 +17,7 @@ let bundle: string
 let root: string
 const path = (): string => join(environment.directory, 'nais3.db')
 const backups = (): string => join(environment.directory, 'backups')
+const upgradeBackups = (): string => join(environment.directory, 'upgrade-backups')
 
 // The app loads the worker from the electron-vite build; bundle the same entry for Node here.
 beforeAll(async () => {
@@ -74,8 +75,8 @@ function seed(version: number, language?: string): void {
   db.close()
 }
 
-function version(): number {
-  const db = new Database(path(), { readonly: true, fileMustExist: true })
+function version(file = path()): number {
+  const db = new Database(file, { readonly: true, fileMustExist: true })
   try {
     return db.pragma('user_version', { simple: true }) as number
   } finally {
@@ -93,12 +94,17 @@ async function run(workerFile = bundle): Promise<{ migrated: boolean; opened: Wo
 describe('DB migration worker', () => {
   it('backs up and migrates the database, leaving initDb only to open it', async () => {
     seed(18)
+    const original = readFileSync(path())
     await expect(run()).resolves.toEqual({
       migrated: true,
       opened: [{ language: 'ko', pending: true }]
     })
     expect(version()).toBe(migrations.length)
     expect(readdirSync(backups())).toEqual(['pre-migration-v18.db'])
+    expect(readdirSync(upgradeBackups())).toEqual(['schema-v18'])
+    const copy = join(upgradeBackups(), 'schema-v18', 'nais3.db')
+    expect(readFileSync(copy).equals(original)).toBe(true)
+    expect(version(copy)).toBe(18)
 
     const initialized = initDb()
     expect(initialized).toMatchObject({ version: migrations.length, isNewDatabase: false })

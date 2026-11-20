@@ -33,7 +33,7 @@ import {
   setFolderColor,
   updateCharacter
 } from './characters/repo'
-import { getDbPath, getDb } from './db'
+import { getDbPath, getDb, snapshotBeforeImport } from './db'
 import { analyzeArtists } from './images/artists'
 import { metadataFromPng, metadataFromPayloadJson } from './images/metadata'
 import {
@@ -145,6 +145,12 @@ import {
 import { exportLegacyJson, exportNais, importLegacyJson, importNais } from './backup/repo'
 import { hasZipSignature } from './backup/archive'
 import { importNais2 } from './backup/nais2'
+import {
+  dismissRecoveryNotice,
+  findRecoveryNotice,
+  listRecoverableBackups,
+  restoreRecoverableBackup
+} from './backup/recovery'
 import { startUpdateDownload } from './updater'
 import { countPromptTokens } from './nai/token-counter'
 import {
@@ -430,17 +436,28 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
       properties: ['openFile']
     })
     if (result.canceled || !result.filePaths[0]) return { canceled: true as const }
+    // 가져오기는 대상 테이블을 비우고 다시 채운다 — 직전 상태를 남기지 못하면 아무것도 바꾸지 않는다
+    const options = {
+      beforeReplace: (): void => {
+        try {
+          snapshotBeforeImport()
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error)
+          throw new Error(t('ui.importSnapshotFailed', reason))
+        }
+      }
+    }
     try {
       const input = readFileSync(result.filePaths[0])
       if (hasZipSignature(input)) {
-        const { imported } = await importNais(input)
+        const { imported } = await importNais(input, options)
         return { summary: t('ui.naisArchiveRestored', imported), needsPromptReload: true }
       }
 
       const data = JSON.parse(input.toString('utf-8')) as Record<string, unknown>
       // 포맷 감지: NAIS3는 _app='NAIS3', NAIS2는 nais2-* 키
       if (data._app === 'NAIS3') {
-        const { imported, skippedFiles } = importLegacyJson(data)
+        const { imported, skippedFiles } = importLegacyJson(data, options)
         const skipped = skippedFiles ? t('ui.backupMissingImagesSkipped', skippedFiles) : ''
         return {
           summary: t('ui.nais3JsonRestored', imported, skipped),
@@ -448,7 +465,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
         }
       }
       if (Object.keys(data).some((k) => k.startsWith('nais2-'))) {
-        const r = importNais2(data)
+        const r = importNais2(data, options)
         const parts = [
           r.characters ? t('ui.characterValue', r.characters) : '',
           r.presets ? t('ui.valuePresets', r.presets) : '',
@@ -467,6 +484,40 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     } catch (e) {
       return { error: e instanceof Error ? e.message : String(e) }
     }
+  })
+  handle('backup:listRecoverable', () => {
+    try {
+      return listRecoverableBackups()
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) }
+    }
+  })
+  // 부가 안내라 실패해도 시작을 방해하지 않는다 — 설정의 백업 목록에서 다시 볼 수 있다
+  handle('backup:recoveryNotice', () => {
+    try {
+      return { backup: findRecoveryNotice() }
+    } catch (e) {
+      console.error('Recovery notice check failed:', e)
+      return { backup: null }
+    }
+  })
+  handle('backup:dismissRecoveryNotice', ({ id }) => {
+    dismissRecoveryNotice(id)
+  })
+  handle('backup:restore', ({ id }) => {
+    // 생성 결과를 쓰는 도중에 DB를 닫지 않는다
+    if (ctx.queue.status().running) return { error: t('ui.recoveryQueueRunning') }
+    try {
+      restoreRecoverableBackup(id)
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) }
+    }
+    // DB는 이미 닫혔다 — 응답이 렌더러에 닿은 뒤 바뀐 DB로 다시 시작한다
+    setTimeout(() => {
+      app.relaunch()
+      app.exit(0)
+    }, 600)
+    return { restarting: true as const }
   })
   handle('scenes:list', ({ presetId }) => ({ items: listScenes(presetId) }))
   handle('scenes:create', ({ presetId, name }) => ({ id: createScene(presetId, name) }))

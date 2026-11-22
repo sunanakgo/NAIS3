@@ -9,7 +9,7 @@ import {
   Trash2,
   X
 } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { CharRefItem, CharRefType, VibeItem } from '@shared/types'
 import { useGenerationStore } from '../stores/generation-store'
@@ -17,8 +17,10 @@ import { cn } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { applyClickSelection, useSelectAllShortcut } from '../lib/edit-selection'
 import { buildDisplayRows } from '../lib/folder-list'
+import { isLeavingDropZone, useDragEndCleanup } from '../lib/drop-zone'
 import { CHARREF_TYPES, refsStoreFor } from '../stores/refs-store'
 import { askConfirm, askText } from '../stores/dialog-store'
+import { DropOverlay } from './drop-overlay'
 import { FolderListView } from './folder-list-view'
 import { Button } from './ui/button'
 import { ContextMenuItem, ContextMenuSeparator } from './ui/context-menu'
@@ -40,6 +42,7 @@ export function RefOverlay({ kind }: { kind: 'vibe' | 'charref' }): React.JSX.El
   const folders = store((s) => s.folders)
   const items = store((s) => s.items)
   const add = store((s) => s.add)
+  const addFrom = store((s) => s.addFrom)
   const update = store((s) => s.update)
   const remove = store((s) => s.remove)
   const duplicate = store((s) => s.duplicate)
@@ -53,6 +56,19 @@ export function RefOverlay({ kind }: { kind: 'vibe' | 'charref' }): React.JSX.El
   const [search, setSearch] = useState('')
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [preview, setPreview] = useState<{ src: string; top: number; left: number } | null>(null)
+
+  // 이미지 드롭 — 외부 파일 또는 히스토리·씬·라이브러리 썸네일(내부 드래그 nais/file-path)
+  const [dragOver, setDragOver] = useState(false)
+  useDragEndCleanup(useCallback(() => setDragOver(false), []))
+  const acceptsDrag = (e: React.DragEvent): boolean =>
+    e.dataTransfer.types.includes('Files') || e.dataTransfer.types.includes('nais/file-path')
+  const onDrop = (e: React.DragEvent): void => {
+    e.preventDefault()
+    setDragOver(false)
+    const internalPath = e.dataTransfer.getData('nais/file-path')
+    if (internalPath) void addFrom({ filePaths: [internalPath] })
+    else void addFrom({ files: [...(e.dataTransfer.files ?? [])] })
+  }
 
   // 편집 모드 — 다중 선택 (일반 클릭=교체, Ctrl=토글, Shift=구간, Ctrl+A=전체)
   const [editMode, setEditMode] = useState(false)
@@ -256,7 +272,19 @@ export function RefOverlay({ kind }: { kind: 'vibe' | 'charref' }): React.JSX.El
   }
 
   return (
-    <div className="flex h-full flex-col gap-2">
+    <div
+      className="relative flex h-full flex-col gap-2"
+      onDragOver={(e) => {
+        if (!acceptsDrag(e)) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+        setDragOver(true)
+      }}
+      onDragLeave={(e) => {
+        if (isLeavingDropZone(e)) setDragOver(false)
+      }}
+      onDrop={onDrop}
+    >
       <div className="flex items-center gap-2">
         <Button
           size="icon"
@@ -397,6 +425,17 @@ export function RefOverlay({ kind }: { kind: 'vibe' | 'charref' }): React.JSX.El
           emptyText={items.length === 0 ? t('ui.addAnImageToGetStarted') : t('ui.noSearchResults')}
         />
       </div>
+
+      <DropOverlay
+        show={dragOver}
+        icon={ImagePlus}
+        label={
+          kind === 'vibe'
+            ? t('ui.dropHereToAddAsVibeReference')
+            : t('ui.dropHereToAddAsCharacterReference')
+        }
+        sub={t('ui.safelyStoredAsCopies')}
+      />
 
       {bulkParamsOpen && (
         <BulkParamsDialog

@@ -958,35 +958,53 @@ async function refsDispatch(channel: string, request: Record<string, unknown>): 
     const folders = vibe ? state.vibeFolders : state.charRefFolders
     const action = channel.slice(channel.indexOf(':') + 1)
     if (action === 'list') return { folders, items }
+    const pushRef = (name: string, thumbnail: string): void => {
+      const id = nextBrowserId(state)
+      if (vibe)
+        state.vibes.push({
+          id,
+          name,
+          thumbnail,
+          enabled: true,
+          strength: 0.6,
+          infoExtracted: 1,
+          encodedReady: false,
+          folderId: (request.folderId as number | null) ?? null
+        })
+      else
+        state.charRefs.push({
+          id,
+          name,
+          thumbnail,
+          enabled: true,
+          refType: 'character&style',
+          strength: 1,
+          fidelity: 1,
+          folderId: (request.folderId as number | null) ?? null
+        })
+    }
     if (action === 'add') {
       const files = await pickFiles('image/*', true)
-      for (const file of files) {
-        const thumbnail = await fileBase64(file)
-        const id = nextBrowserId(state)
-        if (vibe)
-          state.vibes.push({
-            id,
-            name: file.name,
-            thumbnail,
-            enabled: true,
-            strength: 0.6,
-            infoExtracted: 1,
-            encodedReady: false,
-            folderId: (request.folderId as number | null) ?? null
-          })
-        else
-          state.charRefs.push({
-            id,
-            name: file.name,
-            thumbnail,
-            enabled: true,
-            refType: 'character&style',
-            strength: 1,
-            fidelity: 1,
-            folderId: (request.folderId as number | null) ?? null
-          })
-      }
+      for (const file of files) pushRef(file.name, await fileBase64(file))
       return { count: files.length }
+    }
+    if (action === 'addFrom') {
+      const filePaths = (request.filePaths as string[] | undefined) ?? []
+      const images = (request.images as { name: string; base64: string }[] | undefined) ?? []
+      let count = 0
+      for (const filePath of filePaths) {
+        const image = findBrowserImage(state, filePath)
+        if (!image?.base64) continue
+        pushRef('', image.base64)
+        count++
+      }
+      for (const image of images) {
+        const base64 = String(image.base64 ?? '').replace(/^data:[^,]+,/, '')
+        if (!base64) continue
+        pushRef(String(image.name ?? ''), base64)
+        count++
+      }
+      return { count, failed: filePaths.length + images.length - count }
     }
     if (action === 'update') {
       const item = items.find((candidate) => candidate.id === request.id)

@@ -54,6 +54,15 @@ export interface CharRefItem {
   folderId: number | null
 }
 
+/** 경로/드롭 이미지로 레퍼런스 추가 요청 (vibes:addFrom · crefs:addFrom 공용) */
+export interface RefAddFromRequest {
+  folderId: number | null
+  /** 앱이 보여 주는 이미지 경로 — 메인에서 저장 폴더/라이브러리/메모리 이미지인지 검증 */
+  filePaths?: string[]
+  /** 외부에서 드롭한 파일 (data URL 또는 base64) */
+  images?: { name: string; base64: string }[]
+}
+
 export interface GenerationRequest {
   prompt: string
   /** Optional NAIS2-style split prompt parts. prompt is still the merged send text. */
@@ -730,6 +739,14 @@ export interface IpcInvokeMap {
   'vibes:list': { req: void; res: { folders: ListFolder[]; items: VibeItem[] } }
   /** 파일 다이얼로그(다중)로 추가 */
   'vibes:add': { req: { folderId: number | null }; res: { count: number } }
+  /**
+   * 앱 안 이미지 경로(히스토리·라이브러리·씬) 또는 외부 드롭(base64)으로 추가.
+   * failed = 허용되지 않은 경로·읽기 실패·PNG/JPEG/WebP가 아닌 항목 수
+   */
+  'vibes:addFrom': {
+    req: RefAddFromRequest
+    res: { count: number; failed: number }
+  }
   'vibes:update': {
     req: {
       id: number
@@ -747,6 +764,10 @@ export interface IpcInvokeMap {
   'vibes:folderDelete': { req: { id: number }; res: void }
   'crefs:list': { req: void; res: { folders: ListFolder[]; items: CharRefItem[] } }
   'crefs:add': { req: { folderId: number | null }; res: { count: number } }
+  'crefs:addFrom': {
+    req: RefAddFromRequest
+    res: { count: number; failed: number }
+  }
   'crefs:update': {
     req: {
       id: number

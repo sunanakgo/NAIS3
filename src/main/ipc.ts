@@ -149,6 +149,7 @@ import { startUpdateDownload } from './updater'
 import { countPromptTokens } from './nai/token-counter'
 import {
   addRefImages,
+  addRefImagesFrom,
   collapseRefFolder,
   colorRefFolder,
   createRefFolder,
@@ -912,6 +913,9 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   // 바이브 / 캐릭터 레퍼런스 라이브러리 (공용 저장소, kind로 분기)
   handle('vibes:list', () => listVibes())
   handle('vibes:add', async ({ folderId }) => ({ count: await addRefImages('vibe', folderId) }))
+  handle('vibes:addFrom', ({ folderId, filePaths, images }) =>
+    addRefImagesFrom('vibe', folderId, filePaths ?? [], images ?? [])
+  )
   handle('vibes:update', ({ id, patch }) => {
     updateRefImage('vibe', id, patch)
   })
@@ -938,6 +942,9 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
 
   handle('crefs:list', () => listCharRefs())
   handle('crefs:add', async ({ folderId }) => ({ count: await addRefImages('charref', folderId) }))
+  handle('crefs:addFrom', ({ folderId, filePaths, images }) =>
+    addRefImagesFrom('charref', folderId, filePaths ?? [], images ?? [])
+  )
   handle('crefs:update', ({ id, patch }) => {
     updateRefImage('charref', id, patch)
   })

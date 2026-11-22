@@ -55,7 +55,7 @@ describe('parseMetadataVibes', () => {
   it('drops invalid encodings and clamps or replaces invalid numbers', () => {
     expect(
       parseMetadataVibes({
-        reference_image_multiple: [42, '', 'not base64!', { data: 'x' }, ' QUJD '],
+        reference_image_multiple: [42, '', 'not base64!', { data: 'x' }, ' QUJD ', 'QUJ', 'QU=D'],
         reference_strength_multiple: ['0.5', 2, -1, Number.NaN, null],
         reference_information_extracted_multiple: [Infinity, 1.5, -0.2, 'x']
       })
@@ -64,7 +64,9 @@ describe('parseMetadataVibes', () => {
       { strength: 1, informationExtracted: 1 },
       { strength: 0, informationExtracted: 0 },
       { strength: 0.6 },
-      { encoded: 'QUJD', strength: 0.6 }
+      { encoded: 'QUJD', strength: 0.6 },
+      { strength: 0.6 },
+      { strength: 0.6 }
     ])
   })
 })

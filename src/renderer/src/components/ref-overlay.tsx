@@ -403,7 +403,14 @@ export function RefOverlay({ kind }: { kind: 'vibe' | 'charref' }): React.JSX.El
           kind={kind}
           count={selected.size}
           onApply={(patch) => {
-            for (const id of selected) update(id, patch)
+            // 인코딩만 있는 바이브는 IE를 바꿀 수 없다 — 나머지 값만 적용
+            const withoutInfo = Object.fromEntries(
+              Object.entries(patch).filter(([key]) => key !== 'infoExtracted')
+            )
+            for (const id of selected) {
+              const item = byId.get(id)
+              update(id, item && 'encodedOnly' in item && item.encodedOnly ? withoutInfo : patch)
+            }
             setBulkParamsOpen(false)
           }}
           onClose={() => setBulkParamsOpen(false)}

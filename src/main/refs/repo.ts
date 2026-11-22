@@ -192,7 +192,8 @@ export function importMetadataVibes(
   if (usable.length === 0 || !model) return { ids: [], created: 0, reused: 0 }
 
   const db = getDb()
-  const known = new Map<string, { id: number; ie: number }>()
+  // 같은 인코딩을 가진 항목이 여럿일 수 있다 — 메타데이터에 같은 바이브가 두 번 있으면 차례로 재사용
+  const known = new Map<string, { id: number; ie: number }[]>()
   const rows = db
     .prepare(
       'SELECT id, encoded, encoded_ie FROM vibe_images WHERE encoded IS NOT NULL ORDER BY sort_order, id'
@@ -200,7 +201,9 @@ export function importMetadataVibes(
     .all() as { id: number; encoded: string; encoded_ie: number | null }[]
   for (const row of rows) {
     for (const entry of vibeEncodingEntries(row.encoded, row.encoded_ie)) {
-      if (!known.has(entry.data)) known.set(entry.data, { id: row.id, ie: entry.ie })
+      const candidates = known.get(entry.data) ?? []
+      if (!candidates.some((c) => c.id === row.id)) candidates.push({ id: row.id, ie: entry.ie })
+      known.set(entry.data, candidates)
     }
   }
 
@@ -226,8 +229,8 @@ export function importMetadataVibes(
         }
       ).m
       usable.forEach((vibe, index) => {
-        const match = known.get(vibe.encoded)
-        if (match && !ids.includes(match.id)) {
+        const match = known.get(vibe.encoded)?.find((c) => !ids.includes(c.id))
+        if (match) {
           reuse.run(vibe.strength, match.ie, match.id)
           ids.push(match.id)
           reused++
@@ -276,8 +279,18 @@ export function updateRefImage(kind: Kind, id: number, patch: Record<string, unk
   const fields = kind === 'vibe' ? VIBE_FIELDS : CREF_FIELDS
   const sets: string[] = []
   const values: unknown[] = []
+  // 인코딩만 있는 바이브는 저장된 IE로 고정 — 원본이 없어 다른 값으로 다시 인코딩할 수 없다
+  const lockedInfo =
+    kind === 'vibe' &&
+    patch.infoExtracted !== undefined &&
+    isEncodedOnlyVibe(
+      (
+        getDb().prepare('SELECT file_path FROM vibe_images WHERE id = ?').get(id) as
+          { file_path: string } | undefined
+      )?.file_path ?? ''
+    )
   for (const [key, column] of Object.entries(fields)) {
-    if (patch[key] === undefined) continue
+    if (patch[key] === undefined || (lockedInfo && key === 'infoExtracted')) continue
     sets.push(`${column} = ?`)
     values.push(typeof patch[key] === 'boolean' ? (patch[key] ? 1 : 0) : patch[key])
   }

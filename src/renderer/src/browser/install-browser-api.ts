@@ -1,6 +1,7 @@
 import type { NaisApi } from '../../../preload/index'
 import { preprocessRequest } from '../../../main/fragments/request'
 import { processWildcards, resetSequentialCounters } from '../../../main/fragments/processor'
+import { translate, type Lang } from '@shared/i18n'
 import { removeComments } from '@shared/nai-presets'
 import { modelCapabilities } from '@shared/nai-models'
 import { applyRandomCharacterPrompt } from '@shared/random-character'
@@ -25,6 +26,7 @@ import type {
   IpcEventMap,
   IpcInvokeMap,
   ListFolder,
+  MetadataVibe,
   QueueStatus
 } from '@shared/types'
 import {
@@ -987,6 +989,62 @@ async function refsDispatch(channel: string, request: Record<string, unknown>): 
           })
       }
       return { count: files.length }
+    }
+    if (action === 'importFromMetadata' && vibe) {
+      // Same rules as the app: turn every vibe off, reuse items holding the same encoding,
+      // and add the rest as encoding-only vibes fixed to the encoded IE
+      const model = String(request.model ?? '')
+      const usable = ((request.vibes as MetadataVibe[] | undefined) ?? []).filter(
+        (candidate) => typeof candidate?.encoded === 'string' && candidate.encoded.length > 0
+      )
+      if (usable.length === 0 || !model) return { ids: [], created: 0, reused: 0 }
+      const source = (request.source ?? {}) as { filePath?: string; base64?: string }
+      const thumbnail =
+        source.base64?.replace(/^data:[^,]+,/, '') ??
+        findBrowserImage(state, source.filePath)?.base64 ??
+        ''
+      const clamp = (value: unknown, fallback: number): number =>
+        typeof value === 'number' && Number.isFinite(value)
+          ? Math.min(1, Math.max(0, value))
+          : fallback
+      state.vibes.forEach((candidate) => (candidate.enabled = false))
+      const ids: number[] = []
+      let created = 0
+      let reused = 0
+      usable.forEach((meta, index) => {
+        const strength = clamp(meta.strength, 0.6)
+        const match = Object.entries(state.vibeEncodings).find(
+          ([key, data]) => data === meta.encoded && !ids.includes(Number(key.split(':')[0]))
+        )
+        const existing =
+          match && state.vibes.find((candidate) => candidate.id === Number(match[0].split(':')[0]))
+        if (match && existing) {
+          existing.enabled = true
+          existing.strength = strength
+          existing.infoExtracted = Number(match[0].split(':').at(-1))
+          ids.push(existing.id)
+          reused++
+          return
+        }
+        const ie = clamp(meta.informationExtracted, 1)
+        const id = nextBrowserId(state)
+        state.vibeEncodings[`${id}:${model}:${ie}`] = meta.encoded!
+        state.vibes.push({
+          id,
+          name: translate(state.settings.ui_language as Lang, 'ui.metadataVibeValue', [index + 1]),
+          thumbnail,
+          enabled: true,
+          strength,
+          infoExtracted: ie,
+          encodedReady: true,
+          encodedModels: [model],
+          encodedOnly: true,
+          folderId: null
+        })
+        ids.push(id)
+        created++
+      })
+      return { ids, created, reused }
     }
     if (action === 'update') {
       const item = items.find((candidate) => candidate.id === request.id)

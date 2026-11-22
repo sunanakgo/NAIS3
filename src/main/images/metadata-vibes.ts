@@ -2,7 +2,8 @@ import type { ImageMetadata, MetadataVibe } from '../../shared/types'
 
 /** NAI 기본 바이브 강도 — 메타데이터에 강도가 없거나 잘못된 값일 때 */
 const DEFAULT_STRENGTH = 0.6
-const BASE64 = /^[A-Za-z0-9+/_-]+={0,2}$/
+/** 패딩까지 맞는 표준 base64 — NAI 인코딩 형식. 길이가 어긋나면 잘린 값이라 버린다 */
+const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
 
 /**
  * NovelAI PNG의 Source 문자열 → API 모델 id. 바이브 인코딩은 모델별이라 어느 모델로

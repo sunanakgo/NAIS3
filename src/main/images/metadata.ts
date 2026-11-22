@@ -192,13 +192,14 @@ export function metadataFromPayloadJson(json: string): ImageMetadata | null {
       nais3?: LocalParams
     }
     if (!p.parameters) return null
-    return normalize(p.parameters, {
+    const meta = normalize(p.parameters, {
       prompt: p.input ?? '',
       uc: p.parameters.negative_prompt ?? '',
       model: p.model,
       software: 'NAIS3',
       local: p.nais3
     })
+    return p.model ? { ...meta, modelId: p.model } : meta
   } catch {
     return null
   }

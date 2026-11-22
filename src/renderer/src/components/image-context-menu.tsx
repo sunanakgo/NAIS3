@@ -22,10 +22,11 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger
 } from './ui/context-menu'
+import { RegenerateMenuItem } from './regenerate-menu-item'
 
 /**
  * 이미지 우클릭 공용 메뉴 — 히스토리·씬 상세 등 이미지가 나오는 모든 곳에서 동일하게 사용.
- * I2I / 인페인트 / 디렉터 툴 / 파일 탐색기.
+ * 재생성 / I2I / 인페인트 / 디렉터 툴 / 파일 탐색기.
  */
 export function ImageContextMenu({
   filePath,
@@ -50,6 +51,7 @@ export function ImageContextMenu({
     <ContextMenu>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
       <ContextMenuContent>
+        <RegenerateMenuItem filePath={filePath} />
         <ContextMenuItem onSelect={() => void setI2iSource(filePath)}>
           <ImageIcon size={13} className="text-hue-indigo" /> I2I
         </ContextMenuItem>

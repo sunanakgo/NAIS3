@@ -769,12 +769,12 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
         }
         const fromPng = await metadataFromPng(buf)
         if (fromPng) {
-          return {
-            meta:
-              !fromPng.promptParts && fromDb?.promptParts
-                ? { ...fromPng, promptParts: fromDb.promptParts }
-                : fromPng
-          }
+          const merged =
+            !fromPng.promptParts && fromDb?.promptParts
+              ? { ...fromPng, promptParts: fromDb.promptParts }
+              : fromPng
+          // PNG의 Source는 표시용 이름이라 재생성에 쓸 API 모델 id는 DB 요청에서 가져온다
+          return { meta: fromDb?.modelId ? { ...merged, modelId: fromDb.modelId } : merged }
         }
         // 2) 폴백: DB payload_json (우리 스트리밍 이미지는 tEXt가 없을 수 있음)
         if (fromDb) return { meta: fromDb }

@@ -293,6 +293,8 @@ export interface ImageMetadata {
   height?: number
   /** Source 청크 (모델명 등, 표시용) */
   model?: string
+  /** 저장된 요청의 NAI API 모델 id (DB payload가 있을 때만) — 재생성용 */
+  modelId?: string
   software?: string
   variety?: boolean
   useCoords?: boolean

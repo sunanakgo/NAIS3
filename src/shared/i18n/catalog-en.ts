@@ -729,6 +729,10 @@ export const EN = {
   'ui.maximize': 'Maximize',
   'ui.openInDirectorTools': 'Open in Director Tools',
   'ui.viewMetadata': 'View metadata',
+  'ui.regenerate': 'Regenerate',
+  'ui.regenerateWithTheSameSettingsAndANewSeed':
+    "Generate again with this image's settings and a new seed",
+  'ui.cannotRegenerateWhileGenerating': 'Cannot regenerate while images are generating',
   'ui.copiedToClipboard': 'Copied to clipboard',
   'ui.copyImage': 'Copy image',
   'ui.saveAs': 'Save As',

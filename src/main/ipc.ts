@@ -36,6 +36,7 @@ import {
 import { getDbPath, getDb } from './db'
 import { analyzeArtists } from './images/artists'
 import { metadataFromPng, metadataFromPayloadJson } from './images/metadata'
+import { withPayloadVibes } from './images/metadata-vibes'
 import {
   createFragment,
   createFragmentFolder,
@@ -155,6 +156,7 @@ import {
   deleteRefFolder,
   deleteRefImage,
   duplicateRefImage,
+  importMetadataVibes,
   listCharRefs,
   listVibes,
   renameRefFolder,
@@ -236,6 +238,29 @@ function localDateStamp(date = new Date()): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+/**
+ * 메타데이터 바이브 카드의 썸네일 — 원본 바이브 이미지가 없으므로 메타데이터를 읽은 이미지로.
+ * images:readMetadata와 같은 경로 제한. 읽지 못하면 null (썸네일 없이 만든다)
+ */
+async function metadataSourceThumbnail(source: {
+  filePath?: string
+  base64?: string
+}): Promise<Buffer | null> {
+  try {
+    let buf: Buffer | null = null
+    if (source?.base64) {
+      buf = Buffer.from(source.base64.replace(/^data:[^,]+,/, ''), 'base64')
+    } else if (source?.filePath) {
+      if (isMemoryPath(source.filePath)) buf = getMemoryImage(source.filePath)
+      else if (isUnderImagesRoot(source.filePath)) buf = readFileSync(source.filePath)
+    }
+    if (!buf) return null
+    return await sharp(buf).resize(192, 192, { fit: 'cover' }).webp({ quality: 82 }).toBuffer()
+  } catch {
+    return null
+  }
 }
 
 export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQueue }): void {
@@ -769,11 +794,14 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
         }
         const fromPng = await metadataFromPng(buf)
         if (fromPng) {
+          // 바이브도 같은 방식 — PNG에 인코딩이 없으면 우리가 보낸 요청(payload_json)에서 복원
           return {
-            meta:
+            meta: withPayloadVibes(
               !fromPng.promptParts && fromDb?.promptParts
                 ? { ...fromPng, promptParts: fromDb.promptParts }
-                : fromPng
+                : fromPng,
+              fromDb
+            )
           }
         }
         // 2) 폴백: DB payload_json (우리 스트리밍 이미지는 tEXt가 없을 수 있음)
@@ -935,6 +963,9 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   handle('vibes:folderDelete', ({ id }) => {
     deleteRefFolder('vibe', id)
   })
+  handle('vibes:importFromMetadata', async ({ vibes, model, source }) =>
+    importMetadataVibes(vibes, model, await metadataSourceThumbnail(source))
+  )
 
   handle('crefs:list', () => listCharRefs())
   handle('crefs:add', async ({ folderId }) => ({ count: await addRefImages('charref', folderId) }))

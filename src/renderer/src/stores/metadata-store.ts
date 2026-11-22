@@ -8,6 +8,7 @@ import { useCharactersStore } from './characters-store'
 import { mergePromptParts, useGenerationStore } from './generation-store'
 import { useLayoutStore } from './layout-store'
 import { pickPresetParams, usePromptPresetsStore } from './prompt-presets-store'
+import { useVibesStore } from './refs-store'
 import { toast } from './toast-store'
 
 /** 실질적으로 3분할인지 — base만 있고 가변/디테일이 비었으면 단일 프롬프트로 취급 */
@@ -36,6 +37,8 @@ interface MetadataState {
   error: string | null
   /** 팝업에 표시할 이미지 src (파일=nais-image, 드롭=data URL) */
   imageSrc: string | null
+  /** 메타데이터를 읽은 원본 (바이브 카드 썸네일용) */
+  source: { filePath?: string; base64?: string } | null
   /** 파일 경로 또는 base64(외부 드롭)로 메타데이터 팝업 열기 */
   show: (src: { filePath?: string; base64?: string }) => Promise<void>
   close: () => void
@@ -49,6 +52,7 @@ export const useMetadataStore = create<MetadataState>((set, get) => ({
   meta: null,
   error: null,
   imageSrc: null,
+  source: null,
 
   show: async (src) => {
     const imageSrc = src.base64
@@ -58,7 +62,7 @@ export const useMetadataStore = create<MetadataState>((set, get) => ({
       : src.filePath
         ? imageUrl(src.filePath)
         : null
-    set({ open: true, loading: true, meta: null, error: null, imageSrc })
+    set({ open: true, loading: true, meta: null, error: null, imageSrc, source: src })
     const res = await window.nais.invoke('images:readMetadata', src)
     if ('error' in res) {
       set({ open: false, loading: false })
@@ -140,6 +144,23 @@ export const useMetadataStore = create<MetadataState>((set, get) => ({
       void useCharactersStore
         .getState()
         .importFromMetadata(m.characterPrompts ?? [], modelCapabilities(model).maxCharacters)
+    }
+    // 바이브: 인코딩이 있는 것만 라이브러리에 넣고 그것만 켠다 (기존 켜진 바이브는 해제 — 메타 재현)
+    const vibes = m.vibes?.filter((v) => v.encoded) ?? []
+    if (sel.vibes && vibes.length > 0) {
+      const model = m.vibeModel ?? useGenerationStore.getState().request.model
+      void window.nais
+        .invoke('vibes:importFromMetadata', { vibes, model, source: get().source ?? {} })
+        .then(async ({ ids }) => {
+          await useVibesStore.getState().load()
+          toast(t('ui.metadataVibesAppliedValue', ids.length), 'success')
+        })
+        .catch((e: unknown) =>
+          toast(
+            t('ui.metadataVibesApplyFailedValue', e instanceof Error ? e.message : String(e)),
+            'error'
+          )
+        )
     }
     useLayoutStore.getState().setCenterMode('main')
     set({ open: false })

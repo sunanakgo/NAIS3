@@ -1,6 +1,7 @@
 import { Check, Copy, ImageOff, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ImageMetadata } from '@shared/types'
+import { useGenerationStore } from '../stores/generation-store'
 import { isSplitMeta, useMetadataStore } from '../stores/metadata-store'
 import { cn } from '../lib/utils'
 import { useT } from '../lib/i18n'
@@ -38,7 +39,8 @@ export function MetadataDialog(): React.JSX.Element {
         sampler: true,
         noiseSchedule: true,
         resolution: true,
-        variety: true
+        variety: true,
+        vibes: true
       })
     })
     return () => clearTimeout(timer)
@@ -151,6 +153,9 @@ export function MetadataDialog(): React.JSX.Element {
                   </div>
                 )}
               </div>
+              {meta.vibes && meta.vibes.length > 0 && (
+                <VibesPreview meta={meta} sel={sel} toggle={toggle} />
+              )}
             </div>
 
             {/* 우: 프롬프트 */}
@@ -231,6 +236,69 @@ export function MetadataDialog(): React.JSX.Element {
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** 메타데이터의 바이브 — 개수·강도·IE 표시. 인코딩이 없는 항목은 복원 불가로 표시 */
+function VibesPreview({
+  meta,
+  sel,
+  toggle
+}: {
+  meta: ImageMetadata
+  sel: Record<string, boolean>
+  toggle: (k: string) => void
+}): React.JSX.Element {
+  const t = useT()
+  const currentModel = useGenerationStore((s) => s.request.model)
+  const vibes = meta.vibes ?? []
+  const restorable = vibes.some((v) => v.encoded)
+  return (
+    <div>
+      {restorable ? (
+        <CheckLabel
+          checked={sel.vibes}
+          onClick={() => toggle('vibes')}
+          label={t('ui.vibeTransferCountValue', vibes.length)}
+        />
+      ) : (
+        <p className="text-[12px] font-medium text-muted">
+          {t('ui.vibeTransferCountValue', vibes.length)}
+        </p>
+      )}
+      <div className={cn('mt-1.5 space-y-1', restorable && !sel.vibes && 'opacity-40')}>
+        <ul className="max-h-32 space-y-1 overflow-y-auto">
+          {vibes.map((v, i) => (
+            <li
+              key={i}
+              className="flex items-center gap-2 rounded-md border border-line bg-surface-2/40 px-2 py-1 text-[11.5px]"
+            >
+              <span className="shrink-0 text-faint">{t('ui.vibeValue', i + 1)}</span>
+              <span className="font-mono text-ink">
+                {t('ui.strengthValue', v.strength.toFixed(2))}
+              </span>
+              {v.informationExtracted != null && (
+                <span className="font-mono text-ink">
+                  {t('ui.infoValue', v.informationExtracted.toFixed(2))}
+                </span>
+              )}
+              {!v.encoded && (
+                <span className="ml-auto truncate text-faint">
+                  {t('ui.metadataVibeNotRestorable')}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+        {restorable && (
+          <p className="text-[10.5px] text-faint">
+            {meta.vibeModel
+              ? t('ui.metadataVibeModelValue', meta.vibeModel)
+              : t('ui.metadataVibeModelUnknownValue', currentModel)}
+          </p>
+        )}
+      </div>
+    </div>
   )
 }
 

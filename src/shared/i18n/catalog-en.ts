@@ -375,6 +375,17 @@ export const EN = {
   'ui.infoValue': 'Info {0}',
   'ui.fidelityValue': 'Fidelity {0}',
   'ui.encodesOnGenerate2AnlasCachedAfterward': 'Encodes on generate (2 Anlas, cached afterward)',
+  'ui.metadataVibeValue': 'Metadata vibe {0}',
+  'ui.vibeTransferCountValue': 'Vibe Transfer ({0})',
+  'ui.metadataVibeNotRestorable': "No encoding, can't restore",
+  'ui.metadataVibeModelValue': 'Encoded for: {0}',
+  'ui.metadataVibeModelUnknownValue': 'Encoding model unknown; applied for the current model ({0})',
+  'ui.metadataVibesAppliedValue': 'Applied {0} {0|vibe|vibes}',
+  'ui.metadataVibesApplyFailedValue': "Couldn't apply vibes: {0}",
+  'ui.metadataVibeNoSourceImage':
+    "Restored from image metadata. Without the original image it can't be re-encoded, so Info is fixed.",
+  'ui.metadataVibeEncodingUnavailableValueValueValue':
+    "A vibe restored from image metadata has no original image, so it can't be re-encoded. It has no encoding for {0} at Info {1} (available: {2}). Switch the model or Info value, or turn the vibe off.",
   'ui.deleteImages': 'Delete Images',
   'ui.deletesValueImagesFromTheLibraryTheCopiedFilesWillBeRemovedToo':
     'Deletes {0} {0|image|images} from the library. The copied files will be removed too.',

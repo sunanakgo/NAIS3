@@ -367,6 +367,16 @@ export const ZH_CN = {
   'ui.infoValue': '信息量 {0}',
   'ui.fidelityValue': '保真度 {0}',
   'ui.encodesOnGenerate2AnlasCachedAfterward': '生成时编码（2 Anlas，之后缓存）',
+  'ui.metadataVibeValue': '元数据氛围传递 {0}',
+  'ui.vibeTransferCountValue': '氛围传递（{0}）',
+  'ui.metadataVibeNotRestorable': '无编码，无法恢复',
+  'ui.metadataVibeModelValue': '编码模型：{0}',
+  'ui.metadataVibeModelUnknownValue': '编码模型未知，将按当前模型（{0}）应用',
+  'ui.metadataVibesAppliedValue': '已应用 {0} 个氛围传递',
+  'ui.metadataVibesApplyFailedValue': '应用氛围传递失败：{0}',
+  'ui.metadataVibeNoSourceImage': '从图像元数据恢复。没有原图无法重新编码，因此信息量固定。',
+  'ui.metadataVibeEncodingUnavailableValueValueValue':
+    '从图像元数据恢复的氛围传递没有原图，无法重新编码。它没有适用于 {0}（信息量 {1}）的编码（可用：{2}）。请切换模型或信息量，或关闭该氛围传递。',
   'ui.deleteImages': '删除图片',
   'ui.deletesValueImagesFromTheLibraryTheCopiedFilesWillBeRemovedToo':
     '将从图库删除 {0} 张图片。副本文件也会一并删除。',

@@ -7,10 +7,12 @@ import {
   charRefRowsByIds,
   enabledCharRefRows,
   enabledVibeRows,
+  isEncodedOnlyVibe,
+  readEncodedVibeFile,
   saveVibeEncoding,
   vibeRowsByIds
 } from './repo'
-import { getVibeEncoding, putVibeEncoding } from './vibe-encoding-cache'
+import { getVibeEncoding, putVibeEncoding, vibeEncodingEntries } from './vibe-encoding-cache'
 
 /** 생성 직전 바이브 준비 — 미인코딩/ie 변경분만 encode-vibe (2 Anlas) 후 캐시.
  *  newlyEncoded: 이번에 새로 인코딩된 바이브 id (카드 표시 갱신 통지용) */
@@ -25,6 +27,29 @@ export async function prepareVibes(
   const newlyEncoded: number[] = []
   for (const row of rows) {
     let encoded = getVibeEncoding(row.encoded, row.encodedIe, model, row.infoExtracted)
+    if (!encoded && isEncodedOnlyVibe(row.filePath)) {
+      // 메타데이터에서 복원한 바이브 — 원본 이미지가 없어 encode-vibe로 다시 만들 수 없다.
+      // 파일(인코딩 원본)에서 한 번 더 찾고, 없으면 쓸 수 있는 모델·IE를 알려준다
+      const stored = readEncodedVibeFile(row.filePath)
+      encoded = getVibeEncoding(stored, null, model, row.infoExtracted)
+      if (!encoded) {
+        const available = [
+          ...vibeEncodingEntries(stored, null),
+          ...vibeEncodingEntries(row.encoded, row.encodedIe)
+        ]
+          .map((entry) => `${entry.model} (IE ${entry.ie})`)
+          .filter((label, index, labels) => labels.indexOf(label) === index)
+          .join(', ')
+        throw new Error(
+          t(
+            'ui.metadataVibeEncodingUnavailableValueValueValue',
+            model,
+            row.infoExtracted,
+            available || '-'
+          )
+        )
+      }
+    }
     if (!encoded) {
       const res = await fetch(ENDPOINTS.encodeVibe, {
         method: 'POST',

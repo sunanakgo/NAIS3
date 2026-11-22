@@ -561,11 +561,19 @@ function VibeParams({
           max={1}
           step={0.05}
           value={[item.infoExtracted]}
+          // 메타데이터에서 복원한 바이브는 원본이 없어 재인코딩 불가 — IE를 바꾸면 쓸 수 없게 된다
+          disabled={item.encodedOnly}
           onValueChange={([v]) => update(item.id, { infoExtracted: Math.round(v * 100) / 100 })}
         />
       </ParamRow>
-      {!item.encodedModels?.includes(model) && (
-        <p className="text-[10.5px] text-faint">{t('ui.encodesOnGenerate2AnlasCachedAfterward')}</p>
+      {item.encodedOnly ? (
+        <p className="text-[10.5px] text-faint">{t('ui.metadataVibeNoSourceImage')}</p>
+      ) : (
+        !item.encodedModels?.includes(model) && (
+          <p className="text-[10.5px] text-faint">
+            {t('ui.encodesOnGenerate2AnlasCachedAfterward')}
+          </p>
+        )
       )}
     </div>
   )

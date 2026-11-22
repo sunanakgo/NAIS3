@@ -38,6 +38,8 @@ export interface VibeItem {
   encodedReady: boolean
   /** 현재 infoExtracted 값으로 캐시된 모델 목록 */
   encodedModels?: string[]
+  /** 이미지 메타데이터에서 복원 — 원본 이미지가 없어 재인코딩 불가 (캐시된 모델·IE로만 사용) */
+  encodedOnly?: boolean
   folderId: number | null
 }
 
@@ -300,6 +302,19 @@ export interface ImageMetadata {
   qualityToggle?: boolean
   ucPreset?: number
   characterPrompts?: { prompt: string; negativePrompt: string; center?: { x: number; y: number } }[]
+  /** 생성에 쓰인 바이브 트랜스퍼 (인코딩만 있고 원본 이미지는 없다) */
+  vibes?: MetadataVibe[]
+  /** vibes가 인코딩된 모델의 API id. 모르면 undefined */
+  vibeModel?: string
+}
+
+/** 이미지 메타데이터에서 읽은 바이브 한 장 */
+export interface MetadataVibe {
+  /** 인코딩된 바이브 (base64). 메타데이터에 인코딩이 없으면 undefined — 복원 불가 */
+  encoded?: string
+  strength: number
+  /** 메타데이터에 information extracted가 있을 때만 */
+  informationExtracted?: number
 }
 
 /** 씬 프리셋 (씬들의 그룹) */
@@ -745,6 +760,16 @@ export interface IpcInvokeMap {
   'vibes:folderCollapse': { req: { id: number; collapsed: boolean }; res: void }
   'vibes:folderColor': { req: { id: number; color: string | null }; res: void }
   'vibes:folderDelete': { req: { id: number }; res: void }
+  /** 메타데이터의 바이브를 라이브러리에 넣고 그것만 켠다 (같은 인코딩의 기존 항목은 재사용) */
+  'vibes:importFromMetadata': {
+    req: {
+      vibes: MetadataVibe[]
+      model: string
+      /** 썸네일용 — 메타데이터를 읽은 이미지 */
+      source: { filePath?: string; base64?: string }
+    }
+    res: { ids: number[]; created: number; reused: number }
+  }
   'crefs:list': { req: void; res: { folders: ListFolder[]; items: CharRefItem[] } }
   'crefs:add': { req: { folderId: number | null }; res: { count: number } }
   'crefs:update': {

@@ -40,6 +40,7 @@ const CONNECT_TIMEOUT_MS = 45_000
 const JOB_TIMEOUT_MS = 120_000
 const DOWNLOAD_TIMEOUT_MS = 30_000
 const MAX_RESULT_BYTES = 64 * 1024 * 1024
+const MAX_REDIRECTS = 3
 
 /** gradio 이벤트 중 여기서 쓰는 부분 */
 type SpaceEvent =
@@ -76,6 +77,11 @@ export interface FreeBgRemovalOptions {
   connect?: (spaceId: string) => Promise<SpaceClient>
   fetch?: typeof fetch
   timeouts?: { connect?: number; job?: number; download?: number }
+  /**
+   * Space 출력 → 최종 이미지(예: 투명 PNG 변환). 던지면 그 Space는 실패로 보고 다음 Space로 넘어간다
+   * — HTTP 200으로 깨진 이미지나 HTML을 돌려주는 Space도 폴백되게. 기본은 그대로
+   */
+  decode?: (image: Buffer) => Promise<Buffer>
 }
 
 export interface FreeBgRemovalAttempt {
@@ -156,7 +162,13 @@ async function runSpace(
     })
     const output = spec.pick(Array.isArray(data) ? data : []).find((c) => c != null)
     if (output == null) throw new Error('Space returned no image')
-    return await downloadOutput(output, options)
+    const downloaded = await downloadOutput(output, options)
+    if (!options.decode) return downloaded
+    try {
+      return await options.decode(downloaded)
+    } catch (e) {
+      throw new Error(`Space returned an unreadable image (${e instanceof Error ? e.message : e})`)
+    }
   } finally {
     try {
       client.close?.()
@@ -216,7 +228,13 @@ async function downloadOutput(output: unknown, options: FreeBgRemovalOptions): P
   if (!ref) throw new Error('Unexpected Space output format')
 
   const dataUrl = /^data:image\/[\w.+-]+;base64,(.*)$/s.exec(ref)
-  if (dataUrl) return Buffer.from(dataUrl[1], 'base64')
+  if (dataUrl) {
+    // 디코딩 전에 크기부터 — base64 4글자 = 3바이트
+    if (Math.floor((dataUrl[1].length * 3) / 4) > MAX_RESULT_BYTES) throw oversized()
+    const buf = Buffer.from(dataUrl[1], 'base64')
+    if (buf.length === 0) throw new Error('Space returned an empty image')
+    return buf
+  }
 
   let url: URL
   try {
@@ -224,22 +242,59 @@ async function downloadOutput(output: unknown, options: FreeBgRemovalOptions): P
   } catch {
     throw new Error('Unexpected Space output URL')
   }
-  if (!isHuggingFaceHost(url)) throw new Error(`Refusing to download from ${url.host}`)
 
   const downloadMs = options.timeouts?.download ?? DOWNLOAD_TIMEOUT_MS
-  let response: Response
+  const signal = AbortSignal.timeout(downloadMs)
   try {
-    response = await (options.fetch ?? fetch)(url, { signal: AbortSignal.timeout(downloadMs) })
+    // 리다이렉트는 직접 따라가며 매 단계 호스트를 확인한다 — 허용 호스트를 거쳐 다른 곳으로 새지 않게
+    for (let hop = 0; ; hop++) {
+      if (!isHuggingFaceHost(url)) throw new Error(`Refusing to download from ${url.host}`)
+      const response = await (options.fetch ?? fetch)(url, { signal, redirect: 'manual' })
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location')
+        await response.body?.cancel().catch(() => {})
+        if (!location || hop >= MAX_REDIRECTS) throw new Error('Too many redirects')
+        url = new URL(location, url)
+        continue
+      }
+      if (!response.ok) throw new Error(`Result download failed (${response.status})`)
+      const buf = await readCapped(response)
+      if (buf.length === 0) throw new Error('Space returned an empty image')
+      return buf
+    }
   } catch (e) {
     if (e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError'))
       throw new SpaceTimeoutError('Download', downloadMs)
     throw e
   }
-  if (!response.ok) throw new Error(`Result download failed (${response.status})`)
-  const buf = Buffer.from(await response.arrayBuffer())
-  if (buf.length === 0) throw new Error('Space returned an empty image')
-  if (buf.length > MAX_RESULT_BYTES) throw new Error('Space returned an oversized image')
-  return buf
+}
+
+function oversized(): Error {
+  return new Error('Space returned an oversized image')
+}
+
+/** 응답 본문을 받으면서 크기를 센다 — 다 받은 뒤 검사하면 큰 응답이 이미 메모리를 차지한다 */
+async function readCapped(response: Response): Promise<Buffer> {
+  const declared = Number(response.headers.get('content-length'))
+  if (Number.isFinite(declared) && declared > MAX_RESULT_BYTES) {
+    await response.body?.cancel().catch(() => {})
+    throw oversized()
+  }
+  if (!response.body) return Buffer.alloc(0)
+  const reader = response.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.byteLength
+    if (total > MAX_RESULT_BYTES) {
+      await reader.cancel().catch(() => {})
+      throw oversized()
+    }
+    chunks.push(value)
+  }
+  return Buffer.concat(chunks, total)
 }
 
 function isHuggingFaceHost(url: URL): boolean {

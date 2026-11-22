@@ -812,11 +812,11 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     try {
       const input = Buffer.from(imageBase64.replace(/^data:[^,]+,/, ''), 'base64')
       if (input.length === 0) return { error: t('ui.noInputProvided') }
-      const { image, spaceId } = await removeBackgroundFree(input, {
-        onProgress: (progress) => broadcast('images:removeBackgroundFreeProgress', progress)
+      // Space 출력이 webp일 수도 있어 투명도를 살린 PNG로 통일 — 이미지가 아니면 다음 Space로 넘어간다
+      const { image: png, spaceId } = await removeBackgroundFree(input, {
+        onProgress: (progress) => broadcast('images:removeBackgroundFreeProgress', progress),
+        decode: (image) => sharp(image).ensureAlpha().png().toBuffer()
       })
-      // Space 출력이 webp일 수도 있어 투명도를 살린 PNG로 통일 (이미지가 아니면 여기서 실패)
-      const png = await sharp(image).ensureAlpha().png().toBuffer()
       const saved = await saveGeneratedImage({
         png,
         sentPayload: JSON.stringify({ backgroundRemoval: 'huggingface', space: spaceId }),

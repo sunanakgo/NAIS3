@@ -217,4 +217,70 @@ describe('free background removal via Hugging Face Spaces', () => {
       'Space closed the connection without a result'
     ])
   })
+
+  it('checks every redirect hop against the Hugging Face hosts', async () => {
+    // BRIA는 외부 호스트로 리다이렉트 → 따라가지 않고 실패, anime은 HF CDN으로 → 따라간다
+    const bria = fakeClient(success([null, file('https://bria.hf.space/file=r.png')]))
+    const anime = fakeClient(success([null, file('https://skytnt.hf.space/file=r.png')]))
+    const redirect = (location: string): Response =>
+      new Response(null, { status: 302, headers: { location } })
+    const fetchMock = vi.fn<(url: URL, init?: RequestInit) => Promise<Response>>(async (url) => {
+      if (url.host === 'bria.hf.space') return redirect('https://example.com/evil.png')
+      if (url.host === 'skytnt.hf.space') return redirect('https://cdn-lfs.huggingface.co/r.png')
+      return new Response(Buffer.from('result-png'))
+    })
+
+    const result = await removeBackgroundFree(input, {
+      connect: async (id) => (id === BRIA ? bria.client : anime.client),
+      fetch: fetchMock as unknown as typeof fetch
+    })
+
+    expect(result.spaceId).toBe(ANIME)
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+      'https://bria.hf.space/file=r.png',
+      'https://skytnt.hf.space/file=r.png',
+      'https://cdn-lfs.huggingface.co/r.png'
+    ])
+    expect(fetchMock.mock.calls.every(([, init]) => init?.redirect === 'manual')).toBe(true)
+  })
+
+  it('rejects an oversized result before reading it all', async () => {
+    const bria = fakeClient(success([null, file('https://bria.hf.space/file=r.png')]))
+    const anime = fakeClient(
+      success([null, 'data:image/png;base64,' + 'A'.repeat(90 * 1024 * 1024)])
+    )
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(Buffer.from('x'), { headers: { 'content-length': String(65 * 1024 * 1024) } })
+    )
+
+    const error = await removeBackgroundFree(input, {
+      connect: async (id) => (id === BRIA ? bria.client : anime.client),
+      fetch: fetchMock as unknown as typeof fetch
+    }).catch((e: unknown) => e)
+
+    expect((error as FreeBgRemovalError).attempts.map((a) => a.message)).toEqual([
+      'Space returned an oversized image',
+      'Space returned an oversized image'
+    ])
+  })
+
+  it('falls back when the result cannot be decoded as an image', async () => {
+    const bria = fakeClient(success([null, file('https://bria.hf.space/file=r.png')]))
+    const anime = fakeClient(success([null, 'data:image/png;base64,' + btoa('inline')]))
+    const decode = vi.fn(async (image: Buffer) => {
+      if (image.toString() === 'not-an-image') throw new Error('unsupported image format')
+      return Buffer.from('png:' + image.toString())
+    })
+
+    const result = await removeBackgroundFree(input, {
+      connect: async (id) => (id === BRIA ? bria.client : anime.client),
+      fetch: fetchReturning('not-an-image') as unknown as typeof fetch,
+      decode
+    })
+
+    expect(result.spaceId).toBe(ANIME)
+    expect(result.image.toString()).toBe('png:inline')
+    expect(decode).toHaveBeenCalledTimes(2)
+  })
 })

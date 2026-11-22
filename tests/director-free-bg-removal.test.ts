@@ -101,6 +101,23 @@ describe('free background removal tool', () => {
     expect(off).toHaveBeenCalled()
   })
 
+  it('does not push a late result onto an image opened in the meantime', async () => {
+    let resolve!: (v: unknown) => void
+    invoke.mockImplementation((channel: string) =>
+      channel === 'images:removeBackgroundFree'
+        ? new Promise((r) => (resolve = r))
+        : Promise.resolve({ value: null })
+    )
+    const running = useDirectorStore.getState().removeBackgroundFree()
+    useDirectorStore.getState().setSource('CCCC')
+    resolve({ filePath: '/images/out.png', base64: 'BBBB' })
+    await running
+
+    expect(useDirectorStore.getState().stack).toEqual(['CCCC'])
+    expect(useDirectorStore.getState().loading).toBe(false)
+    expect(useGenerationStore.getState().refreshHistory).toHaveBeenCalled()
+  })
+
   it('shows the translated error as a toast and keeps the image', async () => {
     invoke.mockImplementation((channel: string) =>
       Promise.resolve(

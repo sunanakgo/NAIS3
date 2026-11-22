@@ -84,6 +84,8 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
     const off = window.nais.on('images:removeBackgroundFreeProgress', (freeBgProgress) => {
       if (get().loading) set({ freeBgProgress })
     })
+    // 대기가 길어 그사이 다른 이미지를 열 수 있다 — 스택이 바뀌었으면 결과는 히스토리에만 남긴다
+    const stack = get().stack
     try {
       const res = await window.nais.invoke('images:removeBackgroundFree', { imageBase64: cur })
       if ('error' in res) {
@@ -91,7 +93,11 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
         toast(res.error, 'error')
         return
       }
-      set({ loading: false, freeBgProgress: null, stack: [...get().stack, res.base64] })
+      set(
+        get().stack === stack
+          ? { loading: false, freeBgProgress: null, stack: [...stack, res.base64] }
+          : { loading: false, freeBgProgress: null }
+      )
       void useGenerationStore.getState().refreshHistory()
     } catch (e) {
       set({ loading: false, freeBgProgress: null })

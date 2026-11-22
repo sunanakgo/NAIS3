@@ -268,9 +268,10 @@ async function route(
 
   if (path === 'remove-background-free') {
     const image = Buffer.from(String(body.imageBase64 ?? '').replace(/^data:[^,]+,/, ''), 'base64')
-    const result = await removeBackgroundFree(image)
-    const png = await sharp(result.image).ensureAlpha().png().toBuffer()
-    return { base64: png.toString('base64'), space: result.spaceId }
+    const result = await removeBackgroundFree(image, {
+      decode: (out) => sharp(out).ensureAlpha().png().toBuffer()
+    })
+    return { base64: result.image.toString('base64'), space: result.spaceId }
   }
 
   if (path === 'tokens') {

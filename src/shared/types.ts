@@ -653,6 +653,8 @@ export interface IpcInvokeMap {
     res: void
   }
   'promptPresets:delete': { req: { id: number }; res: void }
+  /** 프리셋 복제 — 내용 전체 복사, 이름에 복제 표시, 목록 끝에 추가. 원본이 없으면 id 0 */
+  'promptPresets:duplicate': { req: { id: number }; res: { id: number } }
   /** 업데이트 다운로드 시작 (완료 시 자동 설치/재시작) */
   'update:start': { req: void; res: void }
   /** 전체 데이터 .nais 내보내기 (저장 다이얼로그) */

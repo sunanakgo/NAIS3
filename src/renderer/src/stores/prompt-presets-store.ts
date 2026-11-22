@@ -111,6 +111,8 @@ interface PromptPresetsState {
   /** 드래그 정렬 — 새 id 순서 반영 */
   reorder: (ids: number[]) => Promise<void>
   remove: (id: number) => Promise<void>
+  /** 복제 — 사본은 목록 끝에 추가된다. 새 id 반환 (원본이 없으면 null) */
+  duplicate: (id: number) => Promise<number | null>
 }
 
 export const usePromptPresetsStore = create<PromptPresetsState>((set, get) => ({
@@ -147,6 +149,11 @@ export const usePromptPresetsStore = create<PromptPresetsState>((set, get) => ({
     const byId = new Map(get().presets.map((p) => [p.id, p]))
     set({ presets: ids.map((id) => byId.get(id)!).filter(Boolean) })
     await window.nais.invoke('promptPresets:reorder', { ids })
+  },
+  duplicate: async (id) => {
+    const { id: newId } = await window.nais.invoke('promptPresets:duplicate', { id })
+    await get().load()
+    return newId || null
   },
   remove: async (id) => {
     const { presets, activeId } = get()

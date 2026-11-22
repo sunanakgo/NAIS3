@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, Copy, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   normalizePresetParts,
   partsForApply,
@@ -16,6 +16,30 @@ import { SortableList, SortableRow } from './sortable-list'
 import { cn } from '../lib/utils'
 import { useT } from '../lib/i18n'
 
+/** 활성 프리셋에 현재 편집 저장 — 실제 변경이 있을 때만 (자동 저장과 복제 전 즉시 반영이 공유) */
+async function syncActivePromptPreset(): Promise<void> {
+  const { presets, activeId, update } = usePromptPresetsStore.getState()
+  const p = presets.find((x) => x.id === activeId)
+  if (!p) return
+  const gen = useGenerationStore.getState()
+  // 저장된 파라미터를 불러오기 전의 기본 요청을 활성 프리셋에 쓰지 않는다
+  if (!gen.hydrated) return
+  const { prompt, negativePrompt } = gen.request
+  const params = pickPresetParams(gen.request)
+  // 3분할 켜진 동안만 조각을 프리셋에 저장 — 꺼져 있으면 저장된 조각을 건드리지 않음
+  const promptParts = gen.promptSplitEnabled
+    ? normalizePresetParts(gen.request.promptParts)
+    : undefined
+  if (shouldSyncPromptPreset(p, { prompt, negativePrompt, params, promptParts })) {
+    await update(p.id, {
+      prompt,
+      negativePrompt,
+      params,
+      ...(promptParts !== undefined ? { promptParts } : {})
+    })
+  }
+}
+
 /**
  * 프롬프트 프리셋 드롭다운 (씬 프리셋과 동일 UX).
  * - 새 프리셋: 빈 프롬프트로 시작 (씬 프리셋처럼)
@@ -31,6 +55,7 @@ export function PromptPresetBar(): React.JSX.Element {
   const create = usePromptPresetsStore((s) => s.create)
   const update = usePromptPresetsStore((s) => s.update)
   const remove = usePromptPresetsStore((s) => s.remove)
+  const duplicate = usePromptPresetsStore((s) => s.duplicate)
   const reorder = usePromptPresetsStore((s) => s.reorder)
   const request = useGenerationStore((s) => s.request)
   const hydrated = useGenerationStore((s) => s.hydrated)
@@ -50,38 +75,15 @@ export function PromptPresetBar(): React.JSX.Element {
     // 저장된 파라미터를 불러오기 전의 기본 요청을 활성 프리셋에 쓰지 않는다
     if (!loaded || !hydrated || activeId == null) return
     clearTimeout(syncTimer.current)
-    syncTimer.current = setTimeout(() => {
-      const p = usePromptPresetsStore.getState().presets.find((x) => x.id === activeId)
-      if (!p) return
-      const gen = useGenerationStore.getState()
-      const params = pickPresetParams(gen.request)
-      // 3분할 켜진 동안만 조각을 프리셋에 저장 — 꺼져 있으면 저장된 조각을 건드리지 않음
-      const promptParts = gen.promptSplitEnabled
-        ? normalizePresetParts(gen.request.promptParts)
-        : undefined
-      if (
-        shouldSyncPromptPreset(p, {
-          prompt: currentPrompt,
-          negativePrompt: currentNegative,
-          params,
-          promptParts
-        })
-      ) {
-        void update(activeId, {
-          prompt: currentPrompt,
-          negativePrompt: currentNegative,
-          params,
-          ...(promptParts !== undefined ? { promptParts } : {})
-        })
-      }
-    }, 500)
+    syncTimer.current = setTimeout(() => void syncActivePromptPreset(), 500)
     return () => clearTimeout(syncTimer.current)
   }, [request, currentPrompt, currentNegative, activeId, loaded, hydrated, update])
 
   const active = presets.find((p) => p.id === activeId)
 
   const apply = (id: number): void => {
-    const p = presets.find((x) => x.id === id)
+    // 복제 직후에도 찾을 수 있게 store의 최신 목록에서 조회
+    const p = usePromptPresetsStore.getState().presets.find((x) => x.id === id)
     if (!p) return
     setOpen(false) // 먼저 닫기 (B9)
     // 활성 프리셋을 먼저 바꿔야 이전 프리셋이 적용값으로 자동 저장되는 레이스가 없다.
@@ -94,6 +96,16 @@ export function PromptPresetBar(): React.JSX.Element {
       negativePrompt: p.negativePrompt,
       ...presetParamsForApply(p.params, request.model)
     })
+  }
+
+  // 복제 후 사본을 선택·적용 (새 프리셋 만들기와 같은 흐름). 활성 프리셋이면 대기 중인 편집을 먼저 저장
+  const duplicatePreset = async (id: number): Promise<void> => {
+    if (id === activeId) {
+      clearTimeout(syncTimer.current)
+      await syncActivePromptPreset()
+    }
+    const newId = await duplicate(id)
+    if (newId != null) apply(newId)
   }
 
   return (
@@ -125,7 +137,7 @@ export function PromptPresetBar(): React.JSX.Element {
                     <span className="truncate">{p.name}</span>
                   </div>
                   <button
-                    className="shrink-0 rounded p-1 text-faint opacity-0 hover:text-ink group-hover:opacity-100"
+                    className="shrink-0 rounded p-1 text-faint opacity-0 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
                     onClick={async () => {
                       const name = await askText(t('ui.presetName'), p.name)
                       if (name) void update(p.id, { name })
@@ -135,7 +147,15 @@ export function PromptPresetBar(): React.JSX.Element {
                     <Pencil size={12} />
                   </button>
                   <button
-                    className="shrink-0 rounded p-1 text-faint opacity-0 hover:text-danger-ink group-hover:opacity-100"
+                    className="shrink-0 rounded p-1 text-faint opacity-0 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+                    onClick={() => void duplicatePreset(p.id)}
+                    title={t('ui.duplicate')}
+                    aria-label={t('ui.duplicate')}
+                  >
+                    <Copy size={12} />
+                  </button>
+                  <button
+                    className="shrink-0 rounded p-1 text-faint opacity-0 hover:text-danger-ink focus-visible:opacity-100 group-hover:opacity-100"
                     onClick={async () => {
                       if (await askConfirm(t('ui.deletePresetValue', p.name), { danger: true }))
                         void remove(p.id)

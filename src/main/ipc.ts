@@ -126,6 +126,7 @@ import {
   createPromptPreset,
   updatePromptPreset,
   deletePromptPreset,
+  duplicatePromptPreset,
   reorderPromptPresets
 } from './prompts/repo'
 import {
@@ -380,6 +381,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   handle('promptPresets:delete', ({ id }) => {
     deletePromptPreset(id)
   })
+  handle('promptPresets:duplicate', ({ id }) => ({ id: duplicatePromptPreset(id) }))
   handle('promptPresets:reorder', ({ ids }) => {
     reorderPromptPresets(ids)
   })

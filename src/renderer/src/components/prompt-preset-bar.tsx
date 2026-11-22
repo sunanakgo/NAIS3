@@ -98,12 +98,11 @@ export function PromptPresetBar(): React.JSX.Element {
     })
   }
 
-  // 복제 후 사본을 선택·적용 (새 프리셋 만들기와 같은 흐름). 활성 프리셋이면 대기 중인 편집을 먼저 저장
+  // 복제 후 사본을 선택·적용 (새 프리셋 만들기와 같은 흐름). 사본으로 넘어가면 활성 프리셋의
+  // 대기 중인 편집이 버려지므로 어느 프리셋을 복제하든 먼저 저장한다 (활성 프리셋 복제면 사본에도 반영)
   const duplicatePreset = async (id: number): Promise<void> => {
-    if (id === activeId) {
-      clearTimeout(syncTimer.current)
-      await syncActivePromptPreset()
-    }
+    clearTimeout(syncTimer.current)
+    await syncActivePromptPreset()
     const newId = await duplicate(id)
     if (newId != null) apply(newId)
   }

@@ -35,6 +35,7 @@ import {
 } from './characters/repo'
 import { getDbPath, getDb } from './db'
 import { analyzeArtists } from './images/artists'
+import { FreeBgRemovalError, removeBackgroundFree } from './images/background-removal'
 import { metadataFromPng, metadataFromPayloadJson } from './images/metadata'
 import {
   createFragment,
@@ -802,6 +803,37 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
       if (tags.length === 0) return { error: t('ui.noArtistTagsFound') }
       return { tags }
     } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) }
+    }
+  })
+
+  // 무료 배경 제거 — HF Space 호출과 결과 내려받기는 메인에서. Anlas·토큰 불필요
+  handle('images:removeBackgroundFree', async ({ imageBase64 }) => {
+    try {
+      const input = Buffer.from(imageBase64.replace(/^data:[^,]+,/, ''), 'base64')
+      if (input.length === 0) return { error: t('ui.noInputProvided') }
+      const { image, spaceId } = await removeBackgroundFree(input, {
+        onProgress: (progress) => broadcast('images:removeBackgroundFreeProgress', progress)
+      })
+      // Space 출력이 webp일 수도 있어 투명도를 살린 PNG로 통일 (이미지가 아니면 여기서 실패)
+      const png = await sharp(image).ensureAlpha().png().toBuffer()
+      const saved = await saveGeneratedImage({
+        png,
+        sentPayload: JSON.stringify({ backgroundRemoval: 'huggingface', space: spaceId }),
+        seed: 0,
+        kind: 'bg-removal'
+      })
+      return { filePath: saved.filePath, base64: png.toString('base64') }
+    } catch (e) {
+      if (e instanceof FreeBgRemovalError) {
+        const detail = e.attempts
+          .map(
+            (a) =>
+              `${a.spaceId}: ${a.reason === 'timeout' ? t('ui.freeBgRemovalTimeout') : a.message.slice(0, 120)}`
+          )
+          .join('; ')
+        return { error: t('ui.freeBgRemovalFailed', detail) }
+      }
       return { error: e instanceof Error ? e.message : String(e) }
     }
   })

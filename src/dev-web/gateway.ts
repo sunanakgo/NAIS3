@@ -6,6 +6,7 @@ import sharp from 'sharp'
 import type { Plugin } from 'vite'
 import type { GenerationRequest } from '../shared/types'
 import { analyzeArtists } from '../main/images/artists'
+import { removeBackgroundFree } from '../main/images/background-removal'
 import {
   buildGenerateImagePayload,
   type BuildOptions,
@@ -263,6 +264,13 @@ async function route(
     const image = Buffer.from(String(body.imageBase64 ?? '').replace(/^data:[^,]+,/, ''), 'base64')
     const artistTags = await analyzeArtists(image)
     return artistTags.length > 0 ? { tags: artistTags } : { error: 'No artist tags found' }
+  }
+
+  if (path === 'remove-background-free') {
+    const image = Buffer.from(String(body.imageBase64 ?? '').replace(/^data:[^,]+,/, ''), 'base64')
+    const result = await removeBackgroundFree(image)
+    const png = await sharp(result.image).ensureAlpha().png().toBuffer()
+    return { base64: png.toString('base64'), space: result.spaceId }
   }
 
   if (path === 'tokens') {

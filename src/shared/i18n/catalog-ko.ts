@@ -562,6 +562,18 @@ export const KO = {
   'ui.defryValue': '약화 {0}',
   'ui.removeBg': '배경 제거',
   'ui.makeTheBackgroundTransparentKeepingOnlyTheCharacter': '캐릭터만 남기고 배경을 투명하게',
+  'ui.removeBgFree': '배경 제거 (Hugging Face)',
+  'ui.removeBgFreeDescription': '무료 · 이미지를 외부 Hugging Face Space로 전송',
+  'ui.removeBgFreePrivacyNotice':
+    '이미지가 제3자가 운영하는 공개 Hugging Face Space(BRIA RMBG 2.0, 실패 시 anime-remove-background)로 전송됩니다. 공개하고 싶지 않은 이미지에는 쓰지 마세요. Anlas는 들지 않지만 인터넷이 필요하고, 대기열에 따라 시간이 걸릴 수 있습니다.',
+  'ui.freeBgConnecting': '{0}에 연결하는 중…',
+  'ui.freeBgQueued': '{0} 대기열에서 기다리는 중…',
+  'ui.freeBgQueuedAt': '{0} 대기열에서 기다리는 중… ({1}번째)',
+  'ui.freeBgProcessing': '{0}에서 배경을 지우는 중…',
+  'ui.freeBgUsingFallback': '첫 번째 Space를 쓸 수 없어 예비 Space로 다시 시도합니다',
+  'ui.freeBgRemovalTimeout': '응답 시간 초과 (대기열 혼잡)',
+  'ui.freeBgRemovalFailed':
+    '무료 배경 제거에 실패했습니다. 잠시 후 다시 시도하거나 NovelAI 배경 제거를 사용하세요. ({0})',
   'ui.lineArt': '라인아트',
   'ui.extractLineArt': '선화 추출',
   'ui.sketch': '스케치',

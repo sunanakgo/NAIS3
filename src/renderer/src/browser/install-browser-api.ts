@@ -788,6 +788,21 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
     if (!imageBase64) return { error: 'Image not found' }
     return gateway('analyze-artists', { imageBase64 })
   }
+  if (channel === 'images:removeBackgroundFree') {
+    try {
+      const result = await gateway<{ base64: string; space: string }>('remove-background-free', {
+        imageBase64: request.imageBase64
+      })
+      const filePath = await saveBrowserImage(
+        result.base64,
+        'bg-removal',
+        JSON.stringify({ backgroundRemoval: 'huggingface', space: result.space })
+      )
+      return { filePath, base64: result.base64 }
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) }
+    }
+  }
   if (channel === 'images:upscale') {
     const account = activeAccount(await readBrowserState())
     if (!account) return { error: 'NAI token is not configured' }

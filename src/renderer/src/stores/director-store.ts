@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { DirectorMethod, LocalEditKind } from '@shared/types'
+import type { DirectorMethod, FreeBgRemovalProgress, LocalEditKind } from '@shared/types'
 import { useGenerationStore } from './generation-store'
 import { useLayoutStore } from './layout-store'
 import { toast } from './toast-store'
@@ -11,12 +11,16 @@ interface DirectorState {
   error: string | null
   /** 툴 클릭 한 번으로 바로 실행 (기본 off — 고른 뒤 하단 버튼으로 실행) */
   instantRun: boolean
+  /** 무료 배경 제거(HF Space) 진행 상태 — 실행 중일 때만 */
+  freeBgProgress: FreeBgRemovalProgress | null
 
   /** 현재 이미지 (스택 top) */
   current: () => string | null
   setSource: (base64: string | null) => void
   run: (method: DirectorMethod, opts?: { prompt?: string; defry?: number }) => Promise<void>
   upscale: () => Promise<void>
+  /** 공개 Hugging Face Space로 배경 제거 (Anlas 없음) — 결과는 스택 push + 히스토리 저장 */
+  removeBackgroundFree: () => Promise<void>
   /** API 없는 로컬 편집(모자이크·도트화) 결과를 스택에 push + 히스토리 저장 */
   applyLocal: (base64: string, kind: LocalEditKind) => Promise<void>
   undo: () => void
@@ -30,6 +34,7 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
   loading: false,
   error: null,
   instantRun: false,
+  freeBgProgress: null,
 
   current: () => {
     const s = get().stack
@@ -70,6 +75,30 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
     }
     set({ loading: false, stack: [...get().stack, res.base64] })
     void useGenerationStore.getState().refreshHistory()
+  },
+
+  removeBackgroundFree: async () => {
+    const cur = get().current()
+    if (!cur || get().loading) return
+    set({ loading: true, error: null, freeBgProgress: null })
+    const off = window.nais.on('images:removeBackgroundFreeProgress', (freeBgProgress) => {
+      if (get().loading) set({ freeBgProgress })
+    })
+    try {
+      const res = await window.nais.invoke('images:removeBackgroundFree', { imageBase64: cur })
+      if ('error' in res) {
+        set({ loading: false, freeBgProgress: null })
+        toast(res.error, 'error')
+        return
+      }
+      set({ loading: false, freeBgProgress: null, stack: [...get().stack, res.base64] })
+      void useGenerationStore.getState().refreshHistory()
+    } catch (e) {
+      set({ loading: false, freeBgProgress: null })
+      toast(e instanceof Error ? e.message : String(e), 'error')
+    } finally {
+      off()
+    }
   },
 
   applyLocal: async (base64, kind) => {

@@ -572,6 +572,18 @@ export const EN = {
   'ui.removeBg': 'Remove BG',
   'ui.makeTheBackgroundTransparentKeepingOnlyTheCharacter':
     'Make the background transparent, keeping only the character',
+  'ui.removeBgFree': 'Remove BG (Hugging Face)',
+  'ui.removeBgFreeDescription': 'Free · sends the image to a Hugging Face Space',
+  'ui.removeBgFreePrivacyNotice':
+    "The image is uploaded to public Hugging Face Spaces run by third parties (BRIA RMBG 2.0, falling back to anime-remove-background). Don't use this for images you want to keep private. No Anlas is used, but it needs internet access and may wait in a queue.",
+  'ui.freeBgConnecting': 'Connecting to {0}…',
+  'ui.freeBgQueued': 'Waiting in the {0} queue…',
+  'ui.freeBgQueuedAt': 'Waiting in the {0} queue… (position {1})',
+  'ui.freeBgProcessing': 'Removing background with {0}…',
+  'ui.freeBgUsingFallback': 'The first Space is unavailable — trying the backup Space',
+  'ui.freeBgRemovalTimeout': 'timed out (queue busy)',
+  'ui.freeBgRemovalFailed':
+    'Free background removal failed. Try again later or use the NovelAI Remove BG tool. ({0})',
   'ui.lineArt': 'Line Art',
   'ui.extractLineArt': 'Extract line art',
   'ui.sketch': 'Sketch',

@@ -272,6 +272,16 @@ export const EMOTIONS = [
   'playful'
 ] as const
 
+/** 무료 배경 제거(HF Space) — primary: BRIA RMBG 2.0, fallback: anime-remove-background */
+export type FreeBgRemovalSpace = 'primary' | 'fallback'
+
+/** 무료 배경 제거 진행 상태 — position은 Space 대기열 순번(알 때만) */
+export interface FreeBgRemovalProgress {
+  space: FreeBgRemovalSpace
+  stage: 'connecting' | 'queued' | 'processing'
+  position?: number
+}
+
 /** 작가 태그 분석 결과 한 줄 — label은 `artist:이름`, score는 0~1 유사도 */
 export interface ArtistTag {
   label: string
@@ -607,6 +617,14 @@ export interface IpcInvokeMap {
     req: { imageBase64: string }
     res: { filePath: string; base64: string } | { error: string }
   }
+  /**
+   * 무료 배경 제거 — 이미지를 공개 Hugging Face Space로 보내 처리 (Anlas 없음, 인터넷 필요).
+   * 결과를 히스토리에 저장하고 파일 경로 + 결과 base64 반환. 진행은 images:removeBackgroundFreeProgress
+   */
+  'images:removeBackgroundFree': {
+    req: { imageBase64: string }
+    res: { filePath: string; base64: string } | { error: string }
+  }
   /** 렌더러 로컬 편집 결과(base64 PNG)를 히스토리에 저장 — 모자이크 등 API 없는 디렉터 로컬 툴용 */
   'images:saveLocal': {
     req: { base64: string; kind: LocalEditKind }
@@ -829,6 +847,8 @@ export interface IpcEventMap {
   'window:zoomChanged': { factor: number }
   /** 바이브 인코딩 완료 — 카드의 인코딩 표시 갱신용 */
   'vibes:encoded': Record<string, never>
+  /** 무료 배경 제거(HF Space) 진행 — 연결·대기열·처리, 폴백 Space로 넘어갔는지 */
+  'images:removeBackgroundFreeProgress': FreeBgRemovalProgress
   /** 자동 업데이트 상태 (GitHub release) */
   'update:status': {
     state: 'available' | 'none' | 'downloading' | 'downloaded' | 'error'

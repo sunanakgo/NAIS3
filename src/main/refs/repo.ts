@@ -111,6 +111,8 @@ export function listCharRefs(): { folders: ListFolder[]; items: CharRefItem[] } 
 /** 레퍼런스로 받는 이미지 형식 — sharp가 실제 내용으로 판별한 포맷 → 저장 확장자 */
 const REF_IMAGE_FORMATS: Record<string, string> = { png: '.png', jpeg: '.jpg', webp: '.webp' }
 const REF_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp']
+/** 앱 안 경로로 받는 원본 크기 상한 — 생성 이미지는 수 MB 수준 */
+const MAX_REF_IMAGE_BYTES = 64 * 1024 * 1024
 
 export interface RefImageSource {
   /** 표시 이름 (확장자 없이) */
@@ -152,12 +154,20 @@ export async function insertRefImages(
     } catch {
       continue
     }
+    // 파일과 행은 한 쌍 — 어느 쪽이 실패해도 그 항목만 실패로 세고, 방금 쓴 파일은 치운다.
+    // 썸네일을 만드는 사이 폴더가 지워졌을 수 있어 폴더는 넣기 직전에 다시 확인한다
     const dest = join(refsDir(), `${randomUUID()}${ext}`)
-    writeFileSync(dest, buf)
-    db.prepare(
-      `INSERT INTO ${table} (name, file_path, thumbnail, folder_id, sort_order, enabled)
-       VALUES (?, ?, ?, ?, ?, 1)`
-    ).run(name, dest, thumbnail, folderId, ++order)
+    try {
+      writeFileSync(dest, buf)
+      db.prepare(
+        `INSERT INTO ${table} (name, file_path, thumbnail, folder_id, sort_order, enabled)
+         VALUES (?, ?, ?, ?, ?, 1)`
+      ).run(name, dest, thumbnail, existingFolderId(kind, folderId), order + 1)
+    } catch {
+      rmSync(dest, { force: true })
+      continue
+    }
+    order++
     count++
   }
   return count
@@ -208,7 +218,7 @@ export async function addRefImagesFrom(
       }
     })
   ]
-  const count = await insertRefImages(kind, existingFolderId(kind, folderId), sources)
+  const count = await insertRefImages(kind, folderId, sources)
   return { count, failed: sources.length - count }
 }
 
@@ -225,7 +235,8 @@ function readAllowedImage(filePath: unknown): Buffer | null {
   if (!isAbsolute(filePath) || !isUnderImagesRoot(filePath)) return null
   if (!REF_IMAGE_EXTENSIONS.includes(extname(filePath).slice(1).toLowerCase())) return null
   try {
-    return statSync(filePath).isFile() ? readFileSync(filePath) : null
+    const stat = statSync(filePath)
+    return stat.isFile() && stat.size <= MAX_REF_IMAGE_BYTES ? readFileSync(filePath) : null
   } catch {
     return null
   }

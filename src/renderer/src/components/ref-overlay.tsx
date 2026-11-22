@@ -57,7 +57,7 @@ export function RefOverlay({ kind }: { kind: 'vibe' | 'charref' }): React.JSX.El
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [preview, setPreview] = useState<{ src: string; top: number; left: number } | null>(null)
 
-  // 이미지 드롭 — 외부 파일 또는 히스토리·씬·라이브러리 썸네일(내부 드래그 nais/file-path)
+  // 이미지 드롭 — 외부 파일 또는 히스토리·씬 썸네일(내부 드래그 nais/file-path)
   const [dragOver, setDragOver] = useState(false)
   useDragEndCleanup(useCallback(() => setDragOver(false), []))
   const acceptsDrag = (e: React.DragEvent): boolean =>

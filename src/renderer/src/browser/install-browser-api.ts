@@ -149,6 +149,21 @@ function webPath(base64: string): string {
   return `data:image/png;base64,${base64}`
 }
 
+/** Whether base64 content is PNG, JPEG or WebP, judged by its leading signature bytes */
+function isRefImageBase64(base64: string): boolean {
+  let head: string
+  try {
+    head = atob(base64.slice(0, 16))
+  } catch {
+    return false
+  }
+  return (
+    head.startsWith('\x89PNG\r\n\x1a\n') ||
+    head.startsWith('\xff\xd8\xff') ||
+    (head.startsWith('RIFF') && head.slice(8, 12) === 'WEBP')
+  )
+}
+
 /** Stored base64 thumbnail → the URL field carried by the shared list types */
 function thumbnailDataUrl(base64: string | undefined): string {
   return base64 ? `data:image/webp;base64,${base64}` : ''
@@ -994,14 +1009,15 @@ async function refsDispatch(channel: string, request: Record<string, unknown>): 
       let count = 0
       for (const filePath of filePaths) {
         const image = findBrowserImage(state, filePath)
-        if (!image?.base64) continue
+        if (!image?.base64 || !isRefImageBase64(image.base64)) continue
         pushRef('', image.base64)
         count++
       }
       for (const image of images) {
         const base64 = String(image.base64 ?? '').replace(/^data:[^,]+,/, '')
-        if (!base64) continue
-        pushRef(String(image.name ?? ''), base64)
+        // Like the app, accept only PNG/JPEG/WebP, judged by content rather than the name
+        if (!isRefImageBase64(base64)) continue
+        pushRef(String(image.name ?? '').replace(/\.[^.]+$/, ''), base64)
         count++
       }
       return { count, failed: filePaths.length + images.length - count }

@@ -71,9 +71,12 @@ describe('regenerate request from image metadata', () => {
         { prompt: 'girl', negativePrompt: 'bad', center: { x: 0.3, y: 0.5 }, enabled: true }
       ]
     })
-    for (const key of ['source', 'sceneId', 'vibeIds', 'promptParts'] as const) {
+    for (const key of ['source', 'sceneId', 'promptParts'] as const) {
       expect(request).not.toHaveProperty(key)
     }
+    // 빈 목록이어야 메인이 지금 켜 둔 레퍼런스로 대신 채우지 않는다
+    expect(request.vibeIds).toEqual([])
+    expect(request.charRefIds).toEqual([])
   })
 
   it('keeps a real three-part prompt split', () => {
@@ -143,6 +146,23 @@ describe('regenerate request from image metadata', () => {
         false
       ).negativePrompt
     ).toBe('blurry')
+  })
+
+  it('keeps the raw NAIS3 negative as written, even if it starts like a preset', () => {
+    const sel = { negativePrompt: true, ucPreset: true }
+    const raw = `${UC_PRESETS_V5[1]}, blurry`
+    expect(
+      metadataRequestPatch(
+        {
+          ...META,
+          negativePrompt: `${UC_PRESETS_V45_FULL[1]}, ${raw}`,
+          ucPreset: 1,
+          promptParts: { base: '1girl', additional: '', detail: '', negative: raw }
+        },
+        sel,
+        false
+      ).negativePrompt
+    ).toBe(raw)
   })
 })
 

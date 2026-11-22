@@ -64,11 +64,13 @@ export function regenerateRequestFromMetadata(
       enabled: true
     }))
   }
-  // 에디터 쪽 일시 상태(i2i 소스·3분할·씬·레퍼런스 고정)는 원본 이미지와 무관하다
+  // 에디터 쪽 일시 상태(i2i 소스·3분할·씬)는 원본 이미지와 무관하다
   delete request.source
   delete request.sceneId
-  delete request.vibeIds
-  delete request.charRefIds
+  // 레퍼런스는 빈 목록으로 고정 — id가 없으면 메인이 지금 켜 둔 바이브·캐릭레퍼를 붙인다.
+  // 원본에 쓰인 레퍼런스는 메타데이터로 복원할 수 없으니 레퍼런스 없이 재생성한다
+  request.vibeIds = []
+  request.charRefIds = []
   if (!isSplitMeta(meta)) delete request.promptParts
   // V5 투명 배경은 전송 프롬프트 끝(퀄리티 태그 앞)의 태그로만 남는다 — 토글로 되돌린다
   const sent = meta.prompt.endsWith(QUALITY_TAGS_SUFFIX)

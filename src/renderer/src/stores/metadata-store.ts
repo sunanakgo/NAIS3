@@ -76,8 +76,15 @@ export function metadataRequestPatch(
   // UC 프리셋: 체크 시 원본 네거티브+프리셋으로(재병합), 미체크 시 병합본 그대로+None
   const uc = (sel.ucPreset && m.ucPreset != null ? m.ucPreset : 0) as UcPresetIndex
   if (sel.negativePrompt) {
-    const rawNegative = m.promptParts?.negative ?? m.negativePrompt
-    patch.negativePrompt = m.ucPreset != null ? stripUcPreset(rawNegative, m.ucPreset) : rawNegative
+    // NAIS3가 남긴 promptParts.negative는 프리셋 병합 전 원문 — 벗기면 사용자 글까지 잘린다.
+    // 프리셋 제거는 PNG의 병합본에만 한다
+    const rawNegative = m.promptParts?.negative
+    patch.negativePrompt =
+      rawNegative != null
+        ? rawNegative
+        : m.ucPreset != null
+          ? stripUcPreset(m.negativePrompt, m.ucPreset)
+          : m.negativePrompt
     patch.ucPreset = uc
   } else if (sel.ucPreset && m.ucPreset != null) {
     patch.ucPreset = uc

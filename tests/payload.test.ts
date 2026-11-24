@@ -110,18 +110,81 @@ describe('payload builder', () => {
     expect(p.parameters.tag_hint_transparent_background).toBe(true)
   })
 
-  it('V5에서는 출시 시점 미지원 바이브·정밀 레퍼런스를 payload에서 제외한다', () => {
+  it('V5에서는 바이브를 payload에서 제외한다', () => {
     const p = buildGenerateImagePayload(
       { ...baseRequest, model: 'nai-diffusion-5-curated' },
+      { vibes: [{ strength: 0.6, encodedVibeBase64: 'vibe' }] }
+    )
+    expect(p.parameters).not.toHaveProperty('reference_image_multiple')
+    expect(p.parameters).not.toHaveProperty('reference_strength_multiple')
+  })
+
+  it('V5 정밀 레퍼런스는 타입을 그대로 보내고 fidelity 없이 secondary 0을 보낸다', () => {
+    const p = buildGenerateImagePayload(
+      { ...baseRequest, model: 'nai-diffusion-5-full' },
       {
-        vibes: [{ strength: 0.6, encodedVibeBase64: 'vibe' }],
         characterReferences: [
-          { referenceType: 'character', strength: 1, fidelity: 1, imageBase64: 'ref' }
+          { referenceType: 'character_mainoutfit', strength: 3.5, fidelity: 0.4, imageBase64: 'a' },
+          {
+            referenceType: 'character&style_anyoutfit',
+            strength: 1,
+            fidelity: 1,
+            imageBase64: 'b'
+          },
+          { referenceType: 'costume', strength: 2, fidelity: 0.2, imageBase64: 'c' }
         ]
       }
     )
-    expect(p.parameters).not.toHaveProperty('reference_image_multiple')
+    expect(p.parameters.director_reference_descriptions).toEqual([
+      { caption: { base_caption: 'character_mainoutfit', char_captions: [] }, legacy_uc: false },
+      {
+        caption: { base_caption: 'character&style_anyoutfit', char_captions: [] },
+        legacy_uc: false
+      },
+      { caption: { base_caption: 'costume', char_captions: [] }, legacy_uc: false }
+    ])
+    expect(p.parameters.director_reference_information_extracted).toEqual([1, 1, 1])
+    expect(p.parameters.director_reference_strength_values).toEqual([3.5, 1, 2])
+    expect(p.parameters.director_reference_secondary_strength_values).toEqual([0, 0, 0])
+    expect(p.parameters.director_reference_images).toEqual(['a', 'b', 'c'])
+  })
+
+  it('V4.5는 Outfit을 빼고 같은 의상 우선 변형을 기본 타입으로 되돌린다', () => {
+    const p = buildGenerateImagePayload(baseRequest, {
+      characterReferences: [
+        { referenceType: 'character_mainoutfit', strength: 0.8, fidelity: 0.6, imageBase64: 'a' },
+        { referenceType: 'costume', strength: 1, fidelity: 1, imageBase64: 'b' },
+        { referenceType: 'character&style_anyoutfit', strength: 1, fidelity: 1, imageBase64: 'c' }
+      ]
+    })
+    expect(
+      (p.parameters.director_reference_descriptions as { caption: { base_caption: string } }[]).map(
+        (d) => d.caption.base_caption
+      )
+    ).toEqual(['character', 'character&style'])
+    expect(p.parameters.director_reference_secondary_strength_values).toEqual([1 - 0.6, 0])
+    expect(p.parameters.director_reference_images).toEqual(['a', 'c'])
+  })
+
+  it('V5 인페인트에는 정밀 레퍼런스를 보내지 않는다', () => {
+    const p = buildGenerateImagePayload(
+      { ...baseRequest, model: 'nai-diffusion-5-full-inpainting' },
+      {
+        characterReferences: [
+          { referenceType: 'character', strength: 1, fidelity: 1, imageBase64: 'ref' }
+        ],
+        i2i: {
+          strength: 1,
+          noise: 0,
+          extraNoiseSeed: 1,
+          colorCorrect: false,
+          imageBase64: 'source',
+          maskBase64: 'mask'
+        }
+      }
+    )
     expect(p.parameters).not.toHaveProperty('director_reference_images')
+    expect(p.parameters).not.toHaveProperty('director_reference_descriptions')
   })
 
   it('V5 i2i는 V5 모델·params v4·img2img 파라미터를 유지한다', () => {

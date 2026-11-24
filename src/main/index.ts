@@ -36,6 +36,7 @@ import {
 import { enforceGenerationGuard } from './nai/anlas-guard'
 import { localPromptMetadata } from './nai/payload'
 import { prepareCharRefs, prepareVibes } from './refs/prepare'
+import { referencesSentFor } from '../shared/precise-reference'
 import { GenerationQueue } from './queue/generation-queue'
 import { getPresetName, getScene } from './scenes/repo'
 
@@ -229,8 +230,15 @@ const startup = app.whenReady().then(async () => {
       ? await prepareVibes(token, request.model, request.vibeIds)
       : { vibes: [], newlyEncoded: [] }
     if (newlyEncoded.length) broadcast('vibes:encoded', {}) // 카드 인코딩 표시 갱신
-    const characterReferences = capabilities.characterReferences
-      ? await prepareCharRefs(request.charRefIds)
+    // 캐릭레퍼는 실제로 보낼 모델 기준 — 인페인트면 인페인트 모델로 바뀐 뒤의 규칙
+    // (V5 인페인트는 레퍼런스 미지원, V5 Curated 인페인트는 V4.5 인페인트 모델로 간다)
+    const hasMask = Boolean(request.source?.maskBase64)
+    const referenceModel =
+      hasMask && !request.model.includes('inpainting')
+        ? inpaintingModelFor(request.model)
+        : request.model
+    const characterReferences = referencesSentFor(referenceModel, hasMask)
+      ? await prepareCharRefs(referenceModel, request.charRefIds)
       : []
 
     let source = request.source

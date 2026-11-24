@@ -14,7 +14,9 @@ import {
 } from '../main/nai/payload'
 import { ENDPOINTS } from '../main/nai/endpoints'
 import { upscaleRequest } from '../main/nai/upscale-request'
-import { isV5Model } from '../shared/nai-models'
+import { isV5Model, modelCapabilities } from '../shared/nai-models'
+import { referenceTypeForModel } from '../shared/precise-reference'
+import { prepareReferenceImage } from '../main/refs/reference-image'
 import { parseSubscriptionResponse, type NaiSubscriptionResponse } from '../shared/subscription'
 import { countWithQwenTokenizer, loadQwenTokenizer } from '../main/nai/qwen-tokenizer-core'
 
@@ -110,33 +112,23 @@ async function prepareVibes(
 }
 
 async function prepareCharRefs(
+  model: string,
   inputs: BrowserCharRefInput[]
 ): Promise<CharacterReferenceOptions[]> {
+  const mode = modelCapabilities(model).characterReferenceImages
   return Promise.all(
-    inputs.map(async (input) => {
-      const image = sharp(Buffer.from(input.imageBase64, 'base64'))
-      const metadata = await image.metadata()
-      const ratio = (metadata.width ?? 1) / (metadata.height ?? 1)
-      const canvas =
-        ratio > 1.2
-          ? { width: 1536, height: 1024 }
-          : ratio < 1 / 1.2
-            ? { width: 1024, height: 1536 }
-            : { width: 1472, height: 1472 }
-      const processed = await image
-        .resize(canvas.width, canvas.height, {
-          fit: 'contain',
-          background: { r: 0, g: 0, b: 0 }
-        })
-        .png()
-        .toBuffer()
-      return {
+    inputs
+      .filter((input) => referenceTypeForModel(input.referenceType, model) !== null)
+      .map(async (input) => ({
         referenceType: input.referenceType,
         strength: input.strength,
         fidelity: input.fidelity,
-        imageBase64: processed.toString('base64')
-      }
-    })
+        imageBase64: await prepareReferenceImage(
+          sharp,
+          Buffer.from(input.imageBase64, 'base64'),
+          mode
+        )
+      }))
   )
 }
 
@@ -178,6 +170,7 @@ async function route(
       signal
     )
     const characterReferences = await prepareCharRefs(
+      request.model,
       (body.characterReferences as BrowserCharRefInput[] | undefined) ?? []
     )
     const buildOptions: BuildOptions = {

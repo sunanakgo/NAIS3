@@ -11,13 +11,22 @@ import {
 } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { modelCapabilities } from '@shared/nai-models'
+import {
+  baseReferenceType,
+  preferSameOutfit,
+  referenceTypeBadge,
+  referenceTypeForModel,
+  referenceTypeOptions,
+  withPreferSameOutfit
+} from '@shared/precise-reference'
 import type { CharRefItem, CharRefType, VibeItem } from '@shared/types'
 import { useGenerationStore } from '../stores/generation-store'
 import { cn } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { applyClickSelection, useSelectAllShortcut } from '../lib/edit-selection'
 import { buildDisplayRows } from '../lib/folder-list'
-import { CHARREF_TYPES, refsStoreFor } from '../stores/refs-store'
+import { REFERENCE_TYPE_LABELS, refsStoreFor } from '../stores/refs-store'
 import { askConfirm, askText } from '../stores/dialog-store'
 import { FolderListView } from './folder-list-view'
 import { Button } from './ui/button'
@@ -158,9 +167,7 @@ export function RefOverlay({ kind }: { kind: 'vibe' | 'charref' }): React.JSX.El
           <span className="shrink-0 font-mono text-[10px] text-faint">
             {kind === 'vibe'
               ? `s${(item as VibeItem).strength.toFixed(2)}`
-              : (item as CharRefItem).refType === 'character&style'
-                ? 'C&S'
-                : (item as CharRefItem).refType[0].toUpperCase()}
+              : referenceTypeBadge((item as CharRefItem).refType)}
           </span>
         </div>
       )
@@ -209,9 +216,7 @@ export function RefOverlay({ kind }: { kind: 'vibe' | 'charref' }): React.JSX.El
         <span className="shrink-0 font-mono text-[10px] text-faint">
           {kind === 'vibe'
             ? `s${(item as VibeItem).strength.toFixed(2)}`
-            : (item as CharRefItem).refType === 'character&style'
-              ? 'C&S'
-              : (item as CharRefItem).refType[0].toUpperCase()}
+            : referenceTypeBadge((item as CharRefItem).refType)}
         </span>
       </div>
     )
@@ -249,7 +254,7 @@ export function RefOverlay({ kind }: { kind: 'vibe' | 'charref' }): React.JSX.El
         {kind === 'vibe' ? (
           <VibeParams item={item as VibeItem} model={model} update={update} />
         ) : (
-          <CharRefParams item={item as CharRefItem} update={update} />
+          <CharRefParams item={item as CharRefItem} model={model} update={update} />
         )}
       </div>
     )
@@ -401,6 +406,7 @@ export function RefOverlay({ kind }: { kind: 'vibe' | 'charref' }): React.JSX.El
       {bulkParamsOpen && (
         <BulkParamsDialog
           kind={kind}
+          model={model}
           count={selected.size}
           onApply={(patch) => {
             for (const id of selected) update(id, patch)
@@ -424,19 +430,23 @@ export function RefOverlay({ kind }: { kind: 'vibe' | 'charref' }): React.JSX.El
   )
 }
 
-/** 선택 항목 파라미터 일괄 적용 — vibe: 강도/정보, charref: 타입/강도/충실도 */
+/** 선택 항목 파라미터 일괄 적용 — vibe: 강도/정보, charref: 타입/강도/충실도(모델이 지원할 때) */
 function BulkParamsDialog({
   kind,
+  model,
   count,
   onApply,
   onClose
 }: {
   kind: 'vibe' | 'charref'
+  model: string
   count: number
   onApply: (patch: Record<string, unknown>) => void
   onClose: () => void
 }): React.JSX.Element {
   const t = useT()
+  const capabilities = modelCapabilities(model)
+  const strengthMax = kind === 'charref' ? capabilities.characterReferenceStrengthMax : 1
   const [strength, setStrength] = useState(0.6)
   const [info, setInfo] = useState(0.7)
   const [fidelity, setFidelity] = useState(0.5)
@@ -451,25 +461,12 @@ function BulkParamsDialog({
         </p>
         <div className="flex flex-col gap-2.5">
           {kind === 'charref' && (
-            <ParamRow label={t('ui.type')}>
-              <Select value={refType} onValueChange={(v) => setRefType(v as CharRefType)}>
-                <SelectTrigger className="h-7 flex-1 text-[12px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CHARREF_TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </ParamRow>
+            <ReferenceTypeControls model={model} value={refType} onChange={setRefType} />
           )}
           <ParamRow label={t('ui.strengthValue', strength.toFixed(2))}>
             <Slider
               min={0}
-              max={1}
+              max={strengthMax}
               step={0.05}
               value={[strength]}
               onValueChange={([v]) => setStrength(Math.round(v * 100) / 100)}
@@ -486,15 +483,17 @@ function BulkParamsDialog({
               />
             </ParamRow>
           ) : (
-            <ParamRow label={t('ui.fidelityValue', fidelity.toFixed(2))}>
-              <Slider
-                min={0}
-                max={1}
-                step={0.05}
-                value={[fidelity]}
-                onValueChange={([v]) => setFidelity(Math.round(v * 100) / 100)}
-              />
-            </ParamRow>
+            capabilities.characterReferenceFidelity && (
+              <ParamRow label={t('ui.fidelityValue', fidelity.toFixed(2))}>
+                <Slider
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={[fidelity]}
+                  onValueChange={([v]) => setFidelity(Math.round(v * 100) / 100)}
+                />
+              </ParamRow>
+            )
           )}
         </div>
         <div className="mt-4 flex justify-end gap-2">
@@ -507,7 +506,9 @@ function BulkParamsDialog({
               onApply(
                 kind === 'vibe'
                   ? { strength, infoExtracted: info }
-                  : { refType, strength, fidelity }
+                  : capabilities.characterReferenceFidelity
+                    ? { refType, strength, fidelity }
+                    : { refType, strength }
               )
             }
           >
@@ -516,6 +517,59 @@ function BulkParamsDialog({
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * 레퍼런스 타입 선택 + (V5) 같은 의상 우선 토글. 토글은 타입 값 자체를 바꾼다:
+ * Character ↔ character_mainoutfit, Character & Style ↔ character&style_anyoutfit.
+ */
+function ReferenceTypeControls({
+  model,
+  value,
+  onChange
+}: {
+  model: string
+  value: CharRefType
+  onChange: (value: CharRefType) => void
+}): React.JSX.Element {
+  const t = useT()
+  const base = baseReferenceType(value)
+  const options = referenceTypeOptions(model)
+  // 지금 모델이 고를 수 없는 타입(V4.5의 Outfit, 예전 Delta)도 현재 값이면 보이게 둔다
+  if (!options.includes(base)) options.push(base)
+  const prefer = modelCapabilities(model).outfitReferences ? preferSameOutfit(value) : null
+  const skipped = referenceTypeForModel(value, model) === null
+  return (
+    <>
+      <ParamRow label={t('ui.type')}>
+        <Select value={base} onValueChange={(v) => onChange(v as CharRefType)}>
+          <SelectTrigger className="h-7 flex-1 text-[12px]" aria-label={t('ui.type')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((option) => (
+              <SelectItem key={option} value={option}>
+                {t(REFERENCE_TYPE_LABELS[option])}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </ParamRow>
+      {prefer !== null && (
+        <label className="flex items-center justify-between gap-2 text-[11.5px] text-muted">
+          {t('ui.preferSameOutfit')}
+          <Switch
+            checked={prefer}
+            aria-label={t('ui.preferSameOutfit')}
+            onCheckedChange={(on) => onChange(withPreferSameOutfit(value, on))}
+          />
+        </label>
+      )}
+      {skipped && (
+        <p className="text-[10.5px] text-danger-ink">{t('ui.outfitReferenceUnsupported')}</p>
+      )}
+    </>
   )
 }
 
@@ -573,49 +627,42 @@ function VibeParams({
 
 function CharRefParams({
   item,
+  model,
   update
 }: {
   item: CharRefItem
+  model: string
   update: (id: number, patch: Record<string, unknown>) => void
 }): React.JSX.Element {
   const t = useT()
+  const capabilities = modelCapabilities(model)
   return (
     <div className="flex flex-col gap-1.5">
-      <ParamRow label={t('ui.type')}>
-        <Select
-          value={item.refType}
-          onValueChange={(v) => update(item.id, { refType: v as CharRefType })}
-        >
-          <SelectTrigger className="h-7 flex-1 text-[12px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {CHARREF_TYPES.map((t) => (
-              <SelectItem key={t.value} value={t.value}>
-                {t.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </ParamRow>
+      <ReferenceTypeControls
+        model={model}
+        value={item.refType}
+        onChange={(refType) => update(item.id, { refType })}
+      />
       <ParamRow label={t('ui.strengthValue', item.strength.toFixed(2))}>
         <Slider
           min={0}
-          max={1}
+          max={capabilities.characterReferenceStrengthMax}
           step={0.05}
           value={[item.strength]}
           onValueChange={([v]) => update(item.id, { strength: Math.round(v * 100) / 100 })}
         />
       </ParamRow>
-      <ParamRow label={t('ui.fidelityValue', item.fidelity.toFixed(2))}>
-        <Slider
-          min={0}
-          max={1}
-          step={0.05}
-          value={[item.fidelity]}
-          onValueChange={([v]) => update(item.id, { fidelity: Math.round(v * 100) / 100 })}
-        />
-      </ParamRow>
+      {capabilities.characterReferenceFidelity && (
+        <ParamRow label={t('ui.fidelityValue', item.fidelity.toFixed(2))}>
+          <Slider
+            min={0}
+            max={1}
+            step={0.05}
+            value={[item.fidelity]}
+            onValueChange={([v]) => update(item.id, { fidelity: Math.round(v * 100) / 100 })}
+          />
+        </ParamRow>
+      )}
     </div>
   )
 }

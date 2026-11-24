@@ -165,7 +165,11 @@ describe('restoring vibes from image metadata', () => {
     await expect(prepareVibes('token', CURATED)).rejects.toThrow(
       `It has no encoding for ${CURATED} at Info 0.7 (available: ${FULL} (IE 0.7))`
     )
-    updateRefImage('vibe', ids[0], { infoExtracted: 0.3 })
+    // The stored IE stays locked, so edits from the app can't break the encoding
+    updateRefImage('vibe', ids[0], { infoExtracted: 0.3, strength: 0.6 })
+    expect(vibeRows()[0]).toMatchObject({ info_extracted: 0.7, strength: 0.6 })
+    // An IE changed outside the app (an older version, a hand-edited DB) stops generation
+    mocks.db!.prepare('UPDATE vibe_images SET info_extracted = 0.3 WHERE id = ?').run(ids[0])
     await expect(prepareVibes('token', FULL)).rejects.toThrow('restored from image metadata')
     expect(fetchMock).not.toHaveBeenCalled()
   })

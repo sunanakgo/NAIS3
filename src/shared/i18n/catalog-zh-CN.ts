@@ -371,7 +371,10 @@ export const ZH_CN = {
   'ui.vibeTransferCountValue': '氛围传递（{0}）',
   'ui.metadataVibeNotRestorable': '无编码，无法恢复',
   'ui.metadataVibeModelValue': '编码模型：{0}',
-  'ui.metadataVibeModelUnknownValue': '编码模型未知，将按当前模型（{0}）应用',
+  'ui.metadataVibeModelUnknownValue':
+    '无法确定图像中氛围传递的编码模型，将按 {0} 应用。可以尝试生成，但氛围传递数据可能会损坏。',
+  'ui.metadataVibeModelMismatchValueValue':
+    '当前使用的模型（{1}）与图像中氛围传递的模型（{0}）不同。切换到 {0} 后才能用这些氛围传递生成。',
   'ui.metadataVibesAppliedValue': '已应用 {0} 个氛围传递',
   'ui.metadataVibesApplyFailedValue': '应用氛围传递失败：{0}',
   'ui.metadataVibeNoSourceImage': '从图像元数据恢复。没有原图无法重新编码，因此信息量固定。',

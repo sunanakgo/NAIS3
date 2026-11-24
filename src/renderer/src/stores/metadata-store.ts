@@ -11,6 +11,23 @@ import { pickPresetParams, usePromptPresetsStore } from './prompt-presets-store'
 import { useVibesStore } from './refs-store'
 import { toast } from './toast-store'
 
+/** 모델을 모르는 메타데이터 바이브의 저장 모델 — 현재 모델이 바이브를 못 쓰면(V5) V4.5 Full */
+const FALLBACK_VIBE_MODEL = 'nai-diffusion-4-5-full'
+
+/**
+ * 메타데이터 바이브를 어느 모델의 인코딩으로 저장할지와, 현재 모델과 비교한 안내.
+ * 모델을 알면 그 모델 그대로 (현재 모델과 다르면 mismatch), 모르면 바이브를 쓸 수 있는 현재 모델로 가정한다.
+ */
+export function metadataVibeModel(
+  vibeModel: string | undefined,
+  currentModel: string
+): { model: string; known: boolean; mismatch: boolean } {
+  const current = currentModel.replace(/-inpainting$/, '')
+  if (vibeModel) return { model: vibeModel, known: true, mismatch: vibeModel !== current }
+  const model = modelCapabilities(current).vibes ? current : FALLBACK_VIBE_MODEL
+  return { model, known: false, mismatch: false }
+}
+
 /** 실질적으로 3분할인지 — base만 있고 가변/디테일이 비었으면 단일 프롬프트로 취급 */
 export function isSplitMeta(meta: ImageMetadata): boolean {
   const p = meta.promptParts
@@ -148,7 +165,7 @@ export const useMetadataStore = create<MetadataState>((set, get) => ({
     // 바이브: 인코딩이 있는 것만 라이브러리에 넣고 그것만 켠다 (기존 켜진 바이브는 해제 — 메타 재현)
     const vibes = m.vibes?.filter((v) => v.encoded) ?? []
     if (sel.vibes && vibes.length > 0) {
-      const model = m.vibeModel ?? useGenerationStore.getState().request.model
+      const { model } = metadataVibeModel(m.vibeModel, useGenerationStore.getState().request.model)
       void window.nais
         .invoke('vibes:importFromMetadata', { vibes, model, source: get().source ?? {} })
         .then(async ({ ids }) => {

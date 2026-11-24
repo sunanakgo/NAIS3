@@ -2,7 +2,7 @@ import { Check, Copy, ImageOff, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ImageMetadata } from '@shared/types'
 import { useGenerationStore } from '../stores/generation-store'
-import { isSplitMeta, useMetadataStore } from '../stores/metadata-store'
+import { isSplitMeta, metadataVibeModel, useMetadataStore } from '../stores/metadata-store'
 import { cn } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { Button } from './ui/button'
@@ -253,6 +253,7 @@ function VibesPreview({
   const currentModel = useGenerationStore((s) => s.request.model)
   const vibes = meta.vibes ?? []
   const restorable = vibes.some((v) => v.encoded)
+  const vibeModel = metadataVibeModel(meta.vibeModel, currentModel)
   return (
     <div>
       {restorable ? (
@@ -290,11 +291,16 @@ function VibesPreview({
             </li>
           ))}
         </ul>
-        {restorable && (
+        {restorable && vibeModel.known && (
           <p className="text-[10.5px] text-faint">
-            {meta.vibeModel
-              ? t('ui.metadataVibeModelValue', meta.vibeModel)
-              : t('ui.metadataVibeModelUnknownValue', currentModel)}
+            {t('ui.metadataVibeModelValue', vibeModel.model)}
+          </p>
+        )}
+        {restorable && (vibeModel.mismatch || !vibeModel.known) && (
+          <p className="text-[10.5px] text-danger-ink">
+            {vibeModel.known
+              ? t('ui.metadataVibeModelMismatchValueValue', vibeModel.model, currentModel)
+              : t('ui.metadataVibeModelUnknownValue', vibeModel.model)}
           </p>
         )}
       </div>

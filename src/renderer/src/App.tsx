@@ -18,6 +18,7 @@ import { ArtistTagsDialog } from './components/artist-tags-dialog'
 import { MetadataDialog } from './components/metadata-dialog'
 import { SidePageHost } from './components/side-page-host'
 import { PromptPanel } from './components/prompt-panel'
+import { RecoveryNotice } from './components/recovery-notice'
 import { SceneMode } from './components/scene-mode'
 import { Titlebar } from './components/titlebar'
 import { SettingsDialog } from './components/token-dialog'
@@ -177,6 +178,8 @@ export default function App(): React.JSX.Element {
           </SidePageHost>
         </motion.div>
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+        {/* 작업 공간이 비었는데 앱 내부 백업에 데이터가 남았으면 한 번 알린다 */}
+        <RecoveryNotice ready={ready} />
         <TextPromptHost />
         <FragmentEditorDialog />
         <InpaintHost />

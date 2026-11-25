@@ -361,8 +361,9 @@ const startup = app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window, { zoom: true })
   })
 
-  // mac dock 아이콘 (dev 미리보기용 — 패키징 앱은 icns 사용)
-  if (process.platform === 'darwin' && app.dock) app.dock.setIcon(icon)
+  // mac dock 아이콘은 개발 실행에서만 바꾼다. 패키징 앱이 PNG로 덮으면 번들의 Liquid Glass 아이콘(Assets.car)이
+  // 평면 그림으로 바뀌어 버린다
+  if (process.platform === 'darwin' && !app.isPackaged && app.dock) app.dock.setIcon(icon)
 
   createWindow()
   setupUpdater() // GitHub release 자동 업데이트 확인 (패키징된 앱에서만 실제 동작)

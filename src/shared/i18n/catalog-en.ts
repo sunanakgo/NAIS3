@@ -426,6 +426,23 @@ export const EN = {
   'ui.outfitReferenceUnsupported':
     "This model doesn't support Outfit references, so this one is skipped when generating.",
   'ui.encodesOnGenerate2AnlasCachedAfterward': 'Encodes on generate (2 Anlas, cached afterward)',
+  'ui.metadataVibeValue': 'Metadata vibe {0}',
+  'ui.vibeTransferCountValue': 'Vibe Transfer ({0})',
+  'ui.metadataVibeNotRestorable': "No encoding, can't restore",
+  'ui.metadataVibeModelValue': 'Encoded for: {0}',
+  'ui.metadataVibeModelUnknown':
+    "Couldn't tell which model these vibes were encoded for. Choose the model the image was made with to import them.",
+  'ui.metadataVibeModelChoose': 'Choose model',
+  'ui.metadataVibesSkippedModelUnknown':
+    "Vibes weren't imported because their model is unknown. Choose the model in the metadata dialog and apply again.",
+  'ui.metadataVibeModelMismatchValueValue':
+    "These vibes were encoded for {0}, but you're using {1}. Switch to {0} to generate with them.",
+  'ui.metadataVibesAppliedValue': 'Applied {0} {0|vibe|vibes}',
+  'ui.metadataVibesApplyFailedValue': "Couldn't apply vibes: {0}",
+  'ui.metadataVibeNoSourceImage':
+    "Restored from image metadata. Without the original image it can't be re-encoded, so Info is fixed.",
+  'ui.metadataVibeEncodingUnavailableValueValueValue':
+    "A vibe restored from image metadata has no original image, so it can't be re-encoded. It has no encoding for {0} at Info {1} (available: {2}). Switch the model or Info value, or turn the vibe off.",
   'ui.deleteImages': 'Delete Images',
   'ui.deletesValueImagesFromTheLibraryTheCopiedFilesWillBeRemovedToo':
     'Deletes {0} {0|image|images} from the library. The copied files will be removed too.',

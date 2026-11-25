@@ -2,6 +2,7 @@ import { gunzipSync, inflateSync } from 'zlib'
 import sharp from '../sharp'
 import type { ImageMetadata } from '../../shared/types'
 import { QUALITY_TAGS_SUFFIX, UC_PRESETS_V45_FULL } from '../../shared/nai-presets'
+import { parseMetadataVibes, vibeModelFor } from './metadata-vibes'
 
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 const STEALTH_MAGIC = 'stealth_pngcomp'
@@ -159,6 +160,7 @@ function normalize(
     negativePrompt: negChars[i]?.char_caption ?? '',
     center: c?.centers?.[0]
   }))
+  const vibes = parseMetadataVibes(params as Record<string, unknown>)
   return {
     prompt: extra.prompt,
     promptParts: extra.local?.promptParts,
@@ -178,7 +180,8 @@ function normalize(
     // ucPreset·qualityToggle: 직접 필드 우선, 없으면 병합 문자열에서 역추적
     qualityToggle: params.qualityToggle ?? extra.prompt.endsWith(QUALITY_TAGS_SUFFIX),
     ucPreset: params.ucPreset ?? inferUcPreset(extra.uc),
-    characterPrompts: characterPrompts.length > 0 ? characterPrompts : undefined
+    characterPrompts: characterPrompts.length > 0 ? characterPrompts : undefined,
+    ...(vibes ? { vibes, vibeModel: vibeModelFor(extra.model) } : {})
   }
 }
 

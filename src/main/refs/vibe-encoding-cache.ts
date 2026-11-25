@@ -64,3 +64,13 @@ export function vibeEncodingModels(
     .map(([model]) => model)
     .sort()
 }
+
+/** 캐시에 든 모든 인코딩 (모델 이름순) — 같은 인코딩을 가진 기존 바이브를 찾을 때 */
+export function vibeEncodingEntries(
+  encoded: string | null,
+  legacyIe: number | null
+): { model: string; ie: number; data: string }[] {
+  return Object.entries(parse(encoded, legacyIe))
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([model, entry]) => ({ model, ie: entry.ie, data: entry.data }))
+}

@@ -13,7 +13,7 @@ import {
 import { freeBgRemovalFailureMessage } from '@shared/free-bg-removal'
 import { FinishedQueueLog, queueItemSnapshot } from '@shared/queue-status'
 import { emptyWorkspaceCounts } from '@shared/workspace-counts'
-import { isLang, translate } from '@shared/i18n'
+import { isLang, translate, type Lang } from '@shared/i18n'
 import {
   browserFragmentSource,
   exportBrowserWorkspace,
@@ -29,6 +29,7 @@ import type {
   IpcEventMap,
   IpcInvokeMap,
   ListFolder,
+  MetadataVibe,
   QueueStatus
 } from '@shared/types'
 import {
@@ -228,6 +229,21 @@ async function recordAnlasSpend(
   return result
 }
 
+function browserLang(state: { settings: Record<string, string> }): Lang {
+  const lang = state.settings.ui_language
+  return isLang(lang) ? lang : 'en'
+}
+
+/** 브라우저 바이브 인코딩 캐시(`id:model:ie`)에서 한 바이브의 "모델 (IE n)" 목록 */
+function browserVibeEncodingLabels(encodings: Record<string, string>, id: number): string[] {
+  const labels = Object.keys(encodings).flatMap((key) => {
+    const parts = key.split(':')
+    if (parts.length < 3 || Number(parts[0]) !== id) return []
+    return [`${parts.slice(1, -1).join(':')} (IE ${parts.at(-1)})`]
+  })
+  return [...new Set(labels)].sort()
+}
+
 async function runQueue(): Promise<void> {
   if (queueRunning) return
   queueRunning = true
@@ -262,6 +278,20 @@ async function runQueue(): Promise<void> {
           : item.request.charRefIds !== undefined
             ? state.charRefs.filter((reference) => item!.request.charRefIds!.includes(reference.id))
             : state.charRefs.filter((reference) => reference.enabled)
+        // 메타데이터에서 복원한 바이브는 원본 이미지가 없다 — 이 모델·IE의 인코딩이 없으면
+        // 썸네일(메타데이터를 읽은 이미지)을 encode-vibe로 보내지 말고 앱과 같은 오류로 멈춘다
+        const vibeEncodingFor = (vibe: (typeof selectedVibes)[number]): string | undefined =>
+          state.vibeEncodings[`${vibe.id}:${item!.request.model}:${vibe.infoExtracted}`]
+        for (const vibe of selectedVibes) {
+          if (!vibe.encodedOnly || vibeEncodingFor(vibe)) continue
+          throw new Error(
+            translate(browserLang(state), 'ui.metadataVibeEncodingUnavailableValueValueValue', [
+              item.request.model,
+              vibe.infoExtracted,
+              browserVibeEncodingLabels(state.vibeEncodings, vibe.id).join(', ') || '-'
+            ])
+          )
+        }
         const result = await gateway<{
           base64: string
           payloadJson: string
@@ -276,8 +306,8 @@ async function runQueue(): Promise<void> {
               imageBase64: vibe.thumbnail,
               strength: vibe.strength,
               informationExtracted: vibe.infoExtracted,
-              encodedBase64:
-                state.vibeEncodings[`${vibe.id}:${item!.request.model}:${vibe.infoExtracted}`]
+              encodedBase64: vibeEncodingFor(vibe),
+              ...(vibe.encodedOnly ? { encodedOnly: true } : {})
             })),
             characterReferences: selectedCharRefs.map((reference) => ({
               imageBase64: reference.thumbnail,
@@ -1036,6 +1066,62 @@ async function refsDispatch(channel: string, request: Record<string, unknown>): 
       for (const file of files) pushRef(file.name, await fileBase64(file))
       return { count: files.length }
     }
+    if (action === 'importFromMetadata' && vibe) {
+      // Same rules as the app: turn every vibe off, reuse items holding the same encoding,
+      // and add the rest as encoding-only vibes fixed to the encoded IE
+      const model = String(request.model ?? '')
+      const usable = ((request.vibes as MetadataVibe[] | undefined) ?? []).filter(
+        (candidate) => typeof candidate?.encoded === 'string' && candidate.encoded.length > 0
+      )
+      if (usable.length === 0 || !model) return { ids: [], created: 0, reused: 0 }
+      const source = (request.source ?? {}) as { filePath?: string; base64?: string }
+      const thumbnail =
+        source.base64?.replace(/^data:[^,]+,/, '') ??
+        findBrowserImage(state, source.filePath)?.base64 ??
+        ''
+      const clamp = (value: unknown, fallback: number): number =>
+        typeof value === 'number' && Number.isFinite(value)
+          ? Math.min(1, Math.max(0, value))
+          : fallback
+      state.vibes.forEach((candidate) => (candidate.enabled = false))
+      const ids: number[] = []
+      let created = 0
+      let reused = 0
+      usable.forEach((meta, index) => {
+        const strength = clamp(meta.strength, 0.6)
+        const match = Object.entries(state.vibeEncodings).find(
+          ([key, data]) => data === meta.encoded && !ids.includes(Number(key.split(':')[0]))
+        )
+        const existing =
+          match && state.vibes.find((candidate) => candidate.id === Number(match[0].split(':')[0]))
+        if (match && existing) {
+          existing.enabled = true
+          existing.strength = strength
+          existing.infoExtracted = Number(match[0].split(':').at(-1))
+          ids.push(existing.id)
+          reused++
+          return
+        }
+        const ie = clamp(meta.informationExtracted, 1)
+        const id = nextBrowserId(state)
+        state.vibeEncodings[`${id}:${model}:${ie}`] = meta.encoded!
+        state.vibes.push({
+          id,
+          name: translate(browserLang(state), 'ui.metadataVibeValue', [index + 1]),
+          thumbnail,
+          enabled: true,
+          strength,
+          infoExtracted: ie,
+          encodedReady: true,
+          encodedModels: [model],
+          encodedOnly: true,
+          folderId: null
+        })
+        ids.push(id)
+        created++
+      })
+      return { ids, created, reused }
+    }
     if (action === 'addFrom') {
       const filePaths = (request.filePaths as string[] | undefined) ?? []
       const images = (request.images as { name: string; base64: string }[] | undefined) ?? []
@@ -1057,7 +1143,12 @@ async function refsDispatch(channel: string, request: Record<string, unknown>): 
     }
     if (action === 'update') {
       const item = items.find((candidate) => candidate.id === request.id)
-      if (item) Object.assign(item, request.patch)
+      if (item) {
+        // 인코딩만 있는 바이브는 저장된 IE로 고정 — 앱과 같이 원본이 없어 다시 인코딩할 수 없다
+        const patch = { ...((request.patch ?? {}) as Record<string, unknown>) }
+        if (vibe && 'encodedOnly' in item && item.encodedOnly) delete patch.infoExtracted
+        Object.assign(item, patch)
+      }
       return undefined
     }
     if (action === 'delete') {

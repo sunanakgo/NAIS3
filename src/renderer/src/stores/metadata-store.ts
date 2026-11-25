@@ -8,7 +8,29 @@ import { useCharactersStore } from './characters-store'
 import { mergePromptParts, useGenerationStore } from './generation-store'
 import { useLayoutStore } from './layout-store'
 import { pickPresetParams, usePromptPresetsStore } from './prompt-presets-store'
+import { useVibesStore } from './refs-store'
 import { toast } from './toast-store'
+
+/** 메타데이터 바이브의 모델을 모를 때 사용자가 고를 수 있는 모델 (바이브를 쓰는 모델만) */
+export const METADATA_VIBE_MODEL_CHOICES = [
+  { id: 'nai-diffusion-4-5-full', label: 'V4.5 Full' },
+  { id: 'nai-diffusion-4-5-curated', label: 'V4.5 Curated' }
+] as const
+
+/**
+ * 메타데이터 바이브를 어느 모델의 인코딩으로 저장할지와, 현재 모델과 비교한 안내.
+ * 모델을 알면 그 모델 그대로, 모르면 사용자가 고른 모델(chosen). 둘 다 없으면 model은
+ * undefined — 추측해서 저장하면 다른 모델용 인코딩이 그 모델 것으로 남는다.
+ */
+export function metadataVibeModel(
+  vibeModel: string | undefined,
+  currentModel: string,
+  chosen?: string
+): { model: string | undefined; known: boolean; mismatch: boolean } {
+  const current = currentModel.replace(/-inpainting$/, '')
+  const model = vibeModel || chosen || undefined
+  return { model, known: !!vibeModel, mismatch: !!model && model !== current }
+}
 
 /** 실질적으로 3분할인지 — base만 있고 가변/디테일이 비었으면 단일 프롬프트로 취급 */
 export function isSplitMeta(meta: ImageMetadata): boolean {
@@ -36,11 +58,14 @@ interface MetadataState {
   error: string | null
   /** 팝업에 표시할 이미지 src (파일=nais-image, 드롭=data URL) */
   imageSrc: string | null
+  /** 메타데이터를 읽은 원본 (바이브 카드 썸네일용) */
+  source: { filePath?: string; base64?: string } | null
   /** 파일 경로 또는 base64(외부 드롭)로 메타데이터 팝업 열기 */
   show: (src: { filePath?: string; base64?: string }) => Promise<void>
   close: () => void
   /** 선택된 요소만 메인 생성 설정으로 불러오기 */
-  applyToMain: (sel: Record<string, boolean>) => void
+  /** vibeModel: 메타데이터에 모델이 없을 때 사용자가 고른 바이브 인코딩 모델 */
+  applyToMain: (sel: Record<string, boolean>, options?: { vibeModel?: string }) => void
 }
 
 export const useMetadataStore = create<MetadataState>((set, get) => ({
@@ -49,6 +74,7 @@ export const useMetadataStore = create<MetadataState>((set, get) => ({
   meta: null,
   error: null,
   imageSrc: null,
+  source: null,
 
   show: async (src) => {
     const imageSrc = src.base64
@@ -58,7 +84,7 @@ export const useMetadataStore = create<MetadataState>((set, get) => ({
       : src.filePath
         ? imageUrl(src.filePath)
         : null
-    set({ open: true, loading: true, meta: null, error: null, imageSrc })
+    set({ open: true, loading: true, meta: null, error: null, imageSrc, source: src })
     const res = await window.nais.invoke('images:readMetadata', src)
     if ('error' in res) {
       set({ open: false, loading: false })
@@ -67,7 +93,7 @@ export const useMetadataStore = create<MetadataState>((set, get) => ({
   },
   close: () => set({ open: false }),
 
-  applyToMain: (sel) => {
+  applyToMain: (sel, options) => {
     const m = get().meta
     if (!m) return
     const gen = useGenerationStore.getState()
@@ -140,6 +166,32 @@ export const useMetadataStore = create<MetadataState>((set, get) => ({
       void useCharactersStore
         .getState()
         .importFromMetadata(m.characterPrompts ?? [], modelCapabilities(model).maxCharacters)
+    }
+    // 바이브(사용자가 고른 경우만): 인코딩이 있는 것만 라이브러리에 넣고 그것만 켠다
+    // (기존 켜진 바이브는 해제 — 메타 재현). 인코딩 모델을 모르고 고르지도 않았으면 넣지 않는다
+    const vibes = m.vibes?.filter((v) => v.encoded) ?? []
+    if (sel.vibes && vibes.length > 0) {
+      const { model } = metadataVibeModel(
+        m.vibeModel,
+        useGenerationStore.getState().request.model,
+        options?.vibeModel
+      )
+      if (!model) {
+        toast(t('ui.metadataVibesSkippedModelUnknown'), 'error')
+      } else {
+        void window.nais
+          .invoke('vibes:importFromMetadata', { vibes, model, source: get().source ?? {} })
+          .then(async ({ ids }) => {
+            await useVibesStore.getState().load()
+            toast(t('ui.metadataVibesAppliedValue', ids.length), 'success')
+          })
+          .catch((e: unknown) =>
+            toast(
+              t('ui.metadataVibesApplyFailedValue', e instanceof Error ? e.message : String(e)),
+              'error'
+            )
+          )
+      }
     }
     useLayoutStore.getState().setCenterMode('main')
     set({ open: false })

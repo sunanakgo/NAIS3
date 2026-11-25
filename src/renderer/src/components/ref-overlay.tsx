@@ -14,11 +14,14 @@ import { createPortal } from 'react-dom'
 import { modelCapabilities } from '@shared/nai-models'
 import {
   baseReferenceType,
+  clampReferenceStrength,
   preferSameOutfit,
   referenceTypeBadge,
   referenceTypeForModel,
   referenceTypeOptions,
-  withPreferSameOutfit
+  withBaseReferenceType,
+  withPreferSameOutfit,
+  type BaseReferenceType
 } from '@shared/precise-reference'
 import type { CharRefItem, CharRefType, VibeItem } from '@shared/types'
 import { useGenerationStore } from '../stores/generation-store'
@@ -543,7 +546,10 @@ function ReferenceTypeControls({
   return (
     <>
       <ParamRow label={t('ui.type')}>
-        <Select value={base} onValueChange={(v) => onChange(v as CharRefType)}>
+        <Select
+          value={base}
+          onValueChange={(v) => onChange(withBaseReferenceType(value, v as BaseReferenceType))}
+        >
           <SelectTrigger className="h-7 flex-1 text-[12px]" aria-label={t('ui.type')}>
             <SelectValue />
           </SelectTrigger>
@@ -636,6 +642,8 @@ function CharRefParams({
 }): React.JSX.Element {
   const t = useT()
   const capabilities = modelCapabilities(model)
+  // 저장값은 그대로 두고, 모델 상한을 넘는 값(V5 → V4.5 전환)은 보내는 값과 같게 잘라 보여준다
+  const strength = clampReferenceStrength(item.strength, model)
   return (
     <div className="flex flex-col gap-1.5">
       <ReferenceTypeControls
@@ -643,12 +651,12 @@ function CharRefParams({
         value={item.refType}
         onChange={(refType) => update(item.id, { refType })}
       />
-      <ParamRow label={t('ui.strengthValue', item.strength.toFixed(2))}>
+      <ParamRow label={t('ui.strengthValue', strength.toFixed(2))}>
         <Slider
           min={0}
           max={capabilities.characterReferenceStrengthMax}
           step={0.05}
-          value={[item.strength]}
+          value={[strength]}
           onValueChange={([v]) => update(item.id, { strength: Math.round(v * 100) / 100 })}
         />
       </ParamRow>

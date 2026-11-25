@@ -4,6 +4,7 @@ import { prepareReferenceImage } from '../src/main/refs/reference-image'
 import {
   DIRECTOR_REFERENCE_BUCKETS,
   baseReferenceType,
+  clampReferenceStrength,
   directorReferenceBucket,
   preferSameOutfit,
   referenceTypeBadge,
@@ -11,6 +12,7 @@ import {
   referenceTypeOptions,
   referencesSentFor,
   sentReferenceCount,
+  withBaseReferenceType,
   withPreferSameOutfit
 } from '../src/shared/precise-reference'
 
@@ -50,6 +52,28 @@ describe('Precise Reference types', () => {
     expect(withPreferSameOutfit('character&style', false)).toBe('character&style_anyoutfit')
     expect(withPreferSameOutfit('character&style_anyoutfit', true)).toBe('character&style')
     expect(withPreferSameOutfit('style', true)).toBe('style')
+  })
+
+  it('picking a base type keeps the current Prefer same outfit state', () => {
+    // off stays off
+    expect(withBaseReferenceType('character', 'character&style')).toBe('character&style_anyoutfit')
+    expect(withBaseReferenceType('character&style_anyoutfit', 'character')).toBe('character')
+    // on stays on
+    expect(withBaseReferenceType('character_mainoutfit', 'character&style')).toBe('character&style')
+    expect(withBaseReferenceType('character&style', 'character')).toBe('character_mainoutfit')
+    // types without a toggle
+    expect(withBaseReferenceType('character_mainoutfit', 'style')).toBe('style')
+    expect(withBaseReferenceType('character&style_anyoutfit', 'costume')).toBe('costume')
+    expect(withBaseReferenceType('style', 'character')).toBe('character')
+    expect(withBaseReferenceType('costume', 'character&style')).toBe('character&style')
+  })
+
+  it('clamps strength to the model maximum', () => {
+    expect(clampReferenceStrength(3, V45)).toBe(1)
+    expect(clampReferenceStrength(0.4, V45)).toBe(0.4)
+    expect(clampReferenceStrength(3, V5)).toBe(3)
+    expect(clampReferenceStrength(9, V5)).toBe(5)
+    expect(clampReferenceStrength(-1, V5)).toBe(0)
   })
 
   it('variants share the picker entry and card badge of their base type', () => {

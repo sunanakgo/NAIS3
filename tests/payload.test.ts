@@ -166,6 +166,20 @@ describe('payload builder', () => {
     expect(p.parameters.director_reference_images).toEqual(['a', 'c'])
   })
 
+  it('정밀 레퍼런스 강도는 모델 상한으로 잘라 보낸다 (V5 강도 3 → V4.5는 1)', () => {
+    const references = [
+      { referenceType: 'character' as const, strength: 3, fidelity: 1, imageBase64: 'a' },
+      { referenceType: 'character' as const, strength: 7, fidelity: 1, imageBase64: 'b' }
+    ]
+    const v45 = buildGenerateImagePayload(baseRequest, { characterReferences: references })
+    expect(v45.parameters.director_reference_strength_values).toEqual([1, 1])
+    const v5 = buildGenerateImagePayload(
+      { ...baseRequest, model: 'nai-diffusion-5-curated' },
+      { characterReferences: references }
+    )
+    expect(v5.parameters.director_reference_strength_values).toEqual([3, 5])
+  })
+
   it('V5 인페인트에는 정밀 레퍼런스를 보내지 않는다', () => {
     const p = buildGenerateImagePayload(
       { ...baseRequest, model: 'nai-diffusion-5-full-inpainting' },

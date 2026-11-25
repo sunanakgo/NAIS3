@@ -43,7 +43,11 @@ import {
   modelCapabilities
 } from '../../shared/nai-models'
 import { applyAutoText } from '../../shared/nai-auto-text'
-import { referencesSentFor, referenceTypeForModel } from '../../shared/precise-reference'
+import {
+  clampReferenceStrength,
+  referencesSentFor,
+  referenceTypeForModel
+} from '../../shared/precise-reference'
 
 /**
  * Variety+(skip_cfg_above_sigma) 값.
@@ -184,7 +188,9 @@ export function buildGenerateImagePayload(
         const referenceType = referenceTypeForModel(r.referenceType, req.model)
         if (!referenceType) return []
         const fidelity = capabilities.characterReferenceFidelity ? r.fidelity : 1
-        return [{ ...r, referenceType, fidelity }]
+        // V5에서 올린 강도(최대 5)가 V4.5(최대 1)로 그대로 가지 않게 모델 상한으로 자른다
+        const strength = clampReferenceStrength(r.strength, req.model)
+        return [{ ...r, referenceType, strength, fidelity }]
       })
     : []
   const transparent = v5 && (opts.transparentBackground ?? req.transparentBackground ?? false)

@@ -46,6 +46,20 @@ export function withPreferSameOutfit(type: CharRefType, on: boolean): CharRefTyp
   return (on ? TOGGLE_ON[type] : TOGGLE_OFF[type]) ?? type
 }
 
+/**
+ * Picks a base type in the type picker while keeping the current "Prefer same outfit"
+ * state. Types without a toggle (Style, Outfit) fall back to the base type's default.
+ */
+export function withBaseReferenceType(type: CharRefType, base: BaseReferenceType): CharRefType {
+  const prefer = preferSameOutfit(type)
+  return prefer === null ? base : withPreferSameOutfit(base, prefer)
+}
+
+/** Strength sent to (and shown for) this model: within 0 and the model's slider maximum. */
+export function clampReferenceStrength(strength: number, model: string): number {
+  return Math.min(Math.max(strength, 0), modelCapabilities(model).characterReferenceStrengthMax)
+}
+
 /** Type picker entries for a model, in the web UI's order. */
 export function referenceTypeOptions(model: string): BaseReferenceType[] {
   return modelCapabilities(model).outfitReferences

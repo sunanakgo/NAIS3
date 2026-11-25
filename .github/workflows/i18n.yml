@@ -46,5 +46,5 @@ jobs:
           node-version: '22'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test
-      - run: pnpm run typecheck
+      # The full test suite and typecheck run in test.yml.
+      - run: pnpm i18n:check

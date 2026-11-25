@@ -1,0 +1,57 @@
+name: Test
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - 'electron-builder.yml'
+      - '.github/workflows/release.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig*.json'
+      - 'vitest.config.ts'
+      - 'vitest.db.config.ts'
+      - '.github/workflows/test.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - 'electron-builder.yml'
+      - '.github/workflows/release.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig*.json'
+      - 'vitest.config.ts'
+      - 'vitest.db.config.ts'
+      - '.github/workflows/test.yml'
+
+permissions:
+  contents: read
+
+# A new push to the same PR replaces its unfinished run; runs on main always finish.
+concurrency:
+  group: test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  linux:
+    name: Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      # Vitest, then the SQLite integration suite in Electron's Node mode.
+      - run: pnpm test

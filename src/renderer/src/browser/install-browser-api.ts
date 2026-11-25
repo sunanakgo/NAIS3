@@ -10,6 +10,7 @@ import {
   normalizeDelayRandomization,
   randomizedGenerationDelayMs
 } from '@shared/generation-delay'
+import { freeBgRemovalFailureMessage } from '@shared/free-bg-removal'
 import { FinishedQueueLog, queueItemSnapshot } from '@shared/queue-status'
 import { emptyWorkspaceCounts } from '@shared/workspace-counts'
 import { isLang, translate } from '@shared/i18n'
@@ -22,6 +23,7 @@ import {
 import type {
   CharacterOrderEntry,
   CharacterPromptInput,
+  FreeBgRemovalAttempt,
   GenerationDelayRandomization,
   GenerationRequest,
   IpcEventMap,
@@ -37,6 +39,7 @@ import {
   type BrowserImage,
   type BrowserState
 } from './browser-db'
+import { t } from '../lib/i18n'
 
 const listeners = new Map<keyof IpcEventMap, Set<(payload: unknown) => void>>()
 const queue: QueueStatus = { items: [], running: false, delayMs: 600 }
@@ -804,6 +807,22 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
     const imageBase64 = String(request.base64 ?? stored?.base64 ?? '')
     if (!imageBase64) return { error: 'Image not found' }
     return gateway('analyze-artists', { imageBase64 })
+  }
+  if (channel === 'images:removeBackgroundFree') {
+    try {
+      const result = await gateway<
+        { base64: string; space: string } | { attempts: FreeBgRemovalAttempt[] }
+      >('remove-background-free', { imageBase64: request.imageBase64 })
+      if ('attempts' in result) return { error: freeBgRemovalFailureMessage(result.attempts, t) }
+      const filePath = await saveBrowserImage(
+        result.base64,
+        'bg-removal',
+        JSON.stringify({ backgroundRemoval: 'huggingface', space: result.space })
+      )
+      return { filePath, base64: result.base64 }
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) }
+    }
   }
   if (channel === 'images:upscale') {
     const account = activeAccount(await readBrowserState())

@@ -7,6 +7,11 @@ import type { Plugin } from 'vite'
 import type { GenerationRequest } from '../shared/types'
 import { analyzeArtists } from '../main/images/artists'
 import {
+  FreeBgRemovalError,
+  freeBgImageCodec,
+  removeBackgroundFree
+} from '../main/images/background-removal'
+import {
   buildGenerateImagePayload,
   type BuildOptions,
   type CharacterReferenceOptions,
@@ -270,6 +275,18 @@ async function route(
     const image = Buffer.from(String(body.imageBase64 ?? '').replace(/^data:[^,]+,/, ''), 'base64')
     const artistTags = await analyzeArtists(image)
     return artistTags.length > 0 ? { tags: artistTags } : { error: 'No artist tags found' }
+  }
+
+  if (path === 'remove-background-free') {
+    const image = Buffer.from(String(body.imageBase64 ?? '').replace(/^data:[^,]+,/, ''), 'base64')
+    try {
+      const result = await removeBackgroundFree(image, freeBgImageCodec(sharp))
+      return { base64: result.image.toString('base64'), space: result.spaceId }
+    } catch (e) {
+      // 번역은 화면 언어를 아는 렌더러에서 — 데스크톱과 같은 문구로 바꾼다
+      if (e instanceof FreeBgRemovalError) return { attempts: e.attempts }
+      throw e
+    }
   }
 
   if (path === 'tokens') {

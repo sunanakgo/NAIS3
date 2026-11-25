@@ -1,5 +1,7 @@
 import { create } from 'zustand'
-import type { CharRefItem, CharRefType, ListFolder, VibeItem } from '@shared/types'
+import type { MessageId } from '@shared/i18n'
+import type { BaseReferenceType } from '@shared/precise-reference'
+import type { CharRefItem, ListFolder, VibeItem } from '@shared/types'
 import { canonicalize, moveRow, toOrderEntries } from '../lib/folder-list'
 import { t } from '../lib/i18n'
 import { toast } from './toast-store'
@@ -190,13 +192,14 @@ export function addImagesToRefs(kind: 'vibe' | 'charref', filePaths: string[]): 
   return refsStoreFor(kind).getState().addFrom({ filePaths })
 }
 
-export const CHARREF_TYPES: { value: CharRefType; label: string }[] = [
-  { value: 'character', label: 'Character' },
-  { value: 'style', label: 'Style' },
-  { value: 'character&style', label: 'Character & Style' },
-  { value: 'costume', label: 'Costume' },
-  { value: 'delta', label: 'Delta' }
-]
+/** Precise Reference type picker labels (variants share their base entry) */
+export const REFERENCE_TYPE_LABELS: Record<BaseReferenceType, MessageId> = {
+  'character&style': 'ui.referenceTypeCharacterAndStyle',
+  character: 'ui.referenceTypeCharacter',
+  style: 'ui.referenceTypeStyle',
+  costume: 'ui.referenceTypeOutfit',
+  delta: 'ui.referenceTypeDelta'
+}
 
 export function enabledRefCount(): { vibes: number; crefs: number } {
   return {

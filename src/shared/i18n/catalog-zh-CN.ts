@@ -406,6 +406,13 @@ export const ZH_CN = {
   'ui.strengthValue': '强度 {0}',
   'ui.infoValue': '信息量 {0}',
   'ui.fidelityValue': '保真度 {0}',
+  'ui.referenceTypeCharacterAndStyle': '角色和画风',
+  'ui.referenceTypeCharacter': '角色',
+  'ui.referenceTypeStyle': '画风',
+  'ui.referenceTypeOutfit': '服装',
+  'ui.referenceTypeDelta': 'Delta',
+  'ui.preferSameOutfit': '优先相同服装',
+  'ui.outfitReferenceUnsupported': '此模型不支持服装参考，生成时将跳过此参考。',
   'ui.encodesOnGenerate2AnlasCachedAfterward': '生成时编码（2 Anlas，之后缓存）',
   'ui.deleteImages': '删除图片',
   'ui.deletesValueImagesFromTheLibraryTheCopiedFilesWillBeRemovedToo':

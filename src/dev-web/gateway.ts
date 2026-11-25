@@ -14,7 +14,9 @@ import {
 } from '../main/nai/payload'
 import { ENDPOINTS } from '../main/nai/endpoints'
 import { upscaleRequest } from '../main/nai/upscale-request'
-import { isV5Model } from '../shared/nai-models'
+import { inpaintingModelFor, isV5Model, modelCapabilities } from '../shared/nai-models'
+import { referencesSentFor, referenceTypeForModel } from '../shared/precise-reference'
+import { prepareReferenceImage } from '../main/refs/reference-image'
 import { parseSubscriptionResponse, type NaiSubscriptionResponse } from '../shared/subscription'
 import { countWithQwenTokenizer, loadQwenTokenizer } from '../main/nai/qwen-tokenizer-core'
 import {
@@ -116,33 +118,23 @@ async function prepareVibes(
 }
 
 async function prepareCharRefs(
+  model: string,
   inputs: BrowserCharRefInput[]
 ): Promise<CharacterReferenceOptions[]> {
+  const mode = modelCapabilities(model).characterReferenceImages
   return Promise.all(
-    inputs.map(async (input) => {
-      const image = sharp(Buffer.from(input.imageBase64, 'base64'))
-      const metadata = await image.metadata()
-      const ratio = (metadata.width ?? 1) / (metadata.height ?? 1)
-      const canvas =
-        ratio > 1.2
-          ? { width: 1536, height: 1024 }
-          : ratio < 1 / 1.2
-            ? { width: 1024, height: 1536 }
-            : { width: 1472, height: 1472 }
-      const processed = await image
-        .resize(canvas.width, canvas.height, {
-          fit: 'contain',
-          background: { r: 0, g: 0, b: 0 }
-        })
-        .png()
-        .toBuffer()
-      return {
+    inputs
+      .filter((input) => referenceTypeForModel(input.referenceType, model) !== null)
+      .map(async (input) => ({
         referenceType: input.referenceType,
         strength: input.strength,
         fidelity: input.fidelity,
-        imageBase64: processed.toString('base64')
-      }
-    })
+        imageBase64: await prepareReferenceImage(
+          sharp,
+          Buffer.from(input.imageBase64, 'base64'),
+          mode
+        )
+      }))
   )
 }
 
@@ -175,7 +167,7 @@ async function route(
 
   if (path === 'generate') {
     const token = String(body.token ?? '')
-    const request = body.request as GenerationRequest
+    let request = body.request as GenerationRequest
     const source = request.source
     const preparedVibes = await prepareVibes(
       token,
@@ -183,9 +175,18 @@ async function route(
       (body.vibes as BrowserVibeInput[] | undefined) ?? [],
       signal
     )
-    const characterReferences = await prepareCharRefs(
-      (body.characterReferences as BrowserCharRefInput[] | undefined) ?? []
-    )
+    // Electron과 같이 마스크가 있으면 인페인트 모델로 보내고, 레퍼런스도 그 모델 기준으로 준비한다
+    // (V5 인페인트는 레퍼런스 미지원 — 보내지 않을 이미지는 전처리하지 않는다)
+    const hasMask = Boolean(source?.maskBase64)
+    if (hasMask && !request.model.includes('inpainting')) {
+      request = { ...request, model: inpaintingModelFor(request.model) }
+    }
+    const characterReferences = referencesSentFor(request.model, hasMask)
+      ? await prepareCharRefs(
+          request.model,
+          (body.characterReferences as BrowserCharRefInput[] | undefined) ?? []
+        )
+      : []
     const buildOptions: BuildOptions = {
       ...(source
         ? {

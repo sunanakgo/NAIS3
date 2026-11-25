@@ -41,7 +41,18 @@ export interface VibeItem {
   folderId: number | null
 }
 
-export type CharRefType = 'character' | 'style' | 'character&style' | 'costume' | 'delta'
+/**
+ * Precise Reference types as sent in `base_caption`. `costume` is Outfit; the
+ * `_mainoutfit` / `_anyoutfit` variants are the V5 "Prefer same outfit" toggle states.
+ */
+export type CharRefType =
+  | 'character'
+  | 'character_mainoutfit'
+  | 'style'
+  | 'character&style'
+  | 'character&style_anyoutfit'
+  | 'costume'
+  | 'delta'
 
 export interface CharRefItem {
   id: number

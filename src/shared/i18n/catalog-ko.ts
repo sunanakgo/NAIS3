@@ -409,6 +409,13 @@ export const KO = {
   'ui.strengthValue': '강도 {0}',
   'ui.infoValue': '정보 {0}',
   'ui.fidelityValue': '충실도 {0}',
+  'ui.referenceTypeCharacterAndStyle': '캐릭터 & 스타일',
+  'ui.referenceTypeCharacter': '캐릭터',
+  'ui.referenceTypeStyle': '스타일',
+  'ui.referenceTypeOutfit': '의상',
+  'ui.referenceTypeDelta': '델타',
+  'ui.preferSameOutfit': '같은 의상 우선',
+  'ui.outfitReferenceUnsupported': '이 모델은 의상 레퍼런스를 지원하지 않아 생성 시 빠집니다.',
   'ui.encodesOnGenerate2AnlasCachedAfterward': '생성 시 인코딩 (2 Anlas, 이후 캐시)',
   'ui.deleteImages': '이미지 삭제',
   'ui.deletesValueImagesFromTheLibraryTheCopiedFilesWillBeRemovedToo':

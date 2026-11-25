@@ -417,6 +417,14 @@ export const EN = {
   'ui.strengthValue': 'Strength {0}',
   'ui.infoValue': 'Info {0}',
   'ui.fidelityValue': 'Fidelity {0}',
+  'ui.referenceTypeCharacterAndStyle': 'Character & Style',
+  'ui.referenceTypeCharacter': 'Character',
+  'ui.referenceTypeStyle': 'Style',
+  'ui.referenceTypeOutfit': 'Outfit',
+  'ui.referenceTypeDelta': 'Delta',
+  'ui.preferSameOutfit': 'Prefer same outfit',
+  'ui.outfitReferenceUnsupported':
+    "This model doesn't support Outfit references, so this one is skipped when generating.",
   'ui.encodesOnGenerate2AnlasCachedAfterward': 'Encodes on generate (2 Anlas, cached afterward)',
   'ui.deleteImages': 'Delete Images',
   'ui.deletesValueImagesFromTheLibraryTheCopiedFilesWillBeRemovedToo':

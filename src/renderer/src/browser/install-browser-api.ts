@@ -3,6 +3,7 @@ import { preprocessRequest } from '../../../main/fragments/request'
 import { processWildcards, resetSequentialCounters } from '../../../main/fragments/processor'
 import { removeComments } from '@shared/nai-presets'
 import { modelCapabilities } from '@shared/nai-models'
+import { metadataFromPayloadJson } from '@shared/image-metadata'
 import { applyRandomCharacterPrompt } from '@shared/random-character'
 import { UPSCALE_MODEL, UPSCALE_SCALE } from '../../../main/nai/upscale-request'
 import {
@@ -810,25 +811,12 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
     const state = await readBrowserState()
     const item = findBrowserImage(state, request.filePath)
     if (!item) return { error: 'Metadata is unavailable for this image' }
-    const sent =
-      'payloadJson' in item && item.payloadJson
-        ? (JSON.parse(item.payloadJson) as {
-            input?: string
-            model?: string
-            parameters?: Record<string, unknown>
-          })
-        : null
-    const parameters = sent?.parameters ?? {}
-    return {
-      meta: {
-        prompt: sent?.input ?? '',
-        negativePrompt: '',
-        seed: 'seed' in item ? (item.seed ?? undefined) : undefined,
-        width: Number(parameters.width) || undefined,
-        height: Number(parameters.height) || undefined,
-        model: sent?.model
-      }
-    }
+    // 데스크톱의 DB payload 폴백과 같은 매핑 — 네거티브·프리셋·파라미터·캐릭터까지 복원한다
+    const meta =
+      'payloadJson' in item && item.payloadJson ? metadataFromPayloadJson(item.payloadJson) : null
+    if (!meta) return { error: 'Metadata is unavailable for this image' }
+    const seed = 'seed' in item ? (item.seed ?? undefined) : undefined
+    return { meta: meta.seed == null && seed != null ? { ...meta, seed } : meta }
   }
   if (channel === 'images:analyzeArtists') {
     const state = await readBrowserState()

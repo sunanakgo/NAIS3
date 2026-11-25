@@ -1,4 +1,4 @@
-import type { ImageMetadata, MetadataVibe } from '../../shared/types'
+import type { ImageMetadata, MetadataVibe } from './types'
 
 /** NAI 기본 바이브 강도 — 메타데이터에 강도가 없거나 잘못된 값일 때 */
 const DEFAULT_STRENGTH = 0.6

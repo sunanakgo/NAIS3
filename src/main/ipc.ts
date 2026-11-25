@@ -40,8 +40,9 @@ import {
   freeBgImageCodec,
   removeBackgroundFree
 } from './images/background-removal'
-import { metadataFromPng, metadataFromPayloadJson } from './images/metadata'
-import { withPayloadVibes } from './images/metadata-vibes'
+import { metadataFromPng } from './images/metadata'
+import { metadataFromPayloadJson } from '../shared/image-metadata'
+import { withPayloadVibes } from '../shared/metadata-vibes'
 import {
   createFragment,
   createFragmentFolder,
@@ -856,12 +857,22 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
         }
         const fromPng = await metadataFromPng(buf)
         if (fromPng) {
+          const merged =
+            !fromPng.promptParts && fromDb?.promptParts
+              ? { ...fromPng, promptParts: fromDb.promptParts }
+              : fromPng
+          // PNG의 Source는 표시용 이름이라 재생성에 쓸 API 모델 id·action·투명 배경은 DB 요청에서 가져온다
           // 바이브도 같은 방식 — PNG에 인코딩이 없으면 우리가 보낸 요청(payload_json)에서 복원
           return {
             meta: withPayloadVibes(
-              !fromPng.promptParts && fromDb?.promptParts
-                ? { ...fromPng, promptParts: fromDb.promptParts }
-                : fromPng,
+              {
+                ...merged,
+                ...(fromDb?.modelId ? { modelId: fromDb.modelId } : {}),
+                ...(fromDb?.generationAction ? { generationAction: fromDb.generationAction } : {}),
+                ...(fromDb?.transparentBackground != null
+                  ? { transparentBackground: fromDb.transparentBackground }
+                  : {})
+              },
               fromDb
             )
           }

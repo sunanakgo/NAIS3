@@ -123,6 +123,26 @@ describe('browser runtime regressions', () => {
     expect(download.href).toBe(filePath)
   })
 
+  it('duplicates a prompt preset with all content under a translated name', async () => {
+    state.settings.ui_language = 'zh-CN'
+    const source = {
+      id: 7,
+      name: 'Portrait',
+      prompt: '1girl',
+      negativePrompt: 'lowres',
+      params: { steps: 28 },
+      promptParts: { base: '1girl', additional: 'smile', detail: '' }
+    }
+    state.nextId = 8
+    state.promptPresets = [source, { ...source, id: 3, name: 'Other' }]
+    const { id } = await api.invoke('promptPresets:duplicate', { id: 7 })
+    expect(state.promptPresets.map((preset) => preset.id)).toEqual([7, 3, id])
+    expect(state.promptPresets[2]).toEqual({ ...source, id, name: 'Portrait 副本' })
+    expect(state.promptPresets[2].promptParts).not.toBe(source.promptParts)
+    expect(await api.invoke('promptPresets:duplicate', { id: 999 })).toEqual({ id: 0 })
+    expect(state.promptPresets).toHaveLength(3)
+  })
+
   it('maps stored base64 thumbnails to the URL fields of list responses', async () => {
     const thumb = 'data:image/webp;base64,YQ=='
     state.images = [

@@ -1,4 +1,5 @@
 import { getDb } from '../db'
+import { t } from '../i18n'
 import type { PresetParams, PromptParts, PromptPreset } from '../../shared/types'
 
 /** 프롬프트 프리셋 CRUD — 프롬프트+네거티브+생성 파라미터(+3분할 조각)를 이름 붙여 저장 */
@@ -42,6 +43,42 @@ export function createPromptPreset(
       'INSERT INTO prompt_presets (name, prompt, negative_prompt, params_json, sort_order) VALUES (?, ?, ?, ?, ?)'
     )
     .run(name, prompt, negativePrompt, params ? JSON.stringify(params) : null, max.m + 1)
+  return Number(info.lastInsertRowid)
+}
+
+/** 프리셋 복제 — 프롬프트·네거티브·파라미터·3분할 조각을 모두 복사해 목록 끝에 추가. 원본이 없으면 0 */
+export function duplicatePromptPreset(id: number): number {
+  const db = getDb()
+  const source = db
+    .prepare(
+      'SELECT name, prompt, negative_prompt, params_json, prompt_parts_json FROM prompt_presets WHERE id = ?'
+    )
+    .get(id) as
+    | {
+        name: string
+        prompt: string
+        negative_prompt: string
+        params_json: string | null
+        prompt_parts_json: string | null
+      }
+    | undefined
+  if (!source) return 0
+  const max = db.prepare('SELECT COALESCE(MAX(sort_order), 0) AS m FROM prompt_presets').get() as {
+    m: number
+  }
+  const info = db
+    .prepare(
+      `INSERT INTO prompt_presets (name, prompt, negative_prompt, params_json, prompt_parts_json, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      t('ui.valueCopy', source.name),
+      source.prompt,
+      source.negative_prompt,
+      source.params_json,
+      source.prompt_parts_json,
+      max.m + 1
+    )
   return Number(info.lastInsertRowid)
 }
 

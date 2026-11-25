@@ -1,0 +1,32 @@
+{
+  "fill": {
+    "automatic-gradient": "srgb:0.15686,0.15686,0.16078,1.00000"
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "glass": true,
+          "image-name": "logo-right.svg",
+          "name": "logo-right"
+        },
+        {
+          "glass": true,
+          "image-name": "logo-left.svg",
+          "name": "logo-left"
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.3
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": "shared"
+  }
+}

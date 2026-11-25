@@ -1,7 +1,15 @@
 import { app, BrowserWindow } from 'electron'
 import { showOpenDialog } from '../dialogs'
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
-import { basename, extname, join } from 'path'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from 'fs'
+import { basename, extname, isAbsolute, join } from 'path'
 import { randomUUID } from 'crypto'
 import sharp from '../sharp'
 import type {
@@ -13,6 +21,7 @@ import type {
 } from '../../shared/types'
 import { putVibeEncoding, vibeEncodingEntries, vibeEncodingModels } from './vibe-encoding-cache'
 import { getDb } from '../db'
+import { getMemoryImage, isMemoryPath, isUnderImagesRoot } from '../images/storage'
 import { t } from '../i18n'
 
 /**
@@ -130,36 +139,143 @@ export function listCharRefs(): { folders: ListFolder[]; items: CharRefItem[] } 
   }
 }
 
-/** 파일 다이얼로그(다중 선택) → refs/로 복사 + 썸네일 생성 + 행 삽입 */
-export async function addRefImages(kind: Kind, folderId: number | null): Promise<number> {
-  const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-  const result = await showOpenDialog(win, {
-    title: kind === 'vibe' ? t('ui.addVibeImages') : t('ui.addReferenceImages'),
-    properties: ['openFile', 'multiSelections'],
-    filters: [{ name: t('ui.image'), extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
-  })
-  if (result.canceled) return 0
+/** 레퍼런스로 받는 이미지 형식 — sharp가 실제 내용으로 판별한 포맷 → 저장 확장자 */
+const REF_IMAGE_FORMATS: Record<string, string> = { png: '.png', jpeg: '.jpg', webp: '.webp' }
+const REF_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp']
+/** 앱 안 경로로 받는 원본 크기 상한 — 생성 이미지는 수 MB 수준 */
+const MAX_REF_IMAGE_BYTES = 64 * 1024 * 1024
 
+export interface RefImageSource {
+  /** 표시 이름 (확장자 없이) */
+  name: string
+  /** 원본 바이트 — 한 장씩 처리하도록 지연 로드 (읽을 수 없으면 null) */
+  load: () => Buffer | null
+}
+
+/**
+ * 원본 버퍼들 → refs/에 저장 + 썸네일 생성 + 행 삽입 (다이얼로그·경로·드롭 공용).
+ * 내용이 PNG/JPEG/WebP가 아니거나 디코딩에 실패한 항목은 건너뛰고, 추가된 개수를 반환한다.
+ */
+export async function insertRefImages(
+  kind: Kind,
+  folderId: number | null,
+  sources: RefImageSource[]
+): Promise<number> {
   const db = getDb()
   const table = TABLES[kind].items
   const max = db.prepare(`SELECT COALESCE(MAX(sort_order), 0) AS m FROM ${table}`).get() as {
     m: number
   }
   let order = max.m
+  let count = 0
 
-  for (const src of result.filePaths) {
-    const dest = join(refsDir(), `${randomUUID()}${extname(src)}`)
-    copyFileSync(src, dest)
-    const thumbnail = await sharp(readFileSync(src))
-      .resize(192, 192, { fit: 'cover' })
-      .webp({ quality: 82 })
-      .toBuffer()
-    db.prepare(
-      `INSERT INTO ${table} (name, file_path, thumbnail, folder_id, sort_order, enabled)
-       VALUES (?, ?, ?, ?, ?, 1)`
-    ).run(basename(src, extname(src)), dest, thumbnail, folderId, ++order)
+  for (const { name, load } of sources) {
+    let buf: Buffer | null
+    let ext: string | undefined
+    let thumbnail: Buffer
+    try {
+      buf = load()
+      if (!buf) continue
+      ext = REF_IMAGE_FORMATS[(await sharp(buf).metadata()).format ?? '']
+      if (!ext) continue
+      thumbnail = await sharp(buf)
+        .resize(192, 192, { fit: 'cover' })
+        .webp({ quality: 82 })
+        .toBuffer()
+    } catch {
+      continue
+    }
+    // 파일과 행은 한 쌍 — 어느 쪽이 실패해도 그 항목만 실패로 세고, 방금 쓴 파일은 치운다.
+    // 썸네일을 만드는 사이 폴더가 지워졌을 수 있어 폴더는 넣기 직전에 다시 확인한다
+    const dest = join(refsDir(), `${randomUUID()}${ext}`)
+    try {
+      writeFileSync(dest, buf)
+      db.prepare(
+        `INSERT INTO ${table} (name, file_path, thumbnail, folder_id, sort_order, enabled)
+         VALUES (?, ?, ?, ?, ?, 1)`
+      ).run(name, dest, thumbnail, existingFolderId(kind, folderId), order + 1)
+    } catch {
+      rmSync(dest, { force: true })
+      continue
+    }
+    order++
+    count++
   }
-  return result.filePaths.length
+  return count
+}
+
+/** 파일 다이얼로그(다중 선택) → refs/로 복사 + 썸네일 생성 + 행 삽입 */
+export async function addRefImages(kind: Kind, folderId: number | null): Promise<number> {
+  const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+  const result = await showOpenDialog(win, {
+    title: kind === 'vibe' ? t('ui.addVibeImages') : t('ui.addReferenceImages'),
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: t('ui.image'), extensions: REF_IMAGE_EXTENSIONS }]
+  })
+  if (result.canceled) return 0
+  return insertRefImages(
+    kind,
+    folderId,
+    result.filePaths.map((src) => ({
+      name: basename(src, extname(src)),
+      load: () => readFileSync(src)
+    }))
+  )
+}
+
+/**
+ * 앱 안의 이미지(히스토리·라이브러리·씬 — 경로) 또는 외부 드롭(base64)으로 추가.
+ * 렌더러가 준 경로는 저장 폴더/라이브러리 안이거나 메모리 이미지일 때만 읽는다.
+ */
+export async function addRefImagesFrom(
+  kind: Kind,
+  folderId: number | null,
+  filePaths: string[],
+  images: { name: string; base64: string }[]
+): Promise<{ count: number; failed: number }> {
+  const sources: RefImageSource[] = [
+    ...(Array.isArray(filePaths) ? filePaths : []).map((filePath) => ({
+      name: refNameFromPath(filePath),
+      load: () => readAllowedImage(filePath)
+    })),
+    ...(Array.isArray(images) ? images : []).map((image) => {
+      const name = typeof image?.name === 'string' ? image.name : ''
+      return {
+        name: basename(name, extname(name)),
+        load: () =>
+          typeof image?.base64 === 'string' && image.base64.length > 0
+            ? Buffer.from(image.base64.replace(/^data:[^,]+,/, ''), 'base64')
+            : null
+      }
+    })
+  ]
+  const count = await insertRefImages(kind, folderId, sources)
+  return { count, failed: sources.length - count }
+}
+
+/** 렌더러가 준 폴더 id — 실제로 있는 폴더일 때만 사용, 아니면 미분류 */
+function existingFolderId(kind: Kind, folderId: unknown): number | null {
+  if (typeof folderId !== 'number' || !Number.isInteger(folderId)) return null
+  const row = getDb().prepare(`SELECT id FROM ${TABLES[kind].folders} WHERE id = ?`).get(folderId)
+  return row ? folderId : null
+}
+
+function readAllowedImage(filePath: unknown): Buffer | null {
+  if (typeof filePath !== 'string' || filePath.length === 0) return null
+  if (isMemoryPath(filePath)) return getMemoryImage(filePath)
+  if (!isAbsolute(filePath) || !isUnderImagesRoot(filePath)) return null
+  if (!REF_IMAGE_EXTENSIONS.includes(extname(filePath).slice(1).toLowerCase())) return null
+  try {
+    const stat = statSync(filePath)
+    return stat.isFile() && stat.size <= MAX_REF_IMAGE_BYTES ? readFileSync(filePath) : null
+  } catch {
+    return null
+  }
+}
+
+function refNameFromPath(filePath: unknown): string {
+  if (typeof filePath !== 'string' || isMemoryPath(filePath)) return ''
+  return basename(filePath, extname(filePath))
 }
 
 /**

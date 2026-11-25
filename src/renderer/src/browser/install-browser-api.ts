@@ -1,7 +1,6 @@
 import type { NaisApi } from '../../../preload/index'
 import { preprocessRequest } from '../../../main/fragments/request'
 import { processWildcards, resetSequentialCounters } from '../../../main/fragments/processor'
-import { translate, type Lang } from '@shared/i18n'
 import { removeComments } from '@shared/nai-presets'
 import { modelCapabilities } from '@shared/nai-models'
 import { applyRandomCharacterPrompt } from '@shared/random-character'
@@ -12,6 +11,8 @@ import {
   randomizedGenerationDelayMs
 } from '@shared/generation-delay'
 import { FinishedQueueLog, queueItemSnapshot } from '@shared/queue-status'
+import { emptyWorkspaceCounts } from '@shared/workspace-counts'
+import { isLang, translate, type Lang } from '@shared/i18n'
 import {
   browserFragmentSource,
   exportBrowserWorkspace,
@@ -151,6 +152,21 @@ function webPath(base64: string): string {
   return `data:image/png;base64,${base64}`
 }
 
+/** Whether base64 content is PNG, JPEG or WebP, judged by its leading signature bytes */
+function isRefImageBase64(base64: string): boolean {
+  let head: string
+  try {
+    head = atob(base64.slice(0, 16))
+  } catch {
+    return false
+  }
+  return (
+    head.startsWith('\x89PNG\r\n\x1a\n') ||
+    head.startsWith('\xff\xd8\xff') ||
+    (head.startsWith('RIFF') && head.slice(8, 12) === 'WEBP')
+  )
+}
+
 /** Stored base64 thumbnail → the URL field carried by the shared list types */
 function thumbnailDataUrl(base64: string | undefined): string {
   return base64 ? `data:image/webp;base64,${base64}` : ''
@@ -211,6 +227,11 @@ async function recordAnlasSpend(
   return result
 }
 
+function browserLang(state: { settings: Record<string, string> }): Lang {
+  const lang = state.settings.ui_language
+  return isLang(lang) ? lang : 'en'
+}
+
 /** 브라우저 바이브 인코딩 캐시(`id:model:ie`)에서 한 바이브의 "모델 (IE n)" 목록 */
 function browserVibeEncodingLabels(encodings: Record<string, string>, id: number): string[] {
   const labels = Object.keys(encodings).flatMap((key) => {
@@ -262,15 +283,11 @@ async function runQueue(): Promise<void> {
         for (const vibe of selectedVibes) {
           if (!vibe.encodedOnly || vibeEncodingFor(vibe)) continue
           throw new Error(
-            translate(
-              state.settings.ui_language as Lang,
-              'ui.metadataVibeEncodingUnavailableValueValueValue',
-              [
-                item.request.model,
-                vibe.infoExtracted,
-                browserVibeEncodingLabels(state.vibeEncodings, vibe.id).join(', ') || '-'
-              ]
-            )
+            translate(browserLang(state), 'ui.metadataVibeEncodingUnavailableValueValueValue', [
+              item.request.model,
+              vibe.infoExtracted,
+              browserVibeEncodingLabels(state.vibeEncodings, vibe.id).join(', ') || '-'
+            ])
           )
         }
         const result = await gateway<{
@@ -948,6 +965,11 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
       return { error: error instanceof Error ? error.message : String(error) }
     }
   }
+  // 브라우저 작업 공간에는 앱이 남기는 DB 백업이 없다 (IndexedDB)
+  if (channel === 'backup:listRecoverable') return { items: [], current: emptyWorkspaceCounts() }
+  if (channel === 'backup:recoveryNotice') return { backup: null }
+  if (channel === 'backup:dismissRecoveryNotice') return undefined
+  if (channel === 'backup:restore') return { error: 'Browser runtime has no database backups' }
   if (channel === 'update:status') return undefined
 
   throw new Error(`Browser runtime does not support ${channel}`)
@@ -988,34 +1010,34 @@ async function refsDispatch(channel: string, request: Record<string, unknown>): 
     const folders = vibe ? state.vibeFolders : state.charRefFolders
     const action = channel.slice(channel.indexOf(':') + 1)
     if (action === 'list') return { folders, items }
+    const pushRef = (name: string, thumbnail: string): void => {
+      const id = nextBrowserId(state)
+      if (vibe)
+        state.vibes.push({
+          id,
+          name,
+          thumbnail,
+          enabled: true,
+          strength: 0.6,
+          infoExtracted: 1,
+          encodedReady: false,
+          folderId: (request.folderId as number | null) ?? null
+        })
+      else
+        state.charRefs.push({
+          id,
+          name,
+          thumbnail,
+          enabled: true,
+          refType: 'character&style',
+          strength: 1,
+          fidelity: 1,
+          folderId: (request.folderId as number | null) ?? null
+        })
+    }
     if (action === 'add') {
       const files = await pickFiles('image/*', true)
-      for (const file of files) {
-        const thumbnail = await fileBase64(file)
-        const id = nextBrowserId(state)
-        if (vibe)
-          state.vibes.push({
-            id,
-            name: file.name,
-            thumbnail,
-            enabled: true,
-            strength: 0.6,
-            infoExtracted: 1,
-            encodedReady: false,
-            folderId: (request.folderId as number | null) ?? null
-          })
-        else
-          state.charRefs.push({
-            id,
-            name: file.name,
-            thumbnail,
-            enabled: true,
-            refType: 'character&style',
-            strength: 1,
-            fidelity: 1,
-            folderId: (request.folderId as number | null) ?? null
-          })
-      }
+      for (const file of files) pushRef(file.name, await fileBase64(file))
       return { count: files.length }
     }
     if (action === 'importFromMetadata' && vibe) {
@@ -1059,7 +1081,7 @@ async function refsDispatch(channel: string, request: Record<string, unknown>): 
         state.vibeEncodings[`${id}:${model}:${ie}`] = meta.encoded!
         state.vibes.push({
           id,
-          name: translate(state.settings.ui_language as Lang, 'ui.metadataVibeValue', [index + 1]),
+          name: translate(browserLang(state), 'ui.metadataVibeValue', [index + 1]),
           thumbnail,
           enabled: true,
           strength,
@@ -1073,6 +1095,25 @@ async function refsDispatch(channel: string, request: Record<string, unknown>): 
         created++
       })
       return { ids, created, reused }
+    }
+    if (action === 'addFrom') {
+      const filePaths = (request.filePaths as string[] | undefined) ?? []
+      const images = (request.images as { name: string; base64: string }[] | undefined) ?? []
+      let count = 0
+      for (const filePath of filePaths) {
+        const image = findBrowserImage(state, filePath)
+        if (!image?.base64 || !isRefImageBase64(image.base64)) continue
+        pushRef('', image.base64)
+        count++
+      }
+      for (const image of images) {
+        const base64 = String(image.base64 ?? '').replace(/^data:[^,]+,/, '')
+        // Like the app, accept only PNG/JPEG/WebP, judged by content rather than the name
+        if (!isRefImageBase64(base64)) continue
+        pushRef(String(image.name ?? '').replace(/\.[^.]+$/, ''), base64)
+        count++
+      }
+      return { count, failed: filePaths.length + images.length - count }
     }
     if (action === 'update') {
       const item = items.find((candidate) => candidate.id === request.id)
@@ -1160,6 +1201,19 @@ async function promptPresetsDispatch(
     if (action === 'update') {
       const item = state.promptPresets.find((candidate) => candidate.id === request.id)
       if (item) Object.assign(item, request.patch)
+    }
+    if (action === 'duplicate') {
+      // 데스크톱과 같이 내용 전체 복사 + 현재 언어의 복제 이름, 목록 끝에 추가
+      const source = state.promptPresets.find((item) => item.id === request.id)
+      if (!source) return { id: 0 }
+      const id = nextBrowserId(state)
+      const lang = state.settings.ui_language
+      state.promptPresets.push({
+        ...structuredClone(source),
+        id,
+        name: translate(isLang(lang) ? lang : 'en', 'ui.valueCopy', [source.name])
+      })
+      return { id }
     }
     if (action === 'delete')
       state.promptPresets = state.promptPresets.filter((item) => item.id !== request.id)

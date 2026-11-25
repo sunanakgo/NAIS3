@@ -12,8 +12,14 @@ import {
 import { basename, extname, isAbsolute, join } from 'path'
 import { randomUUID } from 'crypto'
 import sharp from '../sharp'
-import type { CharacterOrderEntry, CharRefItem, ListFolder, VibeItem } from '../../shared/types'
-import { vibeEncodingModels } from './vibe-encoding-cache'
+import type {
+  CharacterOrderEntry,
+  CharRefItem,
+  ListFolder,
+  MetadataVibe,
+  VibeItem
+} from '../../shared/types'
+import { putVibeEncoding, vibeEncodingEntries, vibeEncodingModels } from './vibe-encoding-cache'
 import { getDb } from '../db'
 import { getMemoryImage, isMemoryPath, isUnderImagesRoot } from '../images/storage'
 import { t } from '../i18n'
@@ -36,6 +42,28 @@ function refsDir(): string {
   return dir
 }
 
+/**
+ * 이미지 메타데이터에서 복원한 바이브의 "원본 파일". 원본 이미지가 없으므로 file_path에는
+ * 인코딩 캐시(encoded 컬럼과 같은 형식)를 담은 파일을 둔다 — 백업/복제/삭제가 다른 바이브와
+ * 똑같이 파일을 다루고, 확장자로 재인코딩 불가 항목을 구분한다.
+ */
+export const ENCODED_VIBE_EXTENSION = '.nais3vibe'
+/** 메타데이터에 information extracted가 없을 때 (NAI 기본값) */
+const METADATA_VIBE_DEFAULT_IE = 1
+
+export function isEncodedOnlyVibe(filePath: string): boolean {
+  return extname(filePath).toLowerCase() === ENCODED_VIBE_EXTENSION
+}
+
+/** 인코딩 전용 바이브 파일의 캐시 문자열 (없거나 못 읽으면 null) */
+export function readEncodedVibeFile(filePath: string): string | null {
+  try {
+    return readFileSync(filePath, 'utf8')
+  } catch {
+    return null
+  }
+}
+
 function listFolders(kind: Kind): ListFolder[] {
   return (
     getDb()
@@ -47,12 +75,14 @@ function listFolders(kind: Kind): ListFolder[] {
 export function listVibes(): { folders: ListFolder[]; items: VibeItem[] } {
   const rows = getDb()
     .prepare(
-      `SELECT id, name, thumbnail, enabled, strength, info_extracted, encoded, encoded_ie, folder_id
+      `SELECT id, name, file_path, thumbnail, enabled, strength, info_extracted, encoded, encoded_ie,
+              folder_id
        FROM vibe_images ORDER BY sort_order, id`
     )
     .all() as {
     id: number
     name: string
+    file_path: string
     thumbnail: Buffer | null
     enabled: number
     strength: number
@@ -72,6 +102,7 @@ export function listVibes(): { folders: ListFolder[]; items: VibeItem[] } {
       infoExtracted: r.info_extracted,
       encodedReady: vibeEncodingModels(r.encoded, r.encoded_ie, r.info_extracted).length > 0,
       encodedModels: vibeEncodingModels(r.encoded, r.encoded_ie, r.info_extracted),
+      ...(isEncodedOnlyVibe(r.file_path) ? { encodedOnly: true } : {}),
       folderId: r.folder_id
     }))
   }
@@ -247,6 +278,105 @@ function refNameFromPath(filePath: unknown): string {
   return basename(filePath, extname(filePath))
 }
 
+/**
+ * 메타데이터 바이브 적용 — 메타 재현이므로 켜진 바이브를 모두 끄고 이 바이브들만 켠다.
+ * 같은 인코딩을 이미 가진 라이브러리 항목(원본 이미지가 있는 바이브 포함)은 새로 만들지 않고
+ * 재사용하며, 인코딩 당시 IE로 맞춘다. 나머지는 인코딩 전용 항목으로 새로 만든다.
+ */
+export function importMetadataVibes(
+  vibes: MetadataVibe[],
+  model: string,
+  thumbnail: Buffer | null
+): { ids: number[]; created: number; reused: number } {
+  const usable = vibes.flatMap((vibe) =>
+    typeof vibe?.encoded === 'string' && vibe.encoded.length > 0
+      ? [
+          {
+            encoded: vibe.encoded,
+            strength: Number.isFinite(vibe.strength)
+              ? Math.min(1, Math.max(0, vibe.strength))
+              : 0.6,
+            ie:
+              typeof vibe.informationExtracted === 'number' &&
+              Number.isFinite(vibe.informationExtracted)
+                ? Math.min(1, Math.max(0, vibe.informationExtracted))
+                : METADATA_VIBE_DEFAULT_IE
+          }
+        ]
+      : []
+  )
+  if (usable.length === 0 || !model) return { ids: [], created: 0, reused: 0 }
+
+  const db = getDb()
+  // 같은 인코딩을 가진 항목이 여럿일 수 있다 — 메타데이터에 같은 바이브가 두 번 있으면 차례로 재사용
+  const known = new Map<string, { id: number; ie: number }[]>()
+  const rows = db
+    .prepare(
+      'SELECT id, encoded, encoded_ie FROM vibe_images WHERE encoded IS NOT NULL ORDER BY sort_order, id'
+    )
+    .all() as { id: number; encoded: string; encoded_ie: number | null }[]
+  for (const row of rows) {
+    for (const entry of vibeEncodingEntries(row.encoded, row.encoded_ie)) {
+      const candidates = known.get(entry.data) ?? []
+      if (!candidates.some((c) => c.id === row.id)) candidates.push({ id: row.id, ie: entry.ie })
+      known.set(entry.data, candidates)
+    }
+  }
+
+  const ids: number[] = []
+  const written: string[] = []
+  let created = 0
+  let reused = 0
+  try {
+    db.transaction(() => {
+      db.prepare('UPDATE vibe_images SET enabled = 0 WHERE enabled = 1').run()
+      const reuse = db.prepare(
+        'UPDATE vibe_images SET enabled = 1, strength = ?, info_extracted = ? WHERE id = ?'
+      )
+      const insert = db.prepare(
+        `INSERT INTO vibe_images
+           (name, file_path, thumbnail, enabled, strength, info_extracted, encoded, encoded_ie,
+            folder_id, sort_order)
+         VALUES (?, ?, ?, 1, ?, ?, ?, ?, NULL, ?)`
+      )
+      let order = (
+        db.prepare('SELECT COALESCE(MAX(sort_order), 0) AS m FROM vibe_images').get() as {
+          m: number
+        }
+      ).m
+      usable.forEach((vibe, index) => {
+        const match = known.get(vibe.encoded)?.find((c) => !ids.includes(c.id))
+        if (match) {
+          reuse.run(vibe.strength, match.ie, match.id)
+          ids.push(match.id)
+          reused++
+          return
+        }
+        const packed = putVibeEncoding(null, null, model, vibe.ie, vibe.encoded)
+        const filePath = join(refsDir(), `${randomUUID()}${ENCODED_VIBE_EXTENSION}`)
+        writeFileSync(filePath, packed, { flag: 'wx' })
+        written.push(filePath)
+        const info = insert.run(
+          t('ui.metadataVibeValue', index + 1),
+          filePath,
+          thumbnail,
+          vibe.strength,
+          vibe.ie,
+          packed,
+          vibe.ie,
+          ++order
+        )
+        ids.push(Number(info.lastInsertRowid))
+        created++
+      })
+    })()
+  } catch (error) {
+    for (const filePath of written) rmSync(filePath, { force: true })
+    throw error
+  }
+  return { ids, created, reused }
+}
+
 const VIBE_FIELDS: Record<string, string> = {
   name: 'name',
   enabled: 'enabled',
@@ -265,8 +395,18 @@ export function updateRefImage(kind: Kind, id: number, patch: Record<string, unk
   const fields = kind === 'vibe' ? VIBE_FIELDS : CREF_FIELDS
   const sets: string[] = []
   const values: unknown[] = []
+  // 인코딩만 있는 바이브는 저장된 IE로 고정 — 원본이 없어 다른 값으로 다시 인코딩할 수 없다
+  const lockedInfo =
+    kind === 'vibe' &&
+    patch.infoExtracted !== undefined &&
+    isEncodedOnlyVibe(
+      (
+        getDb().prepare('SELECT file_path FROM vibe_images WHERE id = ?').get(id) as
+          { file_path: string } | undefined
+      )?.file_path ?? ''
+    )
   for (const [key, column] of Object.entries(fields)) {
-    if (patch[key] === undefined) continue
+    if (patch[key] === undefined || (lockedInfo && key === 'infoExtracted')) continue
     sets.push(`${column} = ?`)
     values.push(typeof patch[key] === 'boolean' ? (patch[key] ? 1 : 0) : patch[key])
   }

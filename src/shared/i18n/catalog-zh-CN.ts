@@ -414,6 +414,22 @@ export const ZH_CN = {
   'ui.preferSameOutfit': '优先相同服装',
   'ui.outfitReferenceUnsupported': '此模型不支持服装参考，生成时将跳过此参考。',
   'ui.encodesOnGenerate2AnlasCachedAfterward': '生成时编码（2 Anlas，之后缓存）',
+  'ui.metadataVibeValue': '元数据氛围传递 {0}',
+  'ui.vibeTransferCountValue': '氛围传递（{0}）',
+  'ui.metadataVibeNotRestorable': '无编码，无法恢复',
+  'ui.metadataVibeModelValue': '编码模型：{0}',
+  'ui.metadataVibeModelUnknown':
+    '无法确定图像中氛围传递的编码模型。要导入，请选择生成该图像时使用的模型。',
+  'ui.metadataVibeModelChoose': '选择模型',
+  'ui.metadataVibesSkippedModelUnknown':
+    '氛围传递的模型未知，因此未导入。请在元数据窗口中选择模型后重新应用。',
+  'ui.metadataVibeModelMismatchValueValue':
+    '当前使用的模型（{1}）与图像中氛围传递的模型（{0}）不同。切换到 {0} 后才能用这些氛围传递生成。',
+  'ui.metadataVibesAppliedValue': '已应用 {0} 个氛围传递',
+  'ui.metadataVibesApplyFailedValue': '应用氛围传递失败：{0}',
+  'ui.metadataVibeNoSourceImage': '从图像元数据恢复。没有原图无法重新编码，因此信息量固定。',
+  'ui.metadataVibeEncodingUnavailableValueValueValue':
+    '从图像元数据恢复的氛围传递没有原图，无法重新编码。它没有适用于 {0}（信息量 {1}）的编码（可用：{2}）。请切换模型或信息量，或关闭该氛围传递。',
   'ui.deleteImages': '删除图片',
   'ui.deletesValueImagesFromTheLibraryTheCopiedFilesWillBeRemovedToo':
     '将从图库删除 {0} 张图片。副本文件也会一并删除。',

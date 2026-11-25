@@ -102,16 +102,29 @@ describe('Anlas 추정 (NAI 웹 공식 이식)', () => {
     expect(r.perImage).toBe(30)
   })
 
-  it('V5 Full Medium은 14스텝 고정·스텝 항 1/1.06521739 (832×1216: Medium 17, High 23스텝 26)', () => {
+  it('V5 Full Medium은 웹 가격식 (상수항 + 스텝항×23) / 1.75를 올림 없이 쓴다 (832×1216: Medium 15, High 23스텝 26)', () => {
     const medium = estimateAnlas({
       ...base,
       model: 'nai-diffusion-5-full-medium',
       steps: 28,
       isOpus: false
     })
-    expect(medium.perImage).toBe(17)
+    expect(medium.perImage).toBe(15)
     const high = estimateAnlas({ ...base, model: 'nai-diffusion-5-full', steps: 23, isOpus: false })
     expect(high.perImage).toBe(26)
+  })
+
+  it('V5 Full Medium 1024×1024는 장당 15 (14.55를 마지막에만 올림)', () => {
+    const r = estimateAnlas({
+      ...base,
+      model: 'nai-diffusion-5-full-medium',
+      width: 1024,
+      height: 1024,
+      batchCount: 2,
+      isOpus: false
+    })
+    expect(r.perImage).toBe(15)
+    expect(r.generation).toBe(30)
   })
 
   it('V5 Full Medium은 High 스텝이 28을 넘어도 Opus 게이지로 생성된다', () => {

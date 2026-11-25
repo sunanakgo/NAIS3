@@ -67,6 +67,8 @@ interface BrowserVibeInput {
   strength: number
   informationExtracted: number
   encodedBase64?: string
+  /** 메타데이터에서 복원한 바이브 — imageBase64는 원본이 아닌 썸네일이라 인코딩하면 안 된다 */
+  encodedOnly?: boolean
 }
 
 interface BrowserCharRefInput {
@@ -86,6 +88,12 @@ async function prepareVibes(
   const encodings: { id: number; encodedBase64: string }[] = []
   for (const input of inputs) {
     let encoded = input.encodedBase64
+    if (!encoded && input.encodedOnly) {
+      // 렌더러가 먼저 번역된 오류로 멈춘다 — 여기는 Anlas를 쓰지 않기 위한 마지막 방어선
+      throw new Error(
+        `Vibe ${input.id} was restored from image metadata and has no encoding for ${model} at Info ${input.informationExtracted}`
+      )
+    }
     if (!encoded) {
       const response = await fetch(ENDPOINTS.encodeVibe, {
         method: 'POST',

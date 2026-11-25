@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ImageMetadata } from '../src/shared/types'
 import {
+  MAX_METADATA_VIBES,
   parseMetadataVibes,
   vibeModelFor,
   withPayloadVibes
@@ -50,6 +51,14 @@ describe('parseMetadataVibes', () => {
       })
     ).toEqual([{ encoded: 'QUJD', strength: 0.5 }, { strength: 0.9 }])
     expect(parseMetadataVibes({ reference_strength_multiple: [0.7] })).toEqual([{ strength: 0.7 }])
+  })
+
+  it('caps the number of vibes read from an untrusted image', () => {
+    const vibes = parseMetadataVibes({
+      reference_image_multiple: Array.from({ length: 1000 }, () => 'QUJD'),
+      reference_strength_multiple: Array.from({ length: 5000 }, () => 0.5)
+    })
+    expect(vibes).toHaveLength(MAX_METADATA_VIBES)
   })
 
   it('drops invalid encodings and clamps or replaces invalid numbers', () => {

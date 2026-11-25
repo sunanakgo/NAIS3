@@ -379,8 +379,11 @@ export const EN = {
   'ui.vibeTransferCountValue': 'Vibe Transfer ({0})',
   'ui.metadataVibeNotRestorable': "No encoding, can't restore",
   'ui.metadataVibeModelValue': 'Encoded for: {0}',
-  'ui.metadataVibeModelUnknownValue':
-    "Couldn't tell which model these vibes were encoded for, so they're applied for {0}. You can try generating, but the vibe data may be corrupted.",
+  'ui.metadataVibeModelUnknown':
+    "Couldn't tell which model these vibes were encoded for. Choose the model the image was made with to import them.",
+  'ui.metadataVibeModelChoose': 'Choose model',
+  'ui.metadataVibesSkippedModelUnknown':
+    "Vibes weren't imported because their model is unknown. Choose the model in the metadata dialog and apply again.",
   'ui.metadataVibeModelMismatchValueValue':
     "These vibes were encoded for {0}, but you're using {1}. Switch to {0} to generate with them.",
   'ui.metadataVibesAppliedValue': 'Applied {0} {0|vibe|vibes}',

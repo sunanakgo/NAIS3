@@ -15,15 +15,37 @@ describe('metadataVibeModel', () => {
     expect(metadataVibeModel(CURATED, V5)).toEqual({ model: CURATED, known: true, mismatch: true })
   })
 
-  it('assumes the current model for an unknown encoding when it supports vibes', () => {
+  it('ignores a choice when the encoding model is known', () => {
+    expect(metadataVibeModel(FULL, FULL, CURATED)).toEqual({
+      model: FULL,
+      known: true,
+      mismatch: false
+    })
+  })
+
+  it('does not assume a model for an unknown encoding', () => {
     expect(metadataVibeModel(undefined, CURATED)).toEqual({
-      model: CURATED,
+      model: undefined,
+      known: false,
+      mismatch: false
+    })
+    expect(metadataVibeModel(undefined, V5)).toEqual({
+      model: undefined,
       known: false,
       mismatch: false
     })
   })
 
-  it('falls back to V4.5 Full for an unknown encoding while a V5 model is selected', () => {
-    expect(metadataVibeModel(undefined, V5)).toEqual({ model: FULL, known: false, mismatch: false })
+  it('uses the model the user chose for an unknown encoding', () => {
+    expect(metadataVibeModel(undefined, CURATED, CURATED)).toEqual({
+      model: CURATED,
+      known: false,
+      mismatch: false
+    })
+    expect(metadataVibeModel(undefined, V5, FULL)).toEqual({
+      model: FULL,
+      known: false,
+      mismatch: true
+    })
   })
 })

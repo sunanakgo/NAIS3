@@ -372,8 +372,11 @@ export const KO = {
   'ui.vibeTransferCountValue': '바이브 트랜스퍼 ({0})',
   'ui.metadataVibeNotRestorable': '인코딩 없음 — 복원 불가',
   'ui.metadataVibeModelValue': '인코딩 모델: {0}',
-  'ui.metadataVibeModelUnknownValue':
-    '이미지 속 바이브 트랜스퍼의 모델을 확인할 수 없어 {0}용으로 적용합니다. 생성을 시도해 볼 수는 있지만, 바이브 데이터가 손상될 수 있습니다.',
+  'ui.metadataVibeModelUnknown':
+    '이미지 속 바이브 트랜스퍼가 어느 모델로 인코딩됐는지 알 수 없습니다. 가져오려면 이미지를 만든 모델을 고르세요.',
+  'ui.metadataVibeModelChoose': '모델 선택',
+  'ui.metadataVibesSkippedModelUnknown':
+    '바이브의 모델을 알 수 없어 가져오지 않았습니다. 메타데이터 창에서 모델을 고른 뒤 다시 적용하세요.',
   'ui.metadataVibeModelMismatchValueValue':
     '현재 사용 중인 모델({1})과 이미지 속 바이브 트랜스퍼의 모델({0})이 다릅니다. {0} 모델로 바꿔야 이 바이브로 생성할 수 있습니다.',
   'ui.metadataVibesAppliedValue': '바이브 {0}개를 적용했습니다',

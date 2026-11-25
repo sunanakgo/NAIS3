@@ -2,11 +2,17 @@ import { Check, Copy, ImageOff, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ImageMetadata } from '@shared/types'
 import { useGenerationStore } from '../stores/generation-store'
-import { isSplitMeta, metadataVibeModel, useMetadataStore } from '../stores/metadata-store'
+import {
+  isSplitMeta,
+  METADATA_VIBE_MODEL_CHOICES,
+  metadataVibeModel,
+  useMetadataStore
+} from '../stores/metadata-store'
 import { cn } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 
 const UC_LABELS: Record<number, string> = { 0: 'Heavy', 1: 'Light', 3: 'Human Focus', 4: 'None' }
 
@@ -21,8 +27,10 @@ export function MetadataDialog(): React.JSX.Element {
   const close = useMetadataStore((s) => s.close)
   const applyToMain = useMetadataStore((s) => s.applyToMain)
 
-  // 기본 전부 체크, 시드만 해제
+  // 기본 전부 체크, 시드·바이브만 해제 (바이브는 켜진 바이브를 끄고 라이브러리에 항목을 만들어 opt-in)
   const [sel, setSel] = useState<Record<string, boolean>>({})
+  /** 메타데이터에 바이브 인코딩 모델이 없을 때 사용자가 고른 모델 */
+  const [vibeModelChoice, setVibeModelChoice] = useState<string | undefined>(undefined)
   useEffect(() => {
     if (!meta) return
     const timer = setTimeout(() => {
@@ -40,8 +48,9 @@ export function MetadataDialog(): React.JSX.Element {
         noiseSchedule: true,
         resolution: true,
         variety: true,
-        vibes: true
+        vibes: false
       })
+      setVibeModelChoice(undefined)
     })
     return () => clearTimeout(timer)
   }, [meta])
@@ -154,7 +163,13 @@ export function MetadataDialog(): React.JSX.Element {
                 )}
               </div>
               {meta.vibes && meta.vibes.length > 0 && (
-                <VibesPreview meta={meta} sel={sel} toggle={toggle} />
+                <VibesPreview
+                  meta={meta}
+                  sel={sel}
+                  toggle={toggle}
+                  vibeModelChoice={vibeModelChoice}
+                  onVibeModelChoice={setVibeModelChoice}
+                />
               )}
             </div>
 
@@ -230,7 +245,11 @@ export function MetadataDialog(): React.JSX.Element {
           <Button variant="ghost" onClick={close}>
             {t('ui.close')}
           </Button>
-          <Button variant="accent" disabled={!meta} onClick={() => applyToMain(sel)}>
+          <Button
+            variant="accent"
+            disabled={!meta}
+            onClick={() => applyToMain(sel, { vibeModel: vibeModelChoice })}
+          >
             {t('ui.applyToMain')}
           </Button>
         </div>
@@ -243,17 +262,21 @@ export function MetadataDialog(): React.JSX.Element {
 function VibesPreview({
   meta,
   sel,
-  toggle
+  toggle,
+  vibeModelChoice,
+  onVibeModelChoice
 }: {
   meta: ImageMetadata
   sel: Record<string, boolean>
   toggle: (k: string) => void
+  vibeModelChoice: string | undefined
+  onVibeModelChoice: (model: string) => void
 }): React.JSX.Element {
   const t = useT()
   const currentModel = useGenerationStore((s) => s.request.model)
   const vibes = meta.vibes ?? []
   const restorable = vibes.some((v) => v.encoded)
-  const vibeModel = metadataVibeModel(meta.vibeModel, currentModel)
+  const vibeModel = metadataVibeModel(meta.vibeModel, currentModel, vibeModelChoice)
   return (
     <div>
       {restorable ? (
@@ -291,16 +314,34 @@ function VibesPreview({
             </li>
           ))}
         </ul>
-        {restorable && vibeModel.known && (
+        {restorable && vibeModel.known && vibeModel.model && (
           <p className="text-[10.5px] text-faint">
             {t('ui.metadataVibeModelValue', vibeModel.model)}
           </p>
         )}
-        {restorable && (vibeModel.mismatch || !vibeModel.known) && (
+        {restorable && !vibeModel.known && (
+          <div className="space-y-1">
+            <p className="text-[10.5px] text-danger-ink">{t('ui.metadataVibeModelUnknown')}</p>
+            <Select value={vibeModelChoice ?? ''} onValueChange={onVibeModelChoice}>
+              <SelectTrigger
+                className="h-7 w-44 text-[11.5px]"
+                aria-label={t('ui.metadataVibeModelChoose')}
+              >
+                <SelectValue placeholder={t('ui.metadataVibeModelChoose')} />
+              </SelectTrigger>
+              <SelectContent>
+                {METADATA_VIBE_MODEL_CHOICES.map((choice) => (
+                  <SelectItem key={choice.id} value={choice.id}>
+                    {choice.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        {restorable && vibeModel.model && vibeModel.mismatch && (
           <p className="text-[10.5px] text-danger-ink">
-            {vibeModel.known
-              ? t('ui.metadataVibeModelMismatchValueValue', vibeModel.model, currentModel)
-              : t('ui.metadataVibeModelUnknownValue', vibeModel.model)}
+            {t('ui.metadataVibeModelMismatchValueValue', vibeModel.model, currentModel)}
           </p>
         )}
       </div>

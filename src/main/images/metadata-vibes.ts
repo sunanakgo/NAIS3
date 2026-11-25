@@ -4,10 +4,13 @@ import type { ImageMetadata, MetadataVibe } from '../../shared/types'
 const DEFAULT_STRENGTH = 0.6
 /** 패딩까지 맞는 표준 base64 — NAI 인코딩 형식. 길이가 어긋나면 잘린 값이라 버린다 */
 const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
+/** 외부 PNG는 신뢰할 수 없다 — 배열이 아무리 길어도 이만큼만 읽는다 (NAI 웹 한도보다 넉넉하게) */
+export const MAX_METADATA_VIBES = 16
 
 /**
  * NovelAI PNG의 Source 문자열 → API 모델 id. 바이브 인코딩은 모델별이라 어느 모델로
- * 인코딩됐는지 알아야 그대로 재사용할 수 있다. 모르는 값은 undefined (호출 측이 결정).
+ * 인코딩됐는지 알아야 그대로 재사용할 수 있다. 확인된 값만 둔다 — 모르는 값은 undefined이고,
+ * 그때는 추측하지 않고 사용자가 메타데이터 창에서 모델을 고른다.
  */
 const SOURCE_MODELS: Record<string, string> = {
   'NovelAI Diffusion V4.5 1229B44F': 'nai-diffusion-4-5-full',
@@ -30,13 +33,14 @@ function list(value: unknown): unknown[] {
  *   (강도 배열과 인덱스를 맞추기 위해 — 표시는 하되 복원 불가)
  * - reference_strength_multiple / reference_information_extracted_multiple: 같은 인덱스의 값.
  *   길이가 달라도 긴 쪽(이미지·강도 중) 기준으로 만들고 빈 칸은 기본값/미상으로 둔다.
+ *   최대 MAX_METADATA_VIBES개.
  * 바이브가 없으면 undefined.
  */
 export function parseMetadataVibes(params: Record<string, unknown>): MetadataVibe[] | undefined {
   const images = list(params.reference_image_multiple)
   const strengths = list(params.reference_strength_multiple)
   const infos = list(params.reference_information_extracted_multiple)
-  const count = Math.max(images.length, strengths.length)
+  const count = Math.min(MAX_METADATA_VIBES, Math.max(images.length, strengths.length))
   if (count === 0) return undefined
   const vibes: MetadataVibe[] = []
   for (let i = 0; i < count; i++) {

@@ -211,6 +211,16 @@ async function recordAnlasSpend(
   return result
 }
 
+/** 브라우저 바이브 인코딩 캐시(`id:model:ie`)에서 한 바이브의 "모델 (IE n)" 목록 */
+function browserVibeEncodingLabels(encodings: Record<string, string>, id: number): string[] {
+  const labels = Object.keys(encodings).flatMap((key) => {
+    const parts = key.split(':')
+    if (parts.length < 3 || Number(parts[0]) !== id) return []
+    return [`${parts.slice(1, -1).join(':')} (IE ${parts.at(-1)})`]
+  })
+  return [...new Set(labels)].sort()
+}
+
 async function runQueue(): Promise<void> {
   if (queueRunning) return
   queueRunning = true
@@ -245,6 +255,24 @@ async function runQueue(): Promise<void> {
           : item.request.charRefIds !== undefined
             ? state.charRefs.filter((reference) => item!.request.charRefIds!.includes(reference.id))
             : state.charRefs.filter((reference) => reference.enabled)
+        // 메타데이터에서 복원한 바이브는 원본 이미지가 없다 — 이 모델·IE의 인코딩이 없으면
+        // 썸네일(메타데이터를 읽은 이미지)을 encode-vibe로 보내지 말고 앱과 같은 오류로 멈춘다
+        const vibeEncodingFor = (vibe: (typeof selectedVibes)[number]): string | undefined =>
+          state.vibeEncodings[`${vibe.id}:${item!.request.model}:${vibe.infoExtracted}`]
+        for (const vibe of selectedVibes) {
+          if (!vibe.encodedOnly || vibeEncodingFor(vibe)) continue
+          throw new Error(
+            translate(
+              state.settings.ui_language as Lang,
+              'ui.metadataVibeEncodingUnavailableValueValueValue',
+              [
+                item.request.model,
+                vibe.infoExtracted,
+                browserVibeEncodingLabels(state.vibeEncodings, vibe.id).join(', ') || '-'
+              ]
+            )
+          )
+        }
         const result = await gateway<{
           base64: string
           payloadJson: string
@@ -259,8 +287,8 @@ async function runQueue(): Promise<void> {
               imageBase64: vibe.thumbnail,
               strength: vibe.strength,
               informationExtracted: vibe.infoExtracted,
-              encodedBase64:
-                state.vibeEncodings[`${vibe.id}:${item!.request.model}:${vibe.infoExtracted}`]
+              encodedBase64: vibeEncodingFor(vibe),
+              ...(vibe.encodedOnly ? { encodedOnly: true } : {})
             })),
             characterReferences: selectedCharRefs.map((reference) => ({
               imageBase64: reference.thumbnail,
@@ -1048,7 +1076,12 @@ async function refsDispatch(channel: string, request: Record<string, unknown>): 
     }
     if (action === 'update') {
       const item = items.find((candidate) => candidate.id === request.id)
-      if (item) Object.assign(item, request.patch)
+      if (item) {
+        // 인코딩만 있는 바이브는 저장된 IE로 고정 — 앱과 같이 원본이 없어 다시 인코딩할 수 없다
+        const patch = { ...((request.patch ?? {}) as Record<string, unknown>) }
+        if (vibe && 'encodedOnly' in item && item.encodedOnly) delete patch.infoExtracted
+        Object.assign(item, patch)
+      }
       return undefined
     }
     if (action === 'delete') {

@@ -39,7 +39,6 @@ import {
   type BrowserImage,
   type BrowserState
 } from './browser-db'
-import { t } from '../lib/i18n'
 
 const listeners = new Map<keyof IpcEventMap, Set<(payload: unknown) => void>>()
 const queue: QueueStatus = { items: [], running: false, delayMs: 600 }
@@ -813,7 +812,15 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
       const result = await gateway<
         { base64: string; space: string } | { attempts: FreeBgRemovalAttempt[] }
       >('remove-background-free', { imageBase64: request.imageBase64 })
-      if ('attempts' in result) return { error: freeBgRemovalFailureMessage(result.attempts, t) }
+      if ('attempts' in result) {
+        const lang = (await readBrowserState()).settings.ui_language
+        const locale = isLang(lang) ? lang : 'en'
+        return {
+          error: freeBgRemovalFailureMessage(result.attempts, (id, ...args) =>
+            translate(locale, id, args)
+          )
+        }
+      }
       const filePath = await saveBrowserImage(
         result.base64,
         'bg-removal',

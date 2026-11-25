@@ -3,7 +3,14 @@
  * Anlas는 쓰지 않지만 인터넷이 필요하고, 이미지가 제3자 Space로 전송된다.
  * 1순위 BRIA RMBG 2.0, 실패·대기 초과 시 anime-remove-background로 폴백.
  */
-import type { FreeBgRemovalProgress, FreeBgRemovalSpace } from '../../shared/types'
+import type SharpModule from 'sharp'
+import type {
+  FreeBgRemovalAttempt,
+  FreeBgRemovalProgress,
+  FreeBgRemovalSpace
+} from '../../shared/types'
+
+export type { FreeBgRemovalAttempt } from '../../shared/types'
 
 interface SpaceSpec {
   role: FreeBgRemovalSpace
@@ -82,12 +89,29 @@ export interface FreeBgRemovalOptions {
    * — HTTP 200으로 깨진 이미지나 HTML을 돌려주는 Space도 폴백되게. 기본은 그대로
    */
   decode?: (image: Buffer) => Promise<Buffer>
+  /**
+   * 업로드 전 원본 정리 (메타데이터 제거 등). 던지면 Space를 시도하지 않고 그대로 실패한다
+   * — 입력 문제는 Space를 바꿔도 해결되지 않는다. 기본은 그대로
+   */
+  prepare?: (image: Buffer) => Promise<Buffer>
 }
 
-export interface FreeBgRemovalAttempt {
-  spaceId: string
-  reason: 'timeout' | 'error'
-  message: string
+/**
+ * 데스크톱·브라우저 개발 모드가 같이 쓰는 이미지 변환 — sharp는 호출하는 쪽 것을 받는다
+ * (메인은 Electron용 로더를 거친 sharp, 개발 게이트웨이는 Node의 sharp).
+ */
+export function freeBgImageCodec(
+  sharp: typeof SharpModule
+): Required<Pick<FreeBgRemovalOptions, 'prepare' | 'decode'>> {
+  return {
+    // 업로드 전에 평범한 RGB PNG로 다시 인코딩한다. NAI PNG의 tEXt/iTXt(프롬프트·시드)와
+    // 알파 채널 LSB의 스텔스 메타데이터가 제3자 Space로 나가지 않게. sharp는 기본으로
+    // 메타데이터를 버린다. removeAlpha 대신 흰색으로 합성 — 투명 픽셀 밑에 숨은 RGB 값이 드러나지 않게
+    prepare: (image) =>
+      sharp(image).flatten({ background: '#ffffff' }).toColourspace('srgb').png().toBuffer(),
+    // Space 출력이 webp일 수도 있어 투명도를 살린 PNG로 통일 — 이미지가 아니면 다음 Space로 넘어간다
+    decode: (image) => sharp(image).ensureAlpha().png().toBuffer()
+  }
 }
 
 /** 모든 Space가 실패 — 각 시도의 사유를 담는다 (메인에서 번역해 표시) */
@@ -109,10 +133,11 @@ export async function removeBackgroundFree(
   image: Buffer,
   options: FreeBgRemovalOptions = {}
 ): Promise<{ image: Buffer; spaceId: string }> {
+  const upload = options.prepare ? await options.prepare(image) : image
   const attempts: FreeBgRemovalAttempt[] = []
   for (const spec of FREE_BG_REMOVAL_SPACES) {
     try {
-      return { image: await runSpace(spec, image, options), spaceId: spec.id }
+      return { image: await runSpace(spec, upload, options), spaceId: spec.id }
     } catch (e) {
       attempts.push({
         spaceId: spec.id,

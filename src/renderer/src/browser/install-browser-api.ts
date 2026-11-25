@@ -10,6 +10,7 @@ import {
   normalizeDelayRandomization,
   randomizedGenerationDelayMs
 } from '@shared/generation-delay'
+import { freeBgRemovalFailureMessage } from '@shared/free-bg-removal'
 import { FinishedQueueLog, queueItemSnapshot } from '@shared/queue-status'
 import {
   browserFragmentSource,
@@ -20,6 +21,7 @@ import {
 import type {
   CharacterOrderEntry,
   CharacterPromptInput,
+  FreeBgRemovalAttempt,
   GenerationDelayRandomization,
   GenerationRequest,
   IpcEventMap,
@@ -35,6 +37,7 @@ import {
   type BrowserImage,
   type BrowserState
 } from './browser-db'
+import { t } from '../lib/i18n'
 
 const listeners = new Map<keyof IpcEventMap, Set<(payload: unknown) => void>>()
 const queue: QueueStatus = { items: [], running: false, delayMs: 600 }
@@ -790,9 +793,10 @@ async function dispatch(channel: string, rawRequest: unknown): Promise<unknown> 
   }
   if (channel === 'images:removeBackgroundFree') {
     try {
-      const result = await gateway<{ base64: string; space: string }>('remove-background-free', {
-        imageBase64: request.imageBase64
-      })
+      const result = await gateway<
+        { base64: string; space: string } | { attempts: FreeBgRemovalAttempt[] }
+      >('remove-background-free', { imageBase64: request.imageBase64 })
+      if ('attempts' in result) return { error: freeBgRemovalFailureMessage(result.attempts, t) }
       const filePath = await saveBrowserImage(
         result.base64,
         'bg-removal',

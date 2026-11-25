@@ -32,6 +32,7 @@ import {
 } from '@shared/types'
 import { useT } from '../lib/i18n'
 import { useArtistTagsStore } from '../stores/artist-tags-store'
+import { askConfirm } from '../stores/dialog-store'
 import { openInDirector, useDirectorStore } from '../stores/director-store'
 import { useGenerationStore } from '../stores/generation-store'
 import { useLayoutStore } from '../stores/layout-store'
@@ -304,7 +305,7 @@ export function DirectorMode(): React.JSX.Element {
           })
         break
       case 'bg-removal-free':
-        void removeBackgroundFree()
+        void runFreeBgRemoval()
         break
       case 'artist-tags':
         void useArtistTagsStore.getState().show({ base64: source })
@@ -321,6 +322,19 @@ export function DirectorMode(): React.JSX.Element {
       default:
         void run(id)
     }
+  }
+
+  // 이미지가 제3자 Space로 나가므로 처음 한 번은 안내를 보여 주고 확인을 받는다
+  async function runFreeBgRemoval(): Promise<void> {
+    if (!useDirectorStore.getState().freeBgConsent) {
+      const ok = await askConfirm(t('ui.freeBgConsentTitle'), {
+        message: t('ui.removeBgFreePrivacyNotice'),
+        confirmLabel: t('ui.freeBgConsentConfirm')
+      })
+      if (!ok) return
+      useDirectorStore.getState().acceptFreeBgConsent()
+    }
+    void removeBackgroundFree()
   }
 
   const selectedTool = TOOLS.find((tool) => tool.id === selected) ?? null
@@ -487,7 +501,9 @@ export function DirectorMode(): React.JSX.Element {
                   }
                   onSelect={() => {
                     setSelected(tool.id)
-                    if (instantRun && canRun(group.id)) runTool(tool.id)
+                    // 외부 업로드는 즉시 실행에서 제외 — 안내를 읽고 실행 버튼으로만 보낸다
+                    if (instantRun && tool.id !== 'bg-removal-free' && canRun(group.id))
+                      runTool(tool.id)
                   }}
                   // 더블클릭은 바로 실행 — 즉시 실행이 꺼져 있을 때의 지름길
                   onRun={() => !instantRun && canRun(group.id) && runTool(tool.id)}

@@ -565,7 +565,9 @@ export const KO = {
   'ui.removeBgFree': '배경 제거 (Hugging Face)',
   'ui.removeBgFreeDescription': '무료 · 이미지를 외부 Hugging Face Space로 전송',
   'ui.removeBgFreePrivacyNotice':
-    '이미지가 제3자가 운영하는 공개 Hugging Face Space(BRIA RMBG 2.0, 실패 시 anime-remove-background)로 전송됩니다. 공개하고 싶지 않은 이미지에는 쓰지 마세요. Anlas는 들지 않지만 인터넷이 필요하고, 대기열에 따라 시간이 걸릴 수 있습니다.',
+    '이미지가 제3자가 운영하는 공개 Hugging Face Space인 BRIA RMBG 2.0(briaai/BRIA-RMBG-2.0)으로, 실패하면 skytnt/anime-remove-background로 전송됩니다. BRIA RMBG 2.0 모델은 비상업적 용도로만 쓸 수 있는 라이선스(CC BY-NC 4.0)이며, 결과물은 각 Space의 이용 조건을 따릅니다. 공개하고 싶지 않은 이미지에는 쓰지 마세요. Anlas는 들지 않지만 인터넷이 필요하고, 대기열에 따라 시간이 걸릴 수 있습니다.',
+  'ui.freeBgConsentTitle': '이 이미지를 Hugging Face로 보낼까요?',
+  'ui.freeBgConsentConfirm': '업로드하고 배경 제거',
   'ui.freeBgConnecting': '{0}에 연결하는 중…',
   'ui.freeBgQueued': '{0} 대기열에서 기다리는 중…',
   'ui.freeBgQueuedAt': '{0} 대기열에서 기다리는 중… ({1}번째)',

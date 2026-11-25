@@ -282,6 +282,13 @@ export interface FreeBgRemovalProgress {
   position?: number
 }
 
+/** 무료 배경 제거 시도 하나의 실패 사유 — 모든 Space가 실패하면 시도마다 하나씩 */
+export interface FreeBgRemovalAttempt {
+  spaceId: string
+  reason: 'timeout' | 'error'
+  message: string
+}
+
 /** 작가 태그 분석 결과 한 줄 — label은 `artist:이름`, score는 0~1 유사도 */
 export interface ArtistTag {
   label: string

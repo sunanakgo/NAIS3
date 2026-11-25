@@ -13,6 +13,8 @@ interface DirectorState {
   instantRun: boolean
   /** 무료 배경 제거(HF Space) 진행 상태 — 실행 중일 때만 */
   freeBgProgress: FreeBgRemovalProgress | null
+  /** 무료 배경 제거의 외부 전송·라이선스 안내에 동의했는지 — 처음 한 번 확인 후 저장 */
+  freeBgConsent: boolean
 
   /** 현재 이미지 (스택 top) */
   current: () => string | null
@@ -26,6 +28,7 @@ interface DirectorState {
   undo: () => void
   clear: () => void
   setInstantRun: (on: boolean) => void
+  acceptFreeBgConsent: () => void
   hydrate: () => Promise<void>
 }
 
@@ -35,6 +38,7 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
   error: null,
   instantRun: false,
   freeBgProgress: null,
+  freeBgConsent: false,
 
   current: () => {
     const s = get().stack
@@ -139,9 +143,17 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
     })
   },
 
+  acceptFreeBgConsent: () => {
+    set({ freeBgConsent: true })
+    void window.nais.invoke('settings:set', { key: 'director_free_bg_consent', value: '1' })
+  },
+
   hydrate: async () => {
-    const { value } = await window.nais.invoke('settings:get', { key: 'director_instant_run' })
-    set({ instantRun: value === '1' })
+    const [instant, consent] = await Promise.all([
+      window.nais.invoke('settings:get', { key: 'director_instant_run' }),
+      window.nais.invoke('settings:get', { key: 'director_free_bg_consent' })
+    ])
+    set({ instantRun: instant.value === '1', freeBgConsent: consent.value === '1' })
   }
 }))
 

@@ -561,7 +561,9 @@ export const ZH_CN = {
   'ui.removeBgFree': '去除背景（Hugging Face）',
   'ui.removeBgFreeDescription': '免费 · 图片会发送到 Hugging Face Space',
   'ui.removeBgFreePrivacyNotice':
-    '图片会上传到由第三方运营的公开 Hugging Face Space（BRIA RMBG 2.0，失败时改用 anime-remove-background）。请勿用于不想公开的图片。不消耗 Anlas，但需要联网，排队时可能需要等待。',
+    '图片会上传到由第三方运营的公开 Hugging Face Space：BRIA RMBG 2.0（briaai/BRIA-RMBG-2.0），失败时改用 skytnt/anime-remove-background。BRIA RMBG 2.0 模型的许可证仅允许非商业用途（CC BY-NC 4.0），处理结果须遵守各 Space 的使用条款。请勿用于不想公开的图片。不消耗 Anlas，但需要联网，排队时可能需要等待。',
+  'ui.freeBgConsentTitle': '要将这张图片发送到 Hugging Face 吗？',
+  'ui.freeBgConsentConfirm': '上传并去除背景',
   'ui.freeBgConnecting': '正在连接 {0}…',
   'ui.freeBgQueued': '正在 {0} 队列中等待…',
   'ui.freeBgQueuedAt': '正在 {0} 队列中等待…（第 {1} 位）',

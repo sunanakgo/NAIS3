@@ -1,7 +1,10 @@
+import { crc32 } from 'node:zlib'
+import sharp from 'sharp'
 import { describe, expect, it, vi } from 'vitest'
 import {
   FREE_BG_REMOVAL_SPACES,
   FreeBgRemovalError,
+  freeBgImageCodec,
   removeBackgroundFree,
   type SpaceClient
 } from '../src/main/images/background-removal'
@@ -283,4 +286,68 @@ describe('free background removal via Hugging Face Spaces', () => {
     expect(result.image.toString()).toBe('png:inline')
     expect(decode).toHaveBeenCalledTimes(2)
   })
+
+  it('uploads a re-encoded RGB PNG without text chunks or alpha', async () => {
+    // NAI PNG 흉내 — 투명 영역이 있는 RGBA에 프롬프트·시드가 든 tEXt/iTXt 청크
+    const rgba = await sharp({
+      create: { width: 4, height: 4, channels: 4, background: { r: 10, g: 20, b: 30, alpha: 0 } }
+    })
+      .png()
+      .toBuffer()
+    const original = withChunks(rgba, [
+      pngChunk('tEXt', Buffer.from('Comment\0{"prompt":"secret prompt","seed":1234}')),
+      pngChunk('iTXt', Buffer.from('Description\0\0\0\0\0secret prompt'))
+    ])
+    expect(chunkTypes(original)).toEqual(expect.arrayContaining(['tEXt', 'iTXt']))
+
+    const bria = fakeClient(success([null, file('https://bria.hf.space/file=out.png')]))
+    const result = await removeBackgroundFree(original, {
+      ...freeBgImageCodec(sharp),
+      connect: vi.fn(async () => bria.client),
+      fetch: vi.fn(async () => new Response(rgba)) as unknown as typeof fetch
+    })
+    expect(result.spaceId).toBe(BRIA)
+
+    const payload = (bria.submit.mock.calls[0] as unknown[])[1] as Record<string, Blob>
+    const blob = payload.image
+    expect(blob.type).toBe('image/png')
+    const uploaded = Buffer.from(await blob.arrayBuffer())
+    const types = chunkTypes(uploaded)
+    expect(types).not.toContain('tEXt')
+    expect(types).not.toContain('iTXt')
+    expect(types).not.toContain('zTXt')
+    expect(uploaded.includes(Buffer.from('secret prompt'))).toBe(false)
+    // IHDR 색 형식 2 = 알파 없는 truecolor RGB
+    expect(uploaded[25]).toBe(2)
+    const meta = await sharp(uploaded).metadata()
+    expect(meta.hasAlpha).toBe(false)
+    expect(meta.channels).toBe(3)
+    // 투명 영역은 숨은 RGB가 아니라 흰색으로 합성된다
+    const { data } = await sharp(uploaded).raw().toBuffer({ resolveWithObject: true })
+    expect([...data.subarray(0, 3)]).toEqual([255, 255, 255])
+  })
 })
+
+function pngChunk(type: string, data: Buffer): Buffer {
+  const length = Buffer.alloc(4)
+  length.writeUInt32BE(data.length)
+  const body = Buffer.concat([Buffer.from(type, 'latin1'), data])
+  const crc = Buffer.alloc(4)
+  crc.writeUInt32BE(crc32(body))
+  return Buffer.concat([length, body, crc])
+}
+
+/** IHDR 바로 뒤에 청크를 끼워 넣는다 (시그니처 8 + IHDR 25바이트) */
+function withChunks(png: Buffer, chunks: Buffer[]): Buffer {
+  return Buffer.concat([png.subarray(0, 33), ...chunks, png.subarray(33)])
+}
+
+function chunkTypes(png: Buffer): string[] {
+  const types: string[] = []
+  for (let offset = 8; offset + 8 <= png.length;) {
+    const length = png.readUInt32BE(offset)
+    types.push(png.toString('latin1', offset + 4, offset + 8))
+    offset += 12 + length
+  }
+  return types
+}

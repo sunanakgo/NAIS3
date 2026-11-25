@@ -8,7 +8,7 @@ import {
   Notification,
   shell
 } from 'electron'
-import type { NativeImage } from 'electron'
+import type { IpcMainInvokeEvent, NativeImage } from 'electron'
 import { showOpenDialog, showSaveDialog } from './dialogs'
 import { applyZoom } from './zoom'
 import type {
@@ -35,7 +35,11 @@ import {
 } from './characters/repo'
 import { getDbPath, getDb } from './db'
 import { analyzeArtists } from './images/artists'
-import { FreeBgRemovalError, removeBackgroundFree } from './images/background-removal'
+import {
+  FreeBgRemovalError,
+  freeBgImageCodec,
+  removeBackgroundFree
+} from './images/background-removal'
 import { metadataFromPng, metadataFromPayloadJson } from './images/metadata'
 import {
   createFragment,
@@ -55,6 +59,7 @@ import {
   updateFragment
 } from './fragments/repo'
 import { processWildcards, resetSequentialCounters } from './fragments/processor'
+import { freeBgRemovalFailureMessage } from '../shared/free-bg-removal'
 import { removeComments } from '../shared/nai-presets'
 import {
   addNaiAccount,
@@ -186,9 +191,12 @@ import type { GenerationQueue } from './queue/generation-queue'
 /** IpcInvokeMap 계약을 강제하는 handle 등록 헬퍼 */
 function handle<C extends keyof IpcInvokeMap>(
   channel: C,
-  handler: (req: IpcInvokeMap[C]['req']) => Promise<IpcInvokeMap[C]['res']> | IpcInvokeMap[C]['res']
+  handler: (
+    req: IpcInvokeMap[C]['req'],
+    event: IpcMainInvokeEvent
+  ) => Promise<IpcInvokeMap[C]['res']> | IpcInvokeMap[C]['res']
 ): void {
-  ipcMain.handle(channel, (_event, req) => handler(req))
+  ipcMain.handle(channel, (event, req) => handler(req, event))
 }
 
 export function broadcast<C extends keyof IpcEventMap>(channel: C, payload: IpcEventMap[C]): void {
@@ -808,14 +816,18 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   })
 
   // 무료 배경 제거 — HF Space 호출과 결과 내려받기는 메인에서. Anlas·토큰 불필요
-  handle('images:removeBackgroundFree', async ({ imageBase64 }) => {
+  handle('images:removeBackgroundFree', async ({ imageBase64 }, event) => {
     try {
       const input = Buffer.from(imageBase64.replace(/^data:[^,]+,/, ''), 'base64')
       if (input.length === 0) return { error: t('ui.noInputProvided') }
-      // Space 출력이 webp일 수도 있어 투명도를 살린 PNG로 통일 — 이미지가 아니면 다음 Space로 넘어간다
+      // 업로드 전 메타데이터 제거·결과 PNG 변환은 개발 게이트웨이와 같은 코덱으로
       const { image: png, spaceId } = await removeBackgroundFree(input, {
-        onProgress: (progress) => broadcast('images:removeBackgroundFreeProgress', progress),
-        decode: (image) => sharp(image).ensureAlpha().png().toBuffer()
+        ...freeBgImageCodec(sharp),
+        // 진행 상태는 요청한 창에만 — 다른 창의 디렉터에 남의 진행이 뜨지 않게
+        onProgress: (progress) => {
+          if (!event.sender.isDestroyed())
+            event.sender.send('images:removeBackgroundFreeProgress', progress)
+        }
       })
       const saved = await saveGeneratedImage({
         png,
@@ -825,15 +837,8 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
       })
       return { filePath: saved.filePath, base64: png.toString('base64') }
     } catch (e) {
-      if (e instanceof FreeBgRemovalError) {
-        const detail = e.attempts
-          .map(
-            (a) =>
-              `${a.spaceId}: ${a.reason === 'timeout' ? t('ui.freeBgRemovalTimeout') : a.message.slice(0, 120)}`
-          )
-          .join('; ')
-        return { error: t('ui.freeBgRemovalFailed', detail) }
-      }
+      if (e instanceof FreeBgRemovalError)
+        return { error: freeBgRemovalFailureMessage(e.attempts, t) }
       return { error: e instanceof Error ? e.message : String(e) }
     }
   })

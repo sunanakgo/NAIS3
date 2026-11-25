@@ -6,6 +6,7 @@ import type { NaisApi } from '../src/preload/index'
 import type { FreeBgRemovalProgress } from '../src/shared/types'
 import { DirectorMode } from '../src/renderer/src/components/director-mode'
 import { useLanguageStore } from '../src/renderer/src/lib/i18n'
+import { useDialogStore } from '../src/renderer/src/stores/dialog-store'
 import { useDirectorStore } from '../src/renderer/src/stores/director-store'
 import { useGenerationStore } from '../src/renderer/src/stores/generation-store'
 import { useToastStore } from '../src/renderer/src/stores/toast-store'
@@ -33,7 +34,13 @@ beforeEach(() => {
   } as unknown as NaisApi
   vi.spyOn(useGenerationStore.getState(), 'refreshHistory').mockResolvedValue(undefined)
   useLanguageStore.setState({ lang: 'en' })
-  useDirectorStore.setState({ ...initialDirectorState, stack: ['AAAA'], loading: false })
+  useDirectorStore.setState({
+    ...initialDirectorState,
+    stack: ['AAAA'],
+    loading: false,
+    freeBgConsent: true
+  })
+  useDialogStore.setState({ confirm: null })
   useToastStore.setState({ toasts: [] })
   container = document.createElement('div')
   document.body.append(container)
@@ -71,6 +78,42 @@ describe('free background removal tool', () => {
     await click(free)
     expect(container.textContent).toContain('third parties')
     expect(invoke).not.toHaveBeenCalledWith('images:removeBackgroundFree', expect.anything())
+  })
+
+  it('never uploads on tool click, even with instant run on', async () => {
+    useDirectorStore.setState({ instantRun: true })
+    await act(async () => root.render(h(DirectorMode)))
+    await click(button('Remove BG (Hugging Face)'))
+    expect(container.textContent).toContain('CC BY-NC 4.0')
+    expect(invoke).not.toHaveBeenCalledWith('images:removeBackgroundFree', expect.anything())
+  })
+
+  it('asks for confirmation on first use and remembers it', async () => {
+    useDirectorStore.setState({ freeBgConsent: false })
+    invoke.mockImplementation((channel: string) =>
+      Promise.resolve(
+        channel === 'images:removeBackgroundFree'
+          ? { filePath: '/images/out.png', base64: 'BBBB' }
+          : { value: null }
+      )
+    )
+    await act(async () => root.render(h(DirectorMode)))
+    await click(button('Remove BG (Hugging Face)'))
+
+    await click(button('Apply'))
+    expect(useDialogStore.getState().confirm?.message).toContain('third parties')
+    await act(async () => useDialogStore.getState()._resolveConfirm(false))
+    expect(invoke).not.toHaveBeenCalledWith('images:removeBackgroundFree', expect.anything())
+    expect(useDirectorStore.getState().freeBgConsent).toBe(false)
+
+    await click(button('Apply'))
+    await act(async () => useDialogStore.getState()._resolveConfirm(true))
+    expect(invoke).toHaveBeenCalledWith('settings:set', {
+      key: 'director_free_bg_consent',
+      value: '1'
+    })
+    expect(invoke).toHaveBeenCalledWith('images:removeBackgroundFree', { imageBase64: 'AAAA' })
+    expect(useDirectorStore.getState().freeBgConsent).toBe(true)
   })
 
   it('shows Space progress, then pushes the saved result onto the director stack', async () => {

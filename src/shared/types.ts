@@ -332,6 +332,12 @@ export interface ImageMetadata {
   height?: number
   /** Source 청크 (모델명 등, 표시용) */
   model?: string
+  /** 저장된 요청의 NAI API 모델 id (DB payload가 있을 때만) — 재생성용 */
+  modelId?: string
+  /** 저장된 요청의 action (DB payload가 있을 때만) — i2i·인페인트 결과는 txt2img로 재생성할 수 없다 */
+  generationAction?: 'generate' | 'img2img' | 'infill'
+  /** V5 투명 배경 요청 여부 (요청의 straight_alpha) — 없으면 프롬프트 태그로 추정 */
+  transparentBackground?: boolean
   software?: string
   variety?: boolean
   useCoords?: boolean

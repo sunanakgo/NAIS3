@@ -811,6 +811,14 @@ export const EN = {
   'ui.maximize': 'Maximize',
   'ui.openInDirectorTools': 'Open in Director Tools',
   'ui.viewMetadata': 'View metadata',
+  'ui.regenerate': 'Regenerate',
+  'ui.regenerateWithTheSameSettingsAndANewSeed':
+    "Generate again with this image's settings and a new seed",
+  'ui.cannotRegenerateWhileGenerating': 'Cannot regenerate while images are generating',
+  'ui.regenerateUnavailableForI2i': 'I2I results cannot be regenerated without the source image',
+  'ui.regenerateUnavailableForInpaint':
+    'Inpainting results cannot be regenerated without the source image',
+  'ui.regenerateFailed': 'Could not start regenerating ({0})',
   'ui.copiedToClipboard': 'Copied to clipboard',
   'ui.copyImage': 'Copy image',
   'ui.saveAs': 'Save As',

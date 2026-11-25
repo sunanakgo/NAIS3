@@ -5,7 +5,7 @@ import {
   parseMetadataVibes,
   vibeModelFor,
   withPayloadVibes
-} from '../src/main/images/metadata-vibes'
+} from '../src/shared/metadata-vibes'
 import { putVibeEncoding, vibeEncodingEntries } from '../src/main/refs/vibe-encoding-cache'
 
 describe('parseMetadataVibes', () => {

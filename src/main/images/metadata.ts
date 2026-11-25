@@ -1,8 +1,11 @@
 import { gunzipSync, inflateSync } from 'zlib'
 import sharp from '../sharp'
 import type { ImageMetadata } from '../../shared/types'
-import { QUALITY_TAGS_SUFFIX, UC_PRESETS_V45_FULL } from '../../shared/nai-presets'
-import { parseMetadataVibes, vibeModelFor } from './metadata-vibes'
+import {
+  normalizeImageMetadata,
+  type LocalMetadataParams,
+  type NaiMetadataParams
+} from '../../shared/image-metadata'
 
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 const STEALTH_MAGIC = 'stealth_pngcomp'
@@ -92,40 +95,15 @@ async function extractStealthComment(buf: Buffer): Promise<Record<string, unknow
   }
 }
 
-interface Params {
-  steps?: number
-  scale?: number
-  cfg_rescale?: number
-  sampler?: string
-  noise_schedule?: string
-  seed?: number
-  width?: number
-  height?: number
-  skip_cfg_above_sigma?: number | null
-  negative_prompt?: string
-  ucPreset?: number
-  qualityToggle?: boolean
-  use_coords?: boolean
-  v4_prompt?: {
-    use_coords?: boolean
-    caption?: { char_captions?: { char_caption?: string; centers?: { x: number; y: number }[] }[] }
-  }
-  v4_negative_prompt?: { caption?: { char_captions?: { char_caption?: string }[] } }
-}
-
-interface LocalParams {
-  promptParts?: ImageMetadata['promptParts']
-}
-
-function parseLocalParams(text: Record<string, string>): LocalParams | undefined {
+function parseLocalParams(text: Record<string, string>): LocalMetadataParams | undefined {
   for (const key of LOCAL_PARAM_KEYS) {
     const raw = text[key]
     if (!raw) continue
     try {
-      return JSON.parse(Buffer.from(raw, 'base64').toString('utf8')) as LocalParams
+      return JSON.parse(Buffer.from(raw, 'base64').toString('utf8')) as LocalMetadataParams
     } catch {
       try {
-        return JSON.parse(raw) as LocalParams
+        return JSON.parse(raw) as LocalMetadataParams
       } catch {
         // 다음 후보 확인
       }
@@ -134,84 +112,11 @@ function parseLocalParams(text: Record<string, string>): LocalParams | undefined
   return undefined
 }
 
-/** 병합된 네거티브에서 UC 프리셋 인덱스 역추적 (프리셋 텍스트가 접두인 것 중 가장 긴 것) */
-function inferUcPreset(uc: string): number | undefined {
-  let best: number | undefined
-  let bestLen = -1
-  for (const [k, preset] of Object.entries(UC_PRESETS_V45_FULL)) {
-    if (!preset) continue
-    if ((uc === preset || uc.startsWith(preset + ', ')) && preset.length > bestLen) {
-      best = Number(k)
-      bestLen = preset.length
-    }
-  }
-  return best
-}
-
-/** 파라미터 객체 + 프롬프트/모델 → 정규화 메타 */
-function normalize(
-  params: Params,
-  extra: { prompt: string; uc: string; model?: string; software?: string; local?: LocalParams }
-): ImageMetadata {
-  const posChars = params.v4_prompt?.caption?.char_captions ?? []
-  const negChars = params.v4_negative_prompt?.caption?.char_captions ?? []
-  const characterPrompts = posChars.map((c, i) => ({
-    prompt: c?.char_caption ?? '',
-    negativePrompt: negChars[i]?.char_caption ?? '',
-    center: c?.centers?.[0]
-  }))
-  const vibes = parseMetadataVibes(params as Record<string, unknown>)
-  return {
-    prompt: extra.prompt,
-    promptParts: extra.local?.promptParts,
-    negativePrompt: extra.uc,
-    seed: params.seed,
-    steps: params.steps,
-    cfgScale: params.scale,
-    cfgRescale: params.cfg_rescale,
-    sampler: params.sampler,
-    noiseSchedule: params.noise_schedule,
-    width: params.width,
-    height: params.height,
-    model: extra.model,
-    software: extra.software,
-    variety: params.skip_cfg_above_sigma != null,
-    useCoords: params.v4_prompt?.use_coords ?? params.use_coords ?? false,
-    // ucPreset·qualityToggle: 직접 필드 우선, 없으면 병합 문자열에서 역추적
-    qualityToggle: params.qualityToggle ?? extra.prompt.endsWith(QUALITY_TAGS_SUFFIX),
-    ucPreset: params.ucPreset ?? inferUcPreset(extra.uc),
-    characterPrompts: characterPrompts.length > 0 ? characterPrompts : undefined,
-    ...(vibes ? { vibes, vibeModel: vibeModelFor(extra.model) } : {})
-  }
-}
-
-/** 우리 payload_json({input, model, parameters}) → 정규화 메타 */
-export function metadataFromPayloadJson(json: string): ImageMetadata | null {
-  try {
-    const p = JSON.parse(json) as {
-      input?: string
-      model?: string
-      parameters?: Params
-      nais3?: LocalParams
-    }
-    if (!p.parameters) return null
-    return normalize(p.parameters, {
-      prompt: p.input ?? '',
-      uc: p.parameters.negative_prompt ?? '',
-      model: p.model,
-      software: 'NAIS3',
-      local: p.nais3
-    })
-  } catch {
-    return null
-  }
-}
-
 /** PNG 버퍼 → 정규화 메타 (tEXt Comment → stealth 폴백). 없으면 null */
 export async function metadataFromPng(buf: Buffer): Promise<ImageMetadata | null> {
   const text = parsePngTextChunks(buf)
   const local = parseLocalParams(text)
-  let comment: Params | null = null
+  let comment: NaiMetadataParams | null = null
   let extra = {
     software: text.Software,
     model: text.Source,
@@ -219,7 +124,7 @@ export async function metadataFromPng(buf: Buffer): Promise<ImageMetadata | null
   }
   if (text.Comment) {
     try {
-      comment = JSON.parse(text.Comment) as Params
+      comment = JSON.parse(text.Comment) as NaiMetadataParams
     } catch {
       comment = null
     }
@@ -227,14 +132,14 @@ export async function metadataFromPng(buf: Buffer): Promise<ImageMetadata | null
   if (!comment) {
     const stealth = await extractStealthComment(buf)
     if (stealth) {
-      comment = (stealth.Comment as Params) ?? (stealth as Params)
+      comment = (stealth.Comment as NaiMetadataParams) ?? (stealth as NaiMetadataParams)
       if (typeof stealth.Software === 'string') extra = { ...extra, software: stealth.Software }
       if (typeof stealth.Source === 'string') extra = { ...extra, model: stealth.Source }
     }
   }
   if (!comment) return null
-  const c = comment as Params & { prompt?: string; uc?: string }
-  return normalize(comment, {
+  const c = comment as NaiMetadataParams & { prompt?: string; uc?: string }
+  return normalizeImageMetadata(comment, {
     prompt: c.prompt ?? extra.description ?? '',
     uc: c.uc ?? '',
     model: extra.model,

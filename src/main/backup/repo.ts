@@ -11,7 +11,8 @@ import {
   type BackupFile,
   type BackupRow,
   type BackupSourceFile,
-  type BackupTableName
+  type BackupTableName,
+  type ImportOptions
 } from './types'
 import { getDb } from '../db'
 import { getSetting, setSetting } from '../db/settings'
@@ -239,7 +240,10 @@ function restoreSceneLinks(
 }
 
 /** Restore a validated snapshot, replacing only the tables declared by that format. */
-export function restoreBackupDatabase(database: BackupDatabaseV1): { imported: number } {
+export function restoreBackupDatabase(
+  database: BackupDatabaseV1,
+  options: ImportOptions = {}
+): { imported: number } {
   const tables = validateRows(database)
   const fileMap = new Map(
     database.files.map((file) => [`${file.table}:${file.rowId}:${file.column}`, file])
@@ -264,6 +268,9 @@ export function restoreBackupDatabase(database: BackupDatabaseV1): { imported: n
       }
     }
 
+    // After the files, so a backup with a missing file is rejected without a snapshot; a
+    // failing hook still removes the files written above.
+    options.beforeReplace?.()
     let imported = 0
     const db = getDb()
     const included = new Set(database.includedTables)
@@ -306,16 +313,22 @@ export function restoreBackupDatabase(database: BackupDatabaseV1): { imported: n
   }
 }
 
-export async function importNais(input: Buffer): Promise<{ imported: number }> {
-  return restoreBackupDatabase(await readNaisArchive(input))
+export async function importNais(
+  input: Buffer,
+  options: ImportOptions = {}
+): Promise<{ imported: number }> {
+  return restoreBackupDatabase(await readNaisArchive(input), options)
 }
 
-export function importLegacyJson(data: Record<string, unknown>): {
+export function importLegacyJson(
+  data: Record<string, unknown>,
+  options: ImportOptions = {}
+): {
   imported: number
   skippedFiles: number
 } {
   const { database, skippedFiles } = legacyNais3ToBackupDatabase(data)
-  return { ...restoreBackupDatabase(database), skippedFiles }
+  return { ...restoreBackupDatabase(database, options), skippedFiles }
 }
 
 // Compatibility exports for existing main-process call sites.

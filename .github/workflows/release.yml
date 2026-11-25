@@ -50,7 +50,7 @@ jobs:
             script: build:mac
             platform: darwin
             arch: arm64
-          - os: macos-15-intel
+          - os: macos-26-intel
             script: build:mac
             platform: darwin
             arch: x64

@@ -39,6 +39,14 @@ export interface BackupDatabaseV1 {
   files: BackupFile[]
 }
 
+export interface ImportOptions {
+  /**
+   * Runs once the backup has been read and validated, right before the import replaces any
+   * rows. Throwing aborts the import with the workspace unchanged.
+   */
+  beforeReplace?: () => void
+}
+
 export interface NaisArchiveManifestV1 {
   format: 'NAIS'
   formatVersion: typeof BACKUP_FORMAT_VERSION

@@ -30,6 +30,7 @@ export const KO = {
   'ui.importArchiveOrLegacyBackup': '데이터 가져오기 (.nais / NAIS3 JSON / NAIS2 JSON)',
   'ui.naisArchiveRestored': '.nais 백업 복원 완료 ({0}개 항목)',
   'ui.backupMissingImagesSkipped': ' · 누락 이미지 {0}개 제외',
+  'ui.importSnapshotFailed': '가져오기 전 백업을 만들지 못해 기존 데이터를 그대로 두었습니다 ({0})',
   'ui.nais3JsonRestored': 'NAIS3 JSON 복원 완료 ({0}개 항목{1})',
   'ui.naisWorkspaceBackup': '전체 작업 데이터 .nais · 기존 NAIS3/NAIS2 JSON 불러오기 지원',
   'ui.backupExportError': '내보내기 오류: {0}',

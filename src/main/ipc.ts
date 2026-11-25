@@ -33,7 +33,7 @@ import {
   setFolderColor,
   updateCharacter
 } from './characters/repo'
-import { getDbPath, getDb } from './db'
+import { getDbPath, getDb, snapshotBeforeImport } from './db'
 import { analyzeArtists } from './images/artists'
 import { metadataFromPng, metadataFromPayloadJson } from './images/metadata'
 import {
@@ -433,17 +433,28 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
       properties: ['openFile']
     })
     if (result.canceled || !result.filePaths[0]) return { canceled: true as const }
+    // 가져오기는 대상 테이블을 비우고 다시 채운다 — 직전 상태를 남기지 못하면 아무것도 바꾸지 않는다
+    const options = {
+      beforeReplace: (): void => {
+        try {
+          snapshotBeforeImport()
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error)
+          throw new Error(t('ui.importSnapshotFailed', reason))
+        }
+      }
+    }
     try {
       const input = readFileSync(result.filePaths[0])
       if (hasZipSignature(input)) {
-        const { imported } = await importNais(input)
+        const { imported } = await importNais(input, options)
         return { summary: t('ui.naisArchiveRestored', imported), needsPromptReload: true }
       }
 
       const data = JSON.parse(input.toString('utf-8')) as Record<string, unknown>
       // 포맷 감지: NAIS3는 _app='NAIS3', NAIS2는 nais2-* 키
       if (data._app === 'NAIS3') {
-        const { imported, skippedFiles } = importLegacyJson(data)
+        const { imported, skippedFiles } = importLegacyJson(data, options)
         const skipped = skippedFiles ? t('ui.backupMissingImagesSkipped', skippedFiles) : ''
         return {
           summary: t('ui.nais3JsonRestored', imported, skipped),
@@ -451,7 +462,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
         }
       }
       if (Object.keys(data).some((k) => k.startsWith('nais2-'))) {
-        const r = importNais2(data)
+        const r = importNais2(data, options)
         const parts = [
           r.characters ? t('ui.characterValue', r.characters) : '',
           r.presets ? t('ui.valuePresets', r.presets) : '',

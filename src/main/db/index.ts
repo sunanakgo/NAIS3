@@ -8,6 +8,7 @@ import {
   migrate,
   openDatabase,
   pruneBackups,
+  removeSnapshotTemps,
   writeSnapshot,
   type MigrationWorkerData,
   type MigrationWorkerMessage
@@ -29,6 +30,11 @@ function getBackupDir(): string {
   return join(app.getPath('userData'), 'backups')
 }
 
+/** 업그레이드 직전 DB 원본 복사본 (schema-v{N}/) — backups/와 달리 정리하지 않는다 */
+function getUpgradeBackupDir(): string {
+  return join(app.getPath('userData'), 'upgrade-backups')
+}
+
 /**
  * DB 열기 + 마이그레이션 (migrate.ts).
  *
@@ -43,7 +49,7 @@ export function initDb(): { version: number; path: string; isNewDatabase: boolea
   const isNewDatabase = !existsSync(path)
 
   db = openDatabase(path)
-  migrate(db, getBackupDir())
+  migrate(db, getBackupDir(), getUpgradeBackupDir())
 
   return { version: migrations.length, path, isNewDatabase }
 }
@@ -68,7 +74,11 @@ export function migrateInWorker(
   workerFile: string,
   onOpened?: (info: WorkspaceInfo) => void
 ): Promise<boolean> {
-  const workerData: MigrationWorkerData = { path: getDbPath(), backupDir: getBackupDir() }
+  const workerData: MigrationWorkerData = {
+    path: getDbPath(),
+    backupDir: getBackupDir(),
+    upgradeBackupDir: getUpgradeBackupDir()
+  }
   // 새 설치 — initDb가 만들고 마이그레이션한다 (백업이 없어 금방 끝난다)
   if (!existsSync(workerData.path)) return Promise.resolve(true)
   return new Promise((resolve, reject) => {
@@ -99,12 +109,33 @@ export function migrateInWorker(
 
 /** 주기 백업용: 압축 정리된 스냅샷을 원자적으로 생성 */
 export function backupNow(): string {
-  const backupDir = getBackupDir()
-  mkdirSync(backupDir, { recursive: true })
+  return writeTimestampedSnapshot(getBackupDir(), 'auto', 10)
+}
+
+/** 가져오기 직전 스냅샷 보관 수 — 가져올 때마다 DB 전체 크기만큼 쌓인다 */
+const IMPORT_SNAPSHOTS_KEPT = 3
+
+/**
+ * 백업 가져오기 직전 상태를 backups/pre-import/에 남긴다. 가져오기는 대상 테이블을 비우고 다시
+ * 채운다 — 잘못 고른 파일이나 NAIS2 세이브가 기존 캐릭터·프리셋·조각을 덮어도 되돌릴 수 있도록.
+ * backups/ 바로 아래에 두지 않는다: 그쪽 정리(10개)가 업그레이드 직전 스냅샷을 밀어내지 않게
+ */
+export function snapshotBeforeImport(): string {
+  return writeTimestampedSnapshot(
+    join(getBackupDir(), 'pre-import'),
+    'pre-import',
+    IMPORT_SNAPSHOTS_KEPT
+  )
+}
+
+function writeTimestampedSnapshot(dir: string, prefix: string, keep: number): string {
+  mkdirSync(dir, { recursive: true })
+  removeSnapshotTemps(dir)
+  // ISO 시각이라 이름순 정렬이 시간순 — pruneBackups가 가장 오래된 것부터 지운다
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const dest = join(backupDir, `auto-${stamp}.db`)
+  const dest = join(dir, `${prefix}-${stamp}.db`)
   writeSnapshot(getDb(), dest)
-  pruneBackups(backupDir, 10)
+  pruneBackups(dir, keep)
   return dest
 }
 

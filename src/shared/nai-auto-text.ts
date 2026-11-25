@@ -159,3 +159,38 @@ export function applyAutoText(
   sections[0] = base ? `${base}, ${textBlock}` : textBlock
   return sections.join(SECTION_SEPARATOR)
 }
+
+/**
+ * applyAutoText의 역 — 전송된 프롬프트에서 자동으로 붙은 `teXt:` 블록만 떼어 낸다.
+ * 사용자가 직접 쓴 `teXt:`를 지우지 않도록, 뗀 결과에 Auto Text를 다시 적용해 원문과 같을 때만 쓴다.
+ */
+export function stripAutoText(
+  sentPrompt: string,
+  characters: AutoTextCharacterPrompt[] = [],
+  useCoords = false
+): string {
+  for (
+    let start = sentPrompt.indexOf(AUTO_TEXT_MARKER);
+    start >= 0;
+    start = sentPrompt.indexOf(AUTO_TEXT_MARKER, start + 1)
+  ) {
+    // applyAutoText는 블록을 첫 구역 맨 앞이나 `, ` 뒤에 붙인다
+    const prefixed = sentPrompt.startsWith(', ', start - 2)
+    if (start !== 0 && !prefixed) continue
+    const cut = prefixed ? start - 2 : start
+    // 블록은 첫 구역 끝까지 — 그 뒤의 `|` 중 하나나 문자열 끝에서 끝난다
+    const ends: number[] = []
+    for (let i = sentPrompt.indexOf(SECTION_SEPARATOR, start); i >= 0;) {
+      ends.push(i)
+      i = sentPrompt.indexOf(SECTION_SEPARATOR, i + 1)
+    }
+    ends.push(sentPrompt.length)
+    for (const end of ends) {
+      const candidate = sentPrompt.slice(0, cut) + sentPrompt.slice(end)
+      for (const coords of [useCoords, !useCoords]) {
+        if (applyAutoText(candidate, characters, coords) === sentPrompt) return candidate
+      }
+    }
+  }
+  return sentPrompt
+}

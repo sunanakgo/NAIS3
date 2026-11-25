@@ -40,7 +40,8 @@ import {
   freeBgImageCodec,
   removeBackgroundFree
 } from './images/background-removal'
-import { metadataFromPng, metadataFromPayloadJson } from './images/metadata'
+import { metadataFromPng } from './images/metadata'
+import { metadataFromPayloadJson } from '../shared/image-metadata'
 import {
   createFragment,
   createFragmentFolder,
@@ -835,8 +836,17 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
             !fromPng.promptParts && fromDb?.promptParts
               ? { ...fromPng, promptParts: fromDb.promptParts }
               : fromPng
-          // PNG의 Source는 표시용 이름이라 재생성에 쓸 API 모델 id는 DB 요청에서 가져온다
-          return { meta: fromDb?.modelId ? { ...merged, modelId: fromDb.modelId } : merged }
+          // PNG의 Source는 표시용 이름이라 재생성에 쓸 API 모델 id·action·투명 배경은 DB 요청에서 가져온다
+          return {
+            meta: {
+              ...merged,
+              ...(fromDb?.modelId ? { modelId: fromDb.modelId } : {}),
+              ...(fromDb?.generationAction ? { generationAction: fromDb.generationAction } : {}),
+              ...(fromDb?.transparentBackground != null
+                ? { transparentBackground: fromDb.transparentBackground }
+                : {})
+            }
+          }
         }
         // 2) 폴백: DB payload_json (우리 스트리밍 이미지는 tEXt가 없을 수 있음)
         if (fromDb) return { meta: fromDb }

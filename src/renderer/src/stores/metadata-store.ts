@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { GenerationRequest, ImageMetadata, UcPresetIndex } from '@shared/types'
 import { QUALITY_TAGS_SUFFIX, UC_PRESETS_V45_FULL, UC_PRESETS_V5 } from '@shared/nai-presets'
 import { modelCapabilities } from '@shared/nai-models'
+import { stripAutoText } from '@shared/nai-auto-text'
 import { imageUrl } from '../lib/constants'
 import { t } from '../lib/i18n'
 import { useCharactersStore } from './characters-store'
@@ -21,6 +22,19 @@ function stripQuality(prompt: string): string {
   return prompt.endsWith(QUALITY_TAGS_SUFFIX)
     ? prompt.slice(0, -QUALITY_TAGS_SUFFIX.length)
     : prompt
+}
+
+/**
+ * 전송된 프롬프트에서 생성 시 자동으로 붙은 부분을 붙인 역순으로 벗긴다.
+ * V5 Auto Text의 `teXt:` 블록은 퀄리티 태그 뒤(첫 구역 끝)에 붙으므로 먼저 떼야 퀄리티 접미사가 보인다.
+ */
+export function sentPromptWithoutAddons(m: ImageMetadata): string {
+  const withoutAutoText = stripAutoText(
+    m.prompt,
+    (m.characterPrompts ?? []).map((c) => ({ prompt: c.prompt, center: c.center })),
+    !!m.useCoords
+  )
+  return m.qualityToggle ? stripQuality(withoutAutoText) : withoutAutoText
 }
 function stripUcPreset(uc: string, idx: number): string {
   // V4.5·V5 프리셋 텍스트가 다르고, V5 Full은 앞에 "nsfw, "를 더 붙인다 — 가장 긴 접두부터 벗긴다
@@ -60,7 +74,8 @@ export function metadataRequestPatch(
       patch.prompt = mergePromptParts(promptParts)
       if (promptSplitEnabled) patch.promptParts = promptParts
     } else {
-      const prompt = q ? stripQuality(m.prompt) : m.prompt
+      // NAIS3가 남긴 promptParts.base는 퀄리티·투명 배경·Auto Text 병합 전 원문이다
+      const prompt = q ? (m.promptParts?.base ?? sentPromptWithoutAddons(m)) : m.prompt
       if (promptSplitEnabled) {
         patch.promptParts = { base: prompt, additional: '', detail: '' }
         patch.prompt = mergePromptParts(patch.promptParts)

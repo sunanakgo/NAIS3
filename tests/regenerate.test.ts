@@ -7,10 +7,15 @@ import { useLanguageStore } from '../src/renderer/src/lib/i18n'
 import { DEFAULT_REQUEST, useGenerationStore } from '../src/renderer/src/stores/generation-store'
 import { metadataRequestPatch } from '../src/renderer/src/stores/metadata-store'
 import {
+  regenerateBlockReason,
   regenerateFromImage,
   regenerateModel,
   regenerateRequestFromMetadata
 } from '../src/renderer/src/stores/regenerate'
+import { buildGenerateImagePayload, localPromptMetadata } from '../src/main/nai/payload'
+import { metadataFromPayloadJson } from '../src/shared/image-metadata'
+import { generationModelFor } from '../src/shared/nai-models'
+import { stripAutoText } from '../src/shared/nai-auto-text'
 import { useToastStore } from '../src/renderer/src/stores/toast-store'
 
 const EDITOR: GenerationRequest = {
@@ -132,6 +137,36 @@ describe('regenerate request from image metadata', () => {
     ).toBe('nai-diffusion-5-full')
   })
 
+  it('maps inpainting models back to the model that requested them', () => {
+    const curatedInpaint = 'nai-diffusion-4-5-curated-inpainting'
+    // V4.5 Curated와 V5 Curated가 같은 인페인트 모델을 쓴다 — 원래 요청 모델이 있으면 그것
+    expect(generationModelFor(curatedInpaint, 'nai-diffusion-5-curated')).toBe(
+      'nai-diffusion-5-curated'
+    )
+    expect(generationModelFor(curatedInpaint, 'nai-diffusion-4-5-full')).toBe(
+      'nai-diffusion-4-5-curated'
+    )
+    expect(generationModelFor('nai-diffusion-5-full-medium-inpainting')).toBe(
+      'nai-diffusion-5-full-medium'
+    )
+    expect(generationModelFor('nai-diffusion-5-full')).toBe('nai-diffusion-5-full')
+  })
+
+  it('blocks i2i and inpainting results, which txt2img cannot reproduce', () => {
+    expect(regenerateBlockReason(META)).toBeNull()
+    expect(regenerateBlockReason({ ...META, generationAction: 'generate' })).toBeNull()
+    expect(regenerateBlockReason({ ...META, generationAction: 'img2img' })).toBe(
+      'ui.regenerateUnavailableForI2i'
+    )
+    expect(regenerateBlockReason({ ...META, generationAction: 'infill' })).toBe(
+      'ui.regenerateUnavailableForInpaint'
+    )
+    // action이 없는 PNG 메타데이터도 인페인트 모델이면 막는다
+    expect(
+      regenerateBlockReason({ ...META, modelId: 'nai-diffusion-4-5-curated-inpainting' })
+    ).toBe('ui.regenerateUnavailableForInpaint')
+  })
+
   it('strips V5 UC presets, including the V5 Full nsfw prefix', () => {
     const sel = { negativePrompt: true, ucPreset: true }
     const v5 = UC_PRESETS_V5[1]
@@ -163,6 +198,84 @@ describe('regenerate request from image metadata', () => {
         false
       ).negativePrompt
     ).toBe(raw)
+  })
+})
+
+describe('V5 Auto Text round trip', () => {
+  const V5_REQUEST: GenerationRequest = {
+    ...DEFAULT_REQUEST,
+    model: 'nai-diffusion-5-curated',
+    prompt: '1girl, holding a sign, "hello"',
+    negativePrompt: 'blurry',
+    qualityToggle: true,
+    ucPreset: 0,
+    transparentBackground: true,
+    characterPrompts: [],
+    promptParts: undefined,
+    vibeIds: [],
+    charRefIds: []
+  }
+
+  function storedMetadata(request: GenerationRequest): ImageMetadata {
+    const payload = buildGenerateImagePayload(request)
+    const local = localPromptMetadata(request)
+    const meta = metadataFromPayloadJson(
+      JSON.stringify(local ? { ...payload, nais3: local } : payload)
+    )
+    if (!meta) throw new Error('no metadata')
+    return meta
+  }
+
+  it('the sent prompt ends with the teXt block, after the quality tags', () => {
+    const meta = storedMetadata(V5_REQUEST)
+    expect(meta.prompt.endsWith(QUALITY_TAGS_SUFFIX)).toBe(false)
+    expect(stripAutoText(meta.prompt)).toBe(
+      `1girl, holding a sign, "hello", transparent background${QUALITY_TAGS_SUFFIX}`
+    )
+  })
+
+  it.each([
+    ['straight_alpha', (m: ImageMetadata) => m],
+    ['the prompt tag', (m: ImageMetadata) => ({ ...m, transparentBackground: undefined })]
+  ])('regenerates without duplicating tags (transparency from %s)', (_, adjust) => {
+    const meta = adjust(storedMetadata(V5_REQUEST))
+    const request = regenerateRequestFromMetadata(meta, EDITOR, V5_REQUEST.seed)
+
+    expect(request.prompt).toBe(V5_REQUEST.prompt)
+    expect(request.transparentBackground).toBe(true)
+    expect(buildGenerateImagePayload(request).input).toBe(
+      buildGenerateImagePayload(V5_REQUEST).input
+    )
+  })
+
+  it('uses the stored base prompt when NAIS3 kept prompt parts', () => {
+    const original: GenerationRequest = {
+      ...V5_REQUEST,
+      promptParts: { base: V5_REQUEST.prompt, additional: '', detail: '' }
+    }
+    const request = regenerateRequestFromMetadata(storedMetadata(original), EDITOR, 1)
+
+    expect(request.prompt).toBe(V5_REQUEST.prompt)
+    expect(request.transparentBackground).toBe(true)
+    expect(buildGenerateImagePayload(request).input).toBe(buildGenerateImagePayload(original).input)
+  })
+
+  it('keeps a teXt: block the user wrote by hand', () => {
+    const prompt = '1girl, teXt: hello'
+    expect(stripAutoText(prompt)).toBe(prompt)
+  })
+
+  it('restores every stored parameter from the payload (desktop and browser share it)', () => {
+    const meta = storedMetadata({ ...V5_REQUEST, steps: 23, cfgScale: 4.5 })
+    expect(meta).toMatchObject({
+      negativePrompt: expect.stringContaining('blurry'),
+      ucPreset: 0,
+      steps: 23,
+      cfgScale: 4.5,
+      modelId: 'nai-diffusion-5-curated',
+      generationAction: 'generate',
+      transparentBackground: true
+    })
   })
 })
 
@@ -240,5 +353,31 @@ describe('regenerate from image', () => {
 
     expect(useGenerationStore.getState().viewingFilePath).toBe('/images/a.png')
     expect(useToastStore.getState().toasts).toMatchObject([{ message: 'blocked', type: 'error' }])
+  })
+
+  it('restores the viewed image and reports a failed enqueue', async () => {
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'queue:enqueue') throw new Error('IPC down')
+      return undefined
+    })
+
+    await regenerateFromImage('/images/a.png', Promise.resolve({ meta: META }))
+
+    expect(useGenerationStore.getState().viewingFilePath).toBe('/images/a.png')
+    expect(useToastStore.getState().toasts).toMatchObject([
+      { message: 'Could not start regenerating (IPC down)', type: 'error' }
+    ])
+  })
+
+  it('refuses to regenerate an i2i result as txt2img', async () => {
+    await regenerateFromImage(
+      '/images/a.png',
+      Promise.resolve({ meta: { ...META, generationAction: 'img2img' } })
+    )
+
+    expect(invoke).not.toHaveBeenCalledWith('queue:enqueue', expect.anything())
+    expect(useToastStore.getState().toasts).toMatchObject([
+      { message: 'I2I results cannot be regenerated without the source image', type: 'error' }
+    ])
   })
 })

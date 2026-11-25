@@ -1,14 +1,16 @@
 import { randomUUID } from 'crypto'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { extname, join } from 'path'
-import { createNaisArchive, readNaisArchive } from './archive'
+import { readNaisArchive, writeNaisArchive } from './archive'
 import { legacyNais3ToBackupDatabase, LEGACY_BACKUP_TABLES } from './legacy'
 import {
   BACKUP_FORMAT_VERSION,
   BACKUP_TABLES,
+  type BackupArchiveSource,
   type BackupDatabaseV1,
   type BackupFile,
   type BackupRow,
+  type BackupSourceFile,
   type BackupTableName,
   type ImportOptions
 } from './types'
@@ -62,15 +64,14 @@ export function exportLegacyJson(): Record<string, unknown> {
   }
 }
 
-/** Capture all portable workspace data. Rows whose required source file is missing are skipped. */
-export function captureBackupDatabase(): {
-  database: BackupDatabaseV1
-  skippedFiles: number
-} {
+/**
+ * Capture all portable workspace rows in one synchronous pass, so the snapshot is consistent.
+ * File-backed rows keep only their source path; the files are streamed later by the writer.
+ */
+export function captureBackupSource(): BackupArchiveSource {
   const db = getDb()
-  const tables: BackupDatabaseV1['tables'] = {}
-  const files: BackupFile[] = []
-  let skippedFiles = 0
+  const tables: BackupArchiveSource['tables'] = {}
+  const files: BackupSourceFile[] = []
 
   for (const table of BACKUP_TABLES) {
     const sourceRows = db.prepare(`SELECT * FROM ${table}`).all() as DbRow[]
@@ -81,19 +82,14 @@ export function captureBackupDatabase(): {
         if (typeof row.id !== 'number' || typeof row.file_path !== 'string') {
           throw new Error(`${table} contains an invalid file row`)
         }
-        try {
-          files.push({
-            table,
-            rowId: row.id,
-            column: 'file_path',
-            extension: normalizedExtension(row.file_path),
-            data: readFileSync(row.file_path)
-          })
-          row.file_path = ''
-        } catch {
-          skippedFiles++
-          continue
-        }
+        files.push({
+          table,
+          rowId: row.id,
+          column: 'file_path',
+          extension: normalizedExtension(row.file_path),
+          sourcePath: row.file_path
+        })
+        row.file_path = ''
       }
       rows.push(row)
     }
@@ -101,23 +97,57 @@ export function captureBackupDatabase(): {
   }
 
   return {
-    database: {
-      version: BACKUP_FORMAT_VERSION,
-      includedTables: [...BACKUP_TABLES],
-      tables,
-      mainParams: getSetting('main_params') || null,
-      files
-    },
-    skippedFiles
+    version: BACKUP_FORMAT_VERSION,
+    includedTables: [...BACKUP_TABLES],
+    tables,
+    mainParams: getSetting('main_params') || null,
+    files
   }
 }
 
-export async function exportNais(appVersion: string): Promise<{
-  archive: Buffer
+/**
+ * In-memory snapshot with every file read, for restoring without an archive round trip.
+ * Rows whose source file is missing are skipped.
+ */
+export function captureBackupDatabase(): {
+  database: BackupDatabaseV1
   skippedFiles: number
-}> {
-  const { database, skippedFiles } = captureBackupDatabase()
-  return { archive: await createNaisArchive(database, appVersion), skippedFiles }
+} {
+  const source = captureBackupSource()
+  const sources = new Map(source.files.map((file) => [`${file.table}:${file.rowId}`, file]))
+  const files: BackupFile[] = []
+  const tables: BackupDatabaseV1['tables'] = {}
+  let skippedFiles = 0
+
+  for (const table of source.includedTables) {
+    tables[table] = (source.tables[table] ?? []).filter((row) => {
+      const file = sources.get(`${table}:${row.id}`)
+      if (!file) return true
+      try {
+        files.push({
+          table,
+          rowId: file.rowId,
+          column: 'file_path',
+          extension: file.extension,
+          data: readFileSync(file.sourcePath)
+        })
+        return true
+      } catch {
+        skippedFiles++
+        return false
+      }
+    })
+  }
+
+  return { database: { ...source, tables, files }, skippedFiles }
+}
+
+/** Write a .nais archive of the workspace to `destination` (replaced only once it is complete). */
+export async function exportNais(
+  destination: string,
+  appVersion: string
+): Promise<{ skippedFiles: number }> {
+  return writeNaisArchive(destination, captureBackupSource(), appVersion)
 }
 
 function tableColumns(table: BackupTableName): Set<string> {

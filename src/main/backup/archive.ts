@@ -1,11 +1,14 @@
 import { createHash } from 'crypto'
 import { extname } from 'path'
 import JSZip from 'jszip'
+import { writeZipFile } from '../zip-writer'
 import {
   BACKUP_FORMAT_VERSION,
+  type BackupArchiveSource,
   type BackupDatabaseV1,
   type BackupFile,
   type BackupRow,
+  type BackupSourceFile,
   type BackupTableName,
   isBackupTableName,
   type NaisArchiveManifestV1
@@ -80,77 +83,93 @@ function fileKey(table: BackupTableName, rowId: number, column: string): string 
   return `${table}:${rowId}:${column}`
 }
 
-function addEntry(
-  zip: JSZip,
-  checksums: Checksums,
-  path: string,
-  data: Buffer,
-  store = false
-): void {
-  assertSafeArchivePath(path)
-  zip.file(path, data, store ? { compression: 'STORE' } : undefined)
-  checksums[path] = { sha256: sha256(data), bytes: data.byteLength }
-}
-
-export async function createNaisArchive(
-  database: BackupDatabaseV1,
+/**
+ * Writes a .nais archive to `destination`, streaming each row's file from disk.
+ *
+ * Rows come from one synchronous snapshot, but their files are read later while the archive is
+ * written, and a file can be deleted in between. Every table's assets are therefore written
+ * before its JSON, so a row whose file can no longer be opened is left out of the table (and
+ * counted in `skippedFiles`) instead of pointing at a missing asset.
+ */
+export async function writeNaisArchive(
+  destination: string,
+  source: BackupArchiveSource,
   appVersion: string,
   createdAt = new Date().toISOString()
-): Promise<Buffer> {
-  const zip = new JSZip()
-  const checksums: Checksums = {}
+): Promise<{ skippedFiles: number }> {
   const files = new Map(
-    database.files.map((file) => [fileKey(file.table, file.rowId, file.column), file])
+    source.files.map((file) => [fileKey(file.table, file.rowId, file.column), file])
   )
-  const tableCounts: Partial<Record<BackupTableName, number>> = {}
 
-  for (const table of database.includedTables) {
-    const rows = database.tables[table]
-    if (!Array.isArray(rows)) throw new Error(`Missing backup table: ${table}`)
-    tableCounts[table] = rows.length
-    const encodedRows = rows.map((row) => {
-      const rowId = row.id
-      if (typeof rowId !== 'number') throw new Error(`${table} row is missing a numeric id`)
-      const encoded: Record<string, unknown> = {}
-      for (const [column, value] of Object.entries(row)) {
-        if (Buffer.isBuffer(value)) {
-          const path = `assets/blobs/${table}/${safeSegment(rowId)}-${safeSegment(column)}.bin`
-          addEntry(zip, checksums, path, value, true)
-          encoded[column] = { __asset: path }
-          continue
+  return writeZipFile(destination, async (zip) => {
+    const checksums: Checksums = {}
+    const tableCounts: Partial<Record<BackupTableName, number>> = {}
+    let skippedFiles = 0
+
+    const addBuffer = (path: string, data: Buffer, compress: boolean): void => {
+      assertSafeArchivePath(path)
+      zip.addBuffer(path, data, { compress })
+      checksums[path] = { sha256: sha256(data), bytes: data.byteLength }
+    }
+
+    for (const table of source.includedTables) {
+      const rows = source.tables[table]
+      if (!Array.isArray(rows)) throw new Error(`Missing backup table: ${table}`)
+      const encodedRows: Record<string, unknown>[] = []
+      for (const row of rows) {
+        const rowId = row.id
+        if (typeof rowId !== 'number') throw new Error(`${table} row is missing a numeric id`)
+        const encoded: Record<string, unknown> = {}
+        const blobs: [string, Buffer][] = []
+        let asset: { path: string; file: BackupSourceFile } | undefined
+        for (const [column, value] of Object.entries(row)) {
+          if (Buffer.isBuffer(value)) {
+            const path = `assets/blobs/${table}/${safeSegment(rowId)}-${safeSegment(column)}.bin`
+            blobs.push([path, value])
+            encoded[column] = { __asset: path }
+            continue
+          }
+          if (column === 'file_path') {
+            const file = files.get(fileKey(table, rowId, column))
+            if (!file) throw new Error(`Missing asset for ${table} row ${rowId}`)
+            const path = `assets/files/${table}/${safeSegment(rowId)}${safeExtension(file.extension)}`
+            asset = { path, file }
+            encoded[column] = { __asset: path }
+            continue
+          }
+          encoded[column] = value
         }
-        if (column === 'file_path') {
-          const file = files.get(fileKey(table, rowId, column))
-          if (!file) throw new Error(`Missing asset for ${table} row ${rowId}`)
-          const path = `assets/files/${table}/${safeSegment(rowId)}${safeExtension(file.extension)}`
-          addEntry(zip, checksums, path, file.data, true)
-          encoded[column] = { __asset: path }
-          continue
+
+        if (asset) {
+          assertSafeArchivePath(asset.path)
+          const digest = await zip.addFile(asset.path, asset.file.sourcePath, { compress: false })
+          if (!digest) {
+            skippedFiles++
+            continue
+          }
+          checksums[asset.path] = digest
         }
-        encoded[column] = value
+        for (const [path, data] of blobs) addBuffer(path, data, false)
+        encodedRows.push(encoded)
       }
-      return encoded
-    })
-    addEntry(zip, checksums, `data/tables/${table}.json`, jsonBuffer(encodedRows))
-  }
+      tableCounts[table] = encodedRows.length
+      addBuffer(`data/tables/${table}.json`, jsonBuffer(encodedRows), true)
+    }
 
-  addEntry(zip, checksums, 'data/settings.json', jsonBuffer({ mainParams: database.mainParams }))
-  const manifest: NaisArchiveManifestV1 = {
-    format: 'NAIS',
-    formatVersion: BACKUP_FORMAT_VERSION,
-    app: 'NAIS3',
-    appVersion,
-    createdAt,
-    scope: 'workspace',
-    tables: [...database.includedTables],
-    tableCounts
-  }
-  zip.file('manifest.json', jsonBuffer(manifest))
-  zip.file('checksums.json', jsonBuffer(checksums))
-  return zip.generateAsync({
-    type: 'nodebuffer',
-    compression: 'DEFLATE',
-    compressionOptions: { level: 6 }
+    addBuffer('data/settings.json', jsonBuffer({ mainParams: source.mainParams }), true)
+    const manifest: NaisArchiveManifestV1 = {
+      format: 'NAIS',
+      formatVersion: BACKUP_FORMAT_VERSION,
+      app: 'NAIS3',
+      appVersion,
+      createdAt,
+      scope: 'workspace',
+      tables: [...source.includedTables],
+      tableCounts
+    }
+    zip.addBuffer('manifest.json', jsonBuffer(manifest), { compress: true })
+    zip.addBuffer('checksums.json', jsonBuffer(checksums), { compress: true })
+    return { skippedFiles }
   })
 }
 

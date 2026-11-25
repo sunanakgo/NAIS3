@@ -2,7 +2,7 @@ import { BrowserWindow } from 'electron'
 import { showOpenDialog, showSaveDialog } from '../dialogs'
 import { readFileSync, unlinkSync, writeFileSync } from 'fs'
 import { extname, isAbsolute, relative } from 'path'
-import JSZip from 'jszip'
+import { writeZipFile } from '../zip-writer'
 import { planSceneReservations } from '../../shared/scene-request'
 import type { GenerationQueue } from '../queue/generation-queue'
 import type {
@@ -655,20 +655,16 @@ async function zipFiles(entries: ZipEntry[], defaultName: string): Promise<numbe
     filters: [{ name: 'ZIP', extensions: ['zip'] }]
   })
   if (result.canceled || !result.filePath) return 0
-  const zip = new JSZip()
-  const used = new Set<string>()
-  for (const e of entries) {
-    try {
+  // Streamed one file at a time; a file deleted since the rows were read is skipped
+  return writeZipFile(result.filePath, async (zip) => {
+    const used = new Set<string>()
+    for (const e of entries) {
       let name = e.name
       while (used.has(name)) name = `_${name}` // 동명 씬 충돌 폴백
-      used.add(name)
-      zip.file(name, readFileSync(e.file_path))
-    } catch {
-      // 파일 없으면 건너뜀
+      if (await zip.addFile(name, e.file_path, { compress: false })) used.add(name)
     }
-  }
-  writeFileSync(result.filePath, await zip.generateAsync({ type: 'nodebuffer' }))
-  return used.size
+    return used.size
+  })
 }
 
 /**

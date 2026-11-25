@@ -11,6 +11,7 @@ import {
   randomizedGenerationDelayMs
 } from '@shared/generation-delay'
 import { FinishedQueueLog, queueItemSnapshot } from '@shared/queue-status'
+import { isLang, translate } from '@shared/i18n'
 import {
   browserFragmentSource,
   exportBrowserWorkspace,
@@ -1069,6 +1070,19 @@ async function promptPresetsDispatch(
     if (action === 'update') {
       const item = state.promptPresets.find((candidate) => candidate.id === request.id)
       if (item) Object.assign(item, request.patch)
+    }
+    if (action === 'duplicate') {
+      // 데스크톱과 같이 내용 전체 복사 + 현재 언어의 복제 이름, 목록 끝에 추가
+      const source = state.promptPresets.find((item) => item.id === request.id)
+      if (!source) return { id: 0 }
+      const id = nextBrowserId(state)
+      const lang = state.settings.ui_language
+      state.promptPresets.push({
+        ...structuredClone(source),
+        id,
+        name: translate(isLang(lang) ? lang : 'en', 'ui.valueCopy', [source.name])
+      })
+      return { id }
     }
     if (action === 'delete')
       state.promptPresets = state.promptPresets.filter((item) => item.id !== request.id)

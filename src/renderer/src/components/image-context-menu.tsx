@@ -4,8 +4,10 @@ import {
   FileText,
   FolderOpen,
   ImageIcon,
+  ImageUp,
   Layers,
   Library,
+  Sparkles,
   Trash2,
   Wand2
 } from 'lucide-react'
@@ -14,6 +16,7 @@ import { useT } from '../lib/i18n'
 import { openInDirector } from '../stores/director-store'
 import { setI2iSource, useGenerationStore } from '../stores/generation-store'
 import { addToLibrary } from '../stores/library-store'
+import { addImagesToRefs } from '../stores/refs-store'
 import { useMetadataStore } from '../stores/metadata-store'
 import {
   ContextMenu,
@@ -26,7 +29,7 @@ import { RegenerateMenuItem } from './regenerate-menu-item'
 
 /**
  * 이미지 우클릭 공용 메뉴 — 히스토리·씬 상세 등 이미지가 나오는 모든 곳에서 동일하게 사용.
- * 재생성 / I2I / 인페인트 / 디렉터 툴 / 파일 탐색기.
+ * 재생성 / I2I / 인페인트 / 디렉터 툴 / 파일 탐색기 / 라이브러리·바이브·캐릭레퍼로 보내기.
  */
 export function ImageContextMenu({
   filePath,
@@ -81,14 +84,18 @@ export function ImageContextMenu({
         >
           <FolderOpen size={13} className="text-hue-amber" /> {t('ui.showInFileExplorer')}
         </ContextMenuItem>
+        <ContextMenuSeparator />
         {!hideLibraryAdd && (
-          <>
-            <ContextMenuSeparator />
-            <ContextMenuItem onSelect={() => void addToLibrary([filePath])}>
-              <Library size={13} className="text-hue-fuchsia" /> {t('ui.addToLibrary')}
-            </ContextMenuItem>
-          </>
+          <ContextMenuItem onSelect={() => void addToLibrary([filePath])}>
+            <Library size={13} className="text-hue-fuchsia" /> {t('ui.addToLibrary')}
+          </ContextMenuItem>
         )}
+        <ContextMenuItem onSelect={() => void addImagesToRefs('vibe', [filePath])}>
+          <Sparkles size={13} className="text-hue-violet" /> {t('ui.addAsVibeReference')}
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={() => void addImagesToRefs('charref', [filePath])}>
+          <ImageUp size={13} className="text-hue-sky" /> {t('ui.addAsCharacterReference')}
+        </ContextMenuItem>
         {extra}
         {onDelete && (
           <>

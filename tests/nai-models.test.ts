@@ -31,14 +31,30 @@ describe('NAI 모델별 동작', () => {
     })
   })
 
-  it('V5는 출시 시점에 바이브·정밀 레퍼런스·Variety+를 지원하지 않는다', () => {
+  it('V5는 바이브·Variety+를 지원하지 않고, 정밀 레퍼런스는 Outfit·강도 5까지 지원한다', () => {
     expect(modelCapabilities('nai-diffusion-5-curated')).toMatchObject({
       vibes: false,
-      characterReferences: false,
+      characterReferences: true,
+      characterReferenceInpainting: false,
+      outfitReferences: true,
+      characterReferenceFidelity: false,
+      characterReferenceStrengthMax: 5,
+      characterReferenceImages: 'bucket',
       variety: false,
       noiseScheduleSelection: false,
       transparency: true,
       maxCharacters: 32
+    })
+  })
+
+  it('V4.5 정밀 레퍼런스는 Fidelity·고정 캔버스를 쓰고 Outfit은 없다', () => {
+    expect(modelCapabilities('nai-diffusion-4-5-full')).toMatchObject({
+      characterReferences: true,
+      characterReferenceInpainting: true,
+      outfitReferences: false,
+      characterReferenceFidelity: true,
+      characterReferenceStrengthMax: 1,
+      characterReferenceImages: 'canvas'
     })
   })
 

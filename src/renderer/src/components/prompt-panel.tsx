@@ -30,6 +30,7 @@ import {
   modelCapabilities,
   promptTokenLimit
 } from '@shared/nai-models'
+import { sentReferenceCount } from '@shared/precise-reference'
 import { useT } from '../lib/i18n'
 import { useCharactersStore } from '../stores/characters-store'
 import { useFragmentsStore } from '../stores/fragments-store'
@@ -78,6 +79,14 @@ export function PromptPanel(): React.JSX.Element {
   const capabilities = modelCapabilities(request.model)
   const tokenLimit = promptTokenLimit(request.model)
   const estimateModel = source?.maskBase64 ? inpaintingModelFor(request.model) : request.model
+  // 실제로 보낼 레퍼런스만 (Outfit 미지원 모델의 Outfit, V5 인페인트는 제외 — 각 5 Anlas)
+  const sentCrefs = useCharRefsStore((s) =>
+    sentReferenceCount(
+      s.items.filter((c) => c.enabled).map((c) => c.refType),
+      estimateModel,
+      Boolean(source?.maskBase64)
+    )
+  )
   const estimateSize = source
     ? snapNaiResolution(source.width, source.height)
     : { width: request.width, height: request.height }
@@ -186,7 +195,7 @@ export function PromptPanel(): React.JSX.Element {
         Boolean(source?.maskBase64),
         request.i2iStrength
       ),
-      charRefCount: capabilities.characterReferences ? enabledCrefs : 0,
+      charRefCount: sentCrefs,
       isOpus: subscriptionTier === 'opus',
       // 메인 판정(isOpusUsageExhausted)과 같은 기준이어야 미리 알림이 실제 차단과 맞는다
       opusUsageExhausted: opusUsage ? isOpusUsageDepleted(opusUsage) : undefined,
@@ -204,10 +213,9 @@ export function PromptPanel(): React.JSX.Element {
       subscriptionTier,
       opusUsage,
       batchCount,
-      enabledCrefs,
+      sentCrefs,
       enabledVibes,
       unencodedVibes,
-      capabilities.characterReferences,
       capabilities.vibes
     ]
   )

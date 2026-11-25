@@ -26,6 +26,7 @@ import {
   opusUsagePurchasedPercent
 } from '@shared/anlas'
 import { inpaintingModelFor, modelCapabilities } from '@shared/nai-models'
+import { sentReferenceCount } from '@shared/precise-reference'
 import { snapNaiResolution } from '@shared/nai-resolution'
 import { PageNav } from './page-nav'
 import { ThemeToggle } from './theme-toggle'
@@ -291,13 +292,19 @@ export function Titlebar(): React.JSX.Element {
   const source = useGenerationStore((s) => s.source)
   const batchCount = useGenerationStore((s) => s.batchCount)
   const tier = useGenerationStore((s) => s.subscriptionTier)
-  const enabledCrefs = useCharRefsStore((s) => s.items.filter((c) => c.enabled).length)
   const unencodedVibes = useVibesStore(
     (s) => s.items.filter((v) => v.enabled && !v.encodedModels?.includes(request.model)).length
   )
   const enabledVibes = useVibesStore((s) => s.items.filter((v) => v.enabled).length)
   const capabilities = modelCapabilities(request.model)
   const estimateModel = source?.maskBase64 ? inpaintingModelFor(request.model) : request.model
+  const sentCrefs = useCharRefsStore((s) =>
+    sentReferenceCount(
+      s.items.filter((c) => c.enabled).map((c) => c.refType),
+      estimateModel,
+      Boolean(source?.maskBase64)
+    )
+  )
   const estimateSize = source
     ? snapNaiResolution(source.width, source.height)
     : { width: request.width, height: request.height }
@@ -311,7 +318,7 @@ export function Titlebar(): React.JSX.Element {
       Boolean(source?.maskBase64),
       request.i2iStrength
     ),
-    charRefCount: capabilities.characterReferences ? enabledCrefs : 0,
+    charRefCount: sentCrefs,
     isOpus: tier === 'opus',
     opusUsageExhausted: opusUsage?.isNegative,
     batchCount,

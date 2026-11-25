@@ -175,7 +175,7 @@ describe('director instant run preference', () => {
 
     invoke.mockResolvedValueOnce({ value: '1' })
     await useDirectorStore.getState().hydrate()
-    expect(invoke).toHaveBeenLastCalledWith('settings:get', { key: 'director_instant_run' })
+    expect(invoke).toHaveBeenCalledWith('settings:get', { key: 'director_instant_run' })
     expect(useDirectorStore.getState().instantRun).toBe(true)
   })
 

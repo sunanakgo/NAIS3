@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { DirectorMethod, LocalEditKind } from '@shared/types'
+import type { DirectorMethod, FreeBgRemovalProgress, LocalEditKind } from '@shared/types'
 import { useGenerationStore } from './generation-store'
 import { useLayoutStore } from './layout-store'
 import { toast } from './toast-store'
@@ -11,17 +11,24 @@ interface DirectorState {
   error: string | null
   /** 툴 클릭 한 번으로 바로 실행 (기본 off — 고른 뒤 하단 버튼으로 실행) */
   instantRun: boolean
+  /** 무료 배경 제거(HF Space) 진행 상태 — 실행 중일 때만 */
+  freeBgProgress: FreeBgRemovalProgress | null
+  /** 무료 배경 제거의 외부 전송·라이선스 안내에 동의했는지 — 처음 한 번 확인 후 저장 */
+  freeBgConsent: boolean
 
   /** 현재 이미지 (스택 top) */
   current: () => string | null
   setSource: (base64: string | null) => void
   run: (method: DirectorMethod, opts?: { prompt?: string; defry?: number }) => Promise<void>
   upscale: () => Promise<void>
+  /** 공개 Hugging Face Space로 배경 제거 (Anlas 없음) — 결과는 스택 push + 히스토리 저장 */
+  removeBackgroundFree: () => Promise<void>
   /** API 없는 로컬 편집(모자이크·도트화) 결과를 스택에 push + 히스토리 저장 */
   applyLocal: (base64: string, kind: LocalEditKind) => Promise<void>
   undo: () => void
   clear: () => void
   setInstantRun: (on: boolean) => void
+  acceptFreeBgConsent: () => void
   hydrate: () => Promise<void>
 }
 
@@ -30,6 +37,8 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
   loading: false,
   error: null,
   instantRun: false,
+  freeBgProgress: null,
+  freeBgConsent: false,
 
   current: () => {
     const s = get().stack
@@ -72,6 +81,36 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
     void useGenerationStore.getState().refreshHistory()
   },
 
+  removeBackgroundFree: async () => {
+    const cur = get().current()
+    if (!cur || get().loading) return
+    set({ loading: true, error: null, freeBgProgress: null })
+    const off = window.nais.on('images:removeBackgroundFreeProgress', (freeBgProgress) => {
+      if (get().loading) set({ freeBgProgress })
+    })
+    // 대기가 길어 그사이 다른 이미지를 열 수 있다 — 스택이 바뀌었으면 결과는 히스토리에만 남긴다
+    const stack = get().stack
+    try {
+      const res = await window.nais.invoke('images:removeBackgroundFree', { imageBase64: cur })
+      if ('error' in res) {
+        set({ loading: false, freeBgProgress: null })
+        toast(res.error, 'error')
+        return
+      }
+      set(
+        get().stack === stack
+          ? { loading: false, freeBgProgress: null, stack: [...stack, res.base64] }
+          : { loading: false, freeBgProgress: null }
+      )
+      void useGenerationStore.getState().refreshHistory()
+    } catch (e) {
+      set({ loading: false, freeBgProgress: null })
+      toast(e instanceof Error ? e.message : String(e), 'error')
+    } finally {
+      off()
+    }
+  },
+
   applyLocal: async (base64, kind) => {
     // 로컬 연산이라 loading 없이 즉시 push — undo/결과 뱃지는 스택 기반이라 그대로 동작
     set({ stack: [...get().stack, base64], error: null })
@@ -104,9 +143,17 @@ export const useDirectorStore = create<DirectorState>((set, get) => ({
     })
   },
 
+  acceptFreeBgConsent: () => {
+    set({ freeBgConsent: true })
+    void window.nais.invoke('settings:set', { key: 'director_free_bg_consent', value: '1' })
+  },
+
   hydrate: async () => {
-    const { value } = await window.nais.invoke('settings:get', { key: 'director_instant_run' })
-    set({ instantRun: value === '1' })
+    const [instant, consent] = await Promise.all([
+      window.nais.invoke('settings:get', { key: 'director_instant_run' }),
+      window.nais.invoke('settings:get', { key: 'director_free_bg_consent' })
+    ])
+    set({ instantRun: instant.value === '1', freeBgConsent: consent.value === '1' })
   }
 }))
 

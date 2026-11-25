@@ -8,7 +8,7 @@ import {
   Notification,
   shell
 } from 'electron'
-import type { NativeImage } from 'electron'
+import type { IpcMainInvokeEvent, NativeImage } from 'electron'
 import { showOpenDialog, showSaveDialog } from './dialogs'
 import { applyZoom } from './zoom'
 import type {
@@ -33,8 +33,13 @@ import {
   setFolderColor,
   updateCharacter
 } from './characters/repo'
-import { getDbPath, getDb } from './db'
+import { getDbPath, getDb, snapshotBeforeImport } from './db'
 import { analyzeArtists } from './images/artists'
+import {
+  FreeBgRemovalError,
+  freeBgImageCodec,
+  removeBackgroundFree
+} from './images/background-removal'
 import { metadataFromPng, metadataFromPayloadJson } from './images/metadata'
 import {
   createFragment,
@@ -54,6 +59,7 @@ import {
   updateFragment
 } from './fragments/repo'
 import { processWildcards, resetSequentialCounters } from './fragments/processor'
+import { freeBgRemovalFailureMessage } from '../shared/free-bg-removal'
 import { removeComments } from '../shared/nai-presets'
 import {
   addNaiAccount,
@@ -126,6 +132,7 @@ import {
   createPromptPreset,
   updatePromptPreset,
   deletePromptPreset,
+  duplicatePromptPreset,
   reorderPromptPresets
 } from './prompts/repo'
 import {
@@ -145,10 +152,17 @@ import {
 import { exportLegacyJson, exportNais, importLegacyJson, importNais } from './backup/repo'
 import { hasZipSignature } from './backup/archive'
 import { importNais2 } from './backup/nais2'
+import {
+  dismissRecoveryNotice,
+  findRecoveryNotice,
+  listRecoverableBackups,
+  restoreRecoverableBackup
+} from './backup/recovery'
 import { startUpdateDownload } from './updater'
 import { countPromptTokens } from './nai/token-counter'
 import {
   addRefImages,
+  addRefImagesFrom,
   collapseRefFolder,
   colorRefFolder,
   createRefFolder,
@@ -185,9 +199,12 @@ import type { GenerationQueue } from './queue/generation-queue'
 /** IpcInvokeMap 계약을 강제하는 handle 등록 헬퍼 */
 function handle<C extends keyof IpcInvokeMap>(
   channel: C,
-  handler: (req: IpcInvokeMap[C]['req']) => Promise<IpcInvokeMap[C]['res']> | IpcInvokeMap[C]['res']
+  handler: (
+    req: IpcInvokeMap[C]['req'],
+    event: IpcMainInvokeEvent
+  ) => Promise<IpcInvokeMap[C]['res']> | IpcInvokeMap[C]['res']
 ): void {
-  ipcMain.handle(channel, (_event, req) => handler(req))
+  ipcMain.handle(channel, (event, req) => handler(req, event))
 }
 
 export function broadcast<C extends keyof IpcEventMap>(channel: C, payload: IpcEventMap[C]): void {
@@ -380,6 +397,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   handle('promptPresets:delete', ({ id }) => {
     deletePromptPreset(id)
   })
+  handle('promptPresets:duplicate', ({ id }) => ({ id: duplicatePromptPreset(id) }))
   handle('promptPresets:reorder', ({ ids }) => {
     reorderPromptPresets(ids)
   })
@@ -398,8 +416,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     })
     if (result.canceled || !result.filePath) return { saved: false }
     try {
-      const { archive, skippedFiles } = await exportNais(app.getVersion())
-      writeFileSync(result.filePath, archive)
+      const { skippedFiles } = await exportNais(result.filePath, app.getVersion())
       return { saved: true, skippedFiles }
     } catch (error) {
       return { saved: false, error: error instanceof Error ? error.message : String(error) }
@@ -430,17 +447,28 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
       properties: ['openFile']
     })
     if (result.canceled || !result.filePaths[0]) return { canceled: true as const }
+    // 가져오기는 대상 테이블을 비우고 다시 채운다 — 직전 상태를 남기지 못하면 아무것도 바꾸지 않는다
+    const options = {
+      beforeReplace: (): void => {
+        try {
+          snapshotBeforeImport()
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error)
+          throw new Error(t('ui.importSnapshotFailed', reason))
+        }
+      }
+    }
     try {
       const input = readFileSync(result.filePaths[0])
       if (hasZipSignature(input)) {
-        const { imported } = await importNais(input)
+        const { imported } = await importNais(input, options)
         return { summary: t('ui.naisArchiveRestored', imported), needsPromptReload: true }
       }
 
       const data = JSON.parse(input.toString('utf-8')) as Record<string, unknown>
       // 포맷 감지: NAIS3는 _app='NAIS3', NAIS2는 nais2-* 키
       if (data._app === 'NAIS3') {
-        const { imported, skippedFiles } = importLegacyJson(data)
+        const { imported, skippedFiles } = importLegacyJson(data, options)
         const skipped = skippedFiles ? t('ui.backupMissingImagesSkipped', skippedFiles) : ''
         return {
           summary: t('ui.nais3JsonRestored', imported, skipped),
@@ -448,7 +476,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
         }
       }
       if (Object.keys(data).some((k) => k.startsWith('nais2-'))) {
-        const r = importNais2(data)
+        const r = importNais2(data, options)
         const parts = [
           r.characters ? t('ui.characterValue', r.characters) : '',
           r.presets ? t('ui.valuePresets', r.presets) : '',
@@ -467,6 +495,40 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     } catch (e) {
       return { error: e instanceof Error ? e.message : String(e) }
     }
+  })
+  handle('backup:listRecoverable', () => {
+    try {
+      return listRecoverableBackups()
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) }
+    }
+  })
+  // 부가 안내라 실패해도 시작을 방해하지 않는다 — 설정의 백업 목록에서 다시 볼 수 있다
+  handle('backup:recoveryNotice', () => {
+    try {
+      return { backup: findRecoveryNotice() }
+    } catch (e) {
+      console.error('Recovery notice check failed:', e)
+      return { backup: null }
+    }
+  })
+  handle('backup:dismissRecoveryNotice', ({ id }) => {
+    dismissRecoveryNotice(id)
+  })
+  handle('backup:restore', ({ id }) => {
+    // 생성 결과를 쓰는 도중에 DB를 닫지 않는다
+    if (ctx.queue.status().running) return { error: t('ui.recoveryQueueRunning') }
+    try {
+      restoreRecoverableBackup(id)
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) }
+    }
+    // DB는 이미 닫혔다 — 응답이 렌더러에 닿은 뒤 바뀐 DB로 다시 시작한다
+    setTimeout(() => {
+      app.relaunch()
+      app.exit(0)
+    }, 600)
+    return { restarting: true as const }
   })
   handle('scenes:list', ({ presetId }) => ({ items: listScenes(presetId) }))
   handle('scenes:create', ({ presetId, name }) => ({ id: createScene(presetId, name) }))
@@ -626,7 +688,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     deleteFragmentFolder(id)
   })
 
-  handle('tags:search', ({ query, limit }) => ({ items: searchTags(query, limit) }))
+  handle('tags:search', async ({ query, limit }) => ({ items: await searchTags(query, limit) }))
   handle('tokens:count', async ({ texts, model }) => {
     // 토큰 수는 실제 전송본 기준 — 조각(<이름>)·주석을 치환/제거한 결과로 센다.
     // rng 고정(항상 첫 줄)이라 결정적이고, peek이라 <*이름> 순차 카운터를 소모하지 않는다.
@@ -806,6 +868,34 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     }
   })
 
+  // 무료 배경 제거 — HF Space 호출과 결과 내려받기는 메인에서. Anlas·토큰 불필요
+  handle('images:removeBackgroundFree', async ({ imageBase64 }, event) => {
+    try {
+      const input = Buffer.from(imageBase64.replace(/^data:[^,]+,/, ''), 'base64')
+      if (input.length === 0) return { error: t('ui.noInputProvided') }
+      // 업로드 전 메타데이터 제거·결과 PNG 변환은 개발 게이트웨이와 같은 코덱으로
+      const { image: png, spaceId } = await removeBackgroundFree(input, {
+        ...freeBgImageCodec(sharp),
+        // 진행 상태는 요청한 창에만 — 다른 창의 디렉터에 남의 진행이 뜨지 않게
+        onProgress: (progress) => {
+          if (!event.sender.isDestroyed())
+            event.sender.send('images:removeBackgroundFreeProgress', progress)
+        }
+      })
+      const saved = await saveGeneratedImage({
+        png,
+        sentPayload: JSON.stringify({ backgroundRemoval: 'huggingface', space: spaceId }),
+        seed: 0,
+        kind: 'bg-removal'
+      })
+      return { filePath: saved.filePath, base64: png.toString('base64') }
+    } catch (e) {
+      if (e instanceof FreeBgRemovalError)
+        return { error: freeBgRemovalFailureMessage(e.attempts, t) }
+      return { error: e instanceof Error ? e.message : String(e) }
+    }
+  })
+
   handle('images:upscale', async ({ imageBase64 }) => {
     const account = getActiveNaiAccount()
     const token = getNaiToken()
@@ -912,6 +1002,9 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   // 바이브 / 캐릭터 레퍼런스 라이브러리 (공용 저장소, kind로 분기)
   handle('vibes:list', () => listVibes())
   handle('vibes:add', async ({ folderId }) => ({ count: await addRefImages('vibe', folderId) }))
+  handle('vibes:addFrom', ({ folderId, filePaths, images }) =>
+    addRefImagesFrom('vibe', folderId, filePaths ?? [], images ?? [])
+  )
   handle('vibes:update', ({ id, patch }) => {
     updateRefImage('vibe', id, patch)
   })
@@ -938,6 +1031,9 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
 
   handle('crefs:list', () => listCharRefs())
   handle('crefs:add', async ({ folderId }) => ({ count: await addRefImages('charref', folderId) }))
+  handle('crefs:addFrom', ({ folderId, filePaths, images }) =>
+    addRefImagesFrom('charref', folderId, filePaths ?? [], images ?? [])
+  )
   handle('crefs:update', ({ id, patch }) => {
     updateRefImage('charref', id, patch)
   })

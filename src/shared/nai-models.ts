@@ -74,7 +74,17 @@ export function effectiveSteps(model: string, steps: number): number {
 
 export interface NaiModelCapabilities {
   vibes: boolean
+  /** Precise Reference (director reference) */
   characterReferences: boolean
+  /** References are sent with inpainting masks */
+  characterReferenceInpainting: boolean
+  /** Outfit references and the "Prefer same outfit" toggle */
+  outfitReferences: boolean
+  /** Fidelity slider (secondary strength); without it fidelity is sent as 1 */
+  characterReferenceFidelity: boolean
+  characterReferenceStrengthMax: number
+  /** canvas: padded 1024×1536 / 1536×1024 / 1472×1472; bucket: cover-crop to ~1 MP buckets */
+  characterReferenceImages: 'canvas' | 'bucket'
   variety: boolean
   noiseScheduleSelection: boolean
   transparency: boolean
@@ -85,7 +95,12 @@ export function modelCapabilities(model: string): NaiModelCapabilities {
   if (isV5Model(model)) {
     return {
       vibes: false,
-      characterReferences: false,
+      characterReferences: true,
+      characterReferenceInpainting: false,
+      outfitReferences: true,
+      characterReferenceFidelity: false,
+      characterReferenceStrengthMax: 5,
+      characterReferenceImages: 'bucket',
       variety: false,
       noiseScheduleSelection: false,
       transparency: true,
@@ -95,6 +110,11 @@ export function modelCapabilities(model: string): NaiModelCapabilities {
   return {
     vibes: true,
     characterReferences: true,
+    characterReferenceInpainting: true,
+    outfitReferences: false,
+    characterReferenceFidelity: true,
+    characterReferenceStrengthMax: 1,
+    characterReferenceImages: 'canvas',
     variety: true,
     noiseScheduleSelection: true,
     transparency: false,

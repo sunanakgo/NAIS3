@@ -1,6 +1,10 @@
 import { create } from 'zustand'
-import type { CharRefItem, CharRefType, ListFolder, VibeItem } from '@shared/types'
+import type { MessageId } from '@shared/i18n'
+import type { BaseReferenceType } from '@shared/precise-reference'
+import type { CharRefItem, ListFolder, VibeItem } from '@shared/types'
 import { canonicalize, moveRow, toOrderEntries } from '../lib/folder-list'
+import { t } from '../lib/i18n'
+import { toast } from './toast-store'
 
 /**
  * 바이브 / 캐릭터 레퍼런스 라이브러리 스토어 팩토리.
@@ -16,6 +20,8 @@ interface RefsState<T extends { id: number; folderId: number | null }> {
   setOverlayOpen: (open: boolean) => void
   load: () => Promise<void>
   add: (folderId: number | null) => Promise<void>
+  /** 앱 안 이미지 경로 / 드롭한 파일로 추가 — 결과를 토스트로 알린다 */
+  addFrom: (source: RefImageSource, folderId?: number | null) => Promise<void>
   update: (id: number, patch: Record<string, unknown>) => void
   remove: (id: number) => void
   duplicate: (id: number) => Promise<void>
@@ -31,6 +37,7 @@ function makeRefsStore<T extends { id: number; folderId: number | null }>(ns: st
   const ch = {
     list: `${ns}:list`,
     add: `${ns}:add`,
+    addFrom: `${ns}:addFrom`,
     update: `${ns}:update`,
     delete: `${ns}:delete`,
     duplicate: `${ns}:duplicate`,
@@ -69,6 +76,37 @@ function makeRefsStore<T extends { id: number; folderId: number | null }>(ns: st
     add: async (folderId) => {
       const { count } = await window.nais.invoke(ch.add, { folderId })
       if (count > 0) await get().load()
+    },
+    addFrom: async (source, folderId = null) => {
+      const filePaths = source.filePaths ?? []
+      const files = (source.files ?? []).filter((f) => f.type.startsWith('image/'))
+      const skipped = (source.files?.length ?? 0) - files.length
+      const total = filePaths.length + files.length
+      if (total === 0) {
+        if (skipped > 0) toast(t('ui.valueImagesCouldNotBeAddedAsReferences', skipped), 'error')
+        return
+      }
+      let count = 0
+      let failed = total
+      try {
+        const images = await Promise.all(files.map(readImageFile))
+        const result = await window.nais.invoke(ch.addFrom, { folderId, filePaths, images })
+        count = result.count
+        failed = result.failed
+      } catch {
+        // 읽기/IPC 실패 — 전부 실패로 안내
+      }
+      if (count > 0) {
+        toast(
+          ns === 'vibes'
+            ? t('ui.valueImagesAddedToVibeTransfer', count)
+            : t('ui.valueImagesAddedToCharacterReference', count),
+          'success'
+        )
+        await get().load()
+      }
+      if (failed + skipped > 0)
+        toast(t('ui.valueImagesCouldNotBeAddedAsReferences', failed + skipped), 'error')
     },
     update: (id, patch) => {
       set({ items: get().items.map((c) => (c.id === id ? { ...c, ...patch } : c)) })
@@ -125,6 +163,21 @@ function makeRefsStore<T extends { id: number; folderId: number | null }>(ns: st
   }))
 }
 
+/** addFrom 입력 — 히스토리·라이브러리·씬 이미지 경로, 또는 외부에서 드롭한 파일 */
+export interface RefImageSource {
+  filePaths?: string[]
+  files?: File[]
+}
+
+function readImageFile(file: File): Promise<{ name: string; base64: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve({ name: file.name, base64: String(reader.result ?? '') })
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
 export const useVibesStore = makeRefsStore<VibeItem>('vibes')
 export const useCharRefsStore = makeRefsStore<CharRefItem>('crefs')
 
@@ -134,13 +187,19 @@ export function refsStoreFor(kind: 'vibe' | 'charref'): AnyRefsStore {
   return (kind === 'vibe' ? useVibesStore : useCharRefsStore) as unknown as AnyRefsStore
 }
 
-export const CHARREF_TYPES: { value: CharRefType; label: string }[] = [
-  { value: 'character', label: 'Character' },
-  { value: 'style', label: 'Style' },
-  { value: 'character&style', label: 'Character & Style' },
-  { value: 'costume', label: 'Costume' },
-  { value: 'delta', label: 'Delta' }
-]
+/** 이미지 우클릭 메뉴 등 레퍼런스 화면 밖에서 이미지 경로를 바이브/캐릭레퍼로 보낼 때 */
+export function addImagesToRefs(kind: 'vibe' | 'charref', filePaths: string[]): Promise<void> {
+  return refsStoreFor(kind).getState().addFrom({ filePaths })
+}
+
+/** Precise Reference type picker labels (variants share their base entry) */
+export const REFERENCE_TYPE_LABELS: Record<BaseReferenceType, MessageId> = {
+  'character&style': 'ui.referenceTypeCharacterAndStyle',
+  character: 'ui.referenceTypeCharacter',
+  style: 'ui.referenceTypeStyle',
+  costume: 'ui.referenceTypeOutfit',
+  delta: 'ui.referenceTypeDelta'
+}
 
 export function enabledRefCount(): { vibes: number; crefs: number } {
   return {

@@ -23,9 +23,16 @@ import {
 import { useEffect, useRef, useState, type ComponentType } from 'react'
 import { directorAugmentCost, UPSCALE_ANLAS_COST } from '@shared/anlas'
 import type { MessageId } from '@shared/i18n'
-import { EMOTIONS, type DirectorMethod, type LocalEditKind } from '@shared/types'
+import {
+  EMOTIONS,
+  type DirectorMethod,
+  type FreeBgRemovalProgress,
+  type FreeBgRemovalSpace,
+  type LocalEditKind
+} from '@shared/types'
 import { useT } from '../lib/i18n'
 import { useArtistTagsStore } from '../stores/artist-tags-store'
+import { askConfirm } from '../stores/dialog-store'
 import { openInDirector, useDirectorStore } from '../stores/director-store'
 import { useGenerationStore } from '../stores/generation-store'
 import { useLayoutStore } from '../stores/layout-store'
@@ -44,7 +51,15 @@ import { MaskWorkspace } from './mask-workspace'
 import { ZoomableImageStage } from './image-viewport'
 
 type ToolGroup = 'ai' | 'main' | 'local'
-type ToolId = DirectorMethod | 'upscale' | 'i2i' | 'inpaint' | 'mosaic' | 'pixelate' | 'artist-tags'
+type ToolId =
+  | DirectorMethod
+  | 'upscale'
+  | 'i2i'
+  | 'inpaint'
+  | 'mosaic'
+  | 'pixelate'
+  | 'bg-removal-free'
+  | 'artist-tags'
 
 /**
  * 디렉터 툴 목록 — 그룹 순서대로 표시.
@@ -129,7 +144,14 @@ const TOOLS: {
     desc: 'ui.pixelArtDescription',
     icon: Gamepad2
   },
-  // Anlas는 안 쓰지만 외부(HF Space) 호출 — 인터넷 필요
+  // Anlas는 안 쓰지만 외부(HF Space) 호출 — 인터넷 필요, 이미지가 제3자 Space로 전송됨
+  {
+    id: 'bg-removal-free',
+    group: 'local',
+    label: 'ui.removeBgFree',
+    desc: 'ui.removeBgFreeDescription',
+    icon: Eraser
+  },
   {
     id: 'artist-tags',
     group: 'local',
@@ -161,6 +183,8 @@ export function DirectorMode(): React.JSX.Element {
   const setSource = useDirectorStore((s) => s.setSource)
   const run = useDirectorStore((s) => s.run)
   const upscale = useDirectorStore((s) => s.upscale)
+  const removeBackgroundFree = useDirectorStore((s) => s.removeBackgroundFree)
+  const freeBgProgress = useDirectorStore((s) => s.freeBgProgress)
   const undo = useDirectorStore((s) => s.undo)
   const clear = useDirectorStore((s) => s.clear)
   const instantRun = useDirectorStore((s) => s.instantRun)
@@ -280,6 +304,9 @@ export function DirectorMode(): React.JSX.Element {
               openLocalEditor(id, source, dims)
           })
         break
+      case 'bg-removal-free':
+        void runFreeBgRemoval()
+        break
       case 'artist-tags':
         void useArtistTagsStore.getState().show({ base64: source })
         break
@@ -295,6 +322,19 @@ export function DirectorMode(): React.JSX.Element {
       default:
         void run(id)
     }
+  }
+
+  // 이미지가 제3자 Space로 나가므로 처음 한 번은 안내를 보여 주고 확인을 받는다
+  async function runFreeBgRemoval(): Promise<void> {
+    if (!useDirectorStore.getState().freeBgConsent) {
+      const ok = await askConfirm(t('ui.freeBgConsentTitle'), {
+        message: t('ui.removeBgFreePrivacyNotice'),
+        confirmLabel: t('ui.freeBgConsentConfirm')
+      })
+      if (!ok) return
+      useDirectorStore.getState().acceptFreeBgConsent()
+    }
+    void removeBackgroundFree()
   }
 
   const selectedTool = TOOLS.find((tool) => tool.id === selected) ?? null
@@ -397,7 +437,12 @@ export function DirectorMode(): React.JSX.Element {
         {loading && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/45 text-white backdrop-blur-sm">
             <Loader2 size={40} className="animate-spin" />
-            <span className="text-[13px]">{t('ui.processing')}</span>
+            <span className="text-[13px]" aria-live="polite">
+              {freeBgProgress ? freeBgProgressLabel(t, freeBgProgress) : t('ui.processing')}
+            </span>
+            {freeBgProgress?.space === 'fallback' && (
+              <span className="text-[12px] opacity-80">{t('ui.freeBgUsingFallback')}</span>
+            )}
           </div>
         )}
 
@@ -456,7 +501,9 @@ export function DirectorMode(): React.JSX.Element {
                   }
                   onSelect={() => {
                     setSelected(tool.id)
-                    if (instantRun && canRun(group.id)) runTool(tool.id)
+                    // 외부 업로드는 즉시 실행에서 제외 — 안내를 읽고 실행 버튼으로만 보낸다
+                    if (instantRun && tool.id !== 'bg-removal-free' && canRun(group.id))
+                      runTool(tool.id)
                   }}
                   // 더블클릭은 바로 실행 — 즉시 실행이 꺼져 있을 때의 지름길
                   onRun={() => !instantRun && canRun(group.id) && runTool(tool.id)}
@@ -482,6 +529,11 @@ export function DirectorMode(): React.JSX.Element {
                   <CostChip cost={costOf(selectedTool.id, selectedTool.group)} />
                 )}
               </div>
+              {selectedTool.id === 'bg-removal-free' && (
+                <p className="text-[11px] leading-relaxed text-muted">
+                  {t('ui.removeBgFreePrivacyNotice')}
+                </p>
+              )}
               {selectedTool.id === 'colorize' && (
                 <>
                   <Input
@@ -682,6 +734,23 @@ function openLocalEditor(
       />
     )
   })
+}
+
+/** 무료 배경 제거에 쓰는 Space 이름 (고유명사 — 번역하지 않음) */
+const FREE_BG_SPACE_NAMES: Record<FreeBgRemovalSpace, string> = {
+  primary: 'BRIA RMBG 2.0',
+  fallback: 'anime-remove-background'
+}
+
+/** 무료 배경 제거 진행 문구 — gradio 대기열 순번은 0부터라 +1 해서 보여 준다 */
+function freeBgProgressLabel(t: ReturnType<typeof useT>, p: FreeBgRemovalProgress): string {
+  const name = FREE_BG_SPACE_NAMES[p.space]
+  if (p.stage === 'connecting') return t('ui.freeBgConnecting', name)
+  if (p.stage === 'queued')
+    return p.position != null
+      ? t('ui.freeBgQueuedAt', name, p.position + 1)
+      : t('ui.freeBgQueued', name)
+  return t('ui.freeBgProcessing', name)
 }
 
 /** base64 이미지의 실제 픽셀 크기 */

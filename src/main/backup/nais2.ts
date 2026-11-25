@@ -3,6 +3,7 @@ import { getSetting, setSetting } from '../db/settings'
 import { t } from '../i18n'
 import { createPromptPreset } from '../prompts/repo'
 import type { PresetParams } from '../../shared/types'
+import type { ImportOptions } from './types'
 
 export interface Nais2ImportResult {
   characters: number
@@ -15,7 +16,8 @@ export interface Nais2ImportResult {
 /**
  * NAIS2 백업 JSON → NAIS3 가져오기 (텍스트 데이터만: 캐릭터·프롬프트 프리셋·조각).
  * 바이브/캐릭레퍼/라이브러리 이미지는 NAIS2 백업 JSON에 원본 base64가 비어 있어(파일 경로만) 제외.
- * 기존 NAIS3 데이터는 지우지 않고 추가(merge)한다.
+ * 캐릭터·프롬프트 프리셋·조각은 가져올 항목이 있으면 기존 것을 비우고 교체하고, 씬은 새 프리셋으로
+ * 추가(merge)한다 — 교체 직전에 options.beforeReplace를 부른다.
  */
 
 type Obj = Record<string, unknown>
@@ -63,7 +65,7 @@ function nais2PresetParams(p: Obj): PresetParams | undefined {
   return hasAny ? params : undefined
 }
 
-export function importNais2(data: Obj): Nais2ImportResult {
+export function importNais2(data: Obj, options: ImportOptions = {}): Nais2ImportResult {
   const db = getDb()
   const res: Nais2ImportResult = {
     characters: 0,
@@ -240,6 +242,8 @@ export function importNais2(data: Obj): Nais2ImportResult {
       res.prompt = true
     }
   })
+  // 트랜잭션 밖에서 — VACUUM INTO 스냅샷은 트랜잭션 안에서 실행할 수 없다
+  options.beforeReplace?.()
   tx()
   return res
 }

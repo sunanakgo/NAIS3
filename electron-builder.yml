@@ -51,8 +51,9 @@ nsis:
   allowToChangeInstallationDirectory: true
   # 차등 업데이트: .blockmap 파일 1개 추가되는 대신 업데이트 시 변경 블록만 다운로드 (훨씬 빠름)
 mac:
-  # macOS 표준 여백(박스 ~80%) 버전
-  icon: build/icon.png
+  # Icon Composer 아이콘 — macOS 26+는 Liquid Glass로 그리고, 이전 macOS용 icns도 여기서 만든다.
+  # 빌드 머신에 Xcode 26 이상(actool)이 필요하다
+  icon: build/icon.icon
   # zip에 아키텍처 명시 (기본값은 x64에서 arch 생략 → 업데이터가 못 찾음). dmg는 아래 dmg.artifactName이 우선
   artifactName: ${name}-${version}-${arch}-mac.${ext}
   entitlementsInherit: build/entitlements.mac.plist

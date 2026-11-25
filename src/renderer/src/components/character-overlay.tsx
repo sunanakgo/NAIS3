@@ -514,37 +514,41 @@ export function CharacterOverlay(): React.JSX.Element {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+      </div>
+
+      {/* 툴바 — 검색은 한 줄 전체, 버튼은 아랫줄에 크게 */}
+      <div className="flex items-center gap-1.5">
         <Button
-          size="sm"
-          variant="ghost"
+          size="icon"
           title={t('ui.addFolder')}
           onClick={() => void createFolder(t('ui.newFolder'))}
         >
-          <FolderPlus size={14} />
+          <FolderPlus size={17} />
         </Button>
         <Button
-          size="sm"
-          variant={randomMode ? 'accent' : 'ghost'}
+          size="icon"
+          variant={randomMode ? 'accent' : 'default'}
+          aria-pressed={randomMode}
           title={t('ui.randomCharacter')}
           onClick={() => toggleSelectionMode('random')}
         >
-          <Dices size={14} />
+          <Dices size={17} />
         </Button>
         <Button
-          size="sm"
-          variant={editMode ? 'accent' : 'ghost'}
+          size="icon"
+          variant={editMode ? 'accent' : 'default'}
+          aria-pressed={editMode}
           title={t('ui.editModeMultiSelectClickToToggleShiftClickForRangeCtrlAForAll')}
           onClick={() => toggleSelectionMode('edit')}
         >
-          <CheckSquare size={14} />
+          <CheckSquare size={17} />
         </Button>
         <Button
-          size="sm"
           variant="accent"
-          className="gap-1"
+          className="flex-1"
           onClick={() => void createCard(null, maxCharacters)}
         >
-          <Plus size={13} /> {t('ui.character')}
+          <Plus size={16} /> {t('ui.character')}
         </Button>
       </div>
 

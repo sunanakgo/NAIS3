@@ -323,24 +323,28 @@ export function RefOverlay({ kind }: { kind: 'vibe' | 'charref' }): React.JSX.El
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+      </div>
+
+      {/* 툴바 — 검색은 한 줄 전체, 버튼은 아랫줄에 크게 */}
+      <div className="flex items-center gap-1.5">
         <Button
-          size="sm"
-          variant="ghost"
+          size="icon"
           title={t('ui.addFolder')}
           onClick={() => void createFolder(t('ui.newFolder'))}
         >
-          <FolderPlus size={14} />
+          <FolderPlus size={17} />
         </Button>
         <Button
-          size="sm"
-          variant={editMode ? 'accent' : 'ghost'}
+          size="icon"
+          variant={editMode ? 'accent' : 'default'}
+          aria-pressed={editMode}
           title={t('ui.editModeMultiSelectClickToToggleShiftClickForRangeCtrlAForAll')}
           onClick={toggleEditMode}
         >
-          <CheckSquare size={14} />
+          <CheckSquare size={17} />
         </Button>
-        <Button size="sm" variant="accent" className="gap-1" onClick={() => void add(null)}>
-          <ImagePlus size={13} /> {t('ui.add')}
+        <Button variant="accent" className="flex-1" onClick={() => void add(null)}>
+          <ImagePlus size={16} /> {t('ui.add')}
         </Button>
       </div>
 

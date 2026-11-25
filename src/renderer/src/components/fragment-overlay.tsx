@@ -231,23 +231,25 @@ export function FragmentOverlay(): React.JSX.Element {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+      </div>
+
+      {/* 툴바 — 검색은 한 줄 전체, 버튼은 아랫줄에 크게 */}
+      <div className="flex items-center gap-1.5">
         <Button
-          size="sm"
-          variant="ghost"
+          size="icon"
           title={t('ui.addFolder')}
           onClick={() => void createFolder(t('ui.newFolder'))}
         >
-          <FolderPlus size={14} />
+          <FolderPlus size={17} />
         </Button>
         <Button
-          size="sm"
           variant="accent"
-          className="gap-1"
+          className="flex-1"
           onClick={() => {
             void create(null).then((id) => setExpandedId(id))
           }}
         >
-          <Plus size={13} /> {t('ui.fragments')}
+          <Plus size={16} /> {t('ui.fragments')}
         </Button>
       </div>
 

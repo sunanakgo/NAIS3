@@ -150,6 +150,21 @@ function webPath(base64: string): string {
   return `data:image/png;base64,${base64}`
 }
 
+/** Whether base64 content is PNG, JPEG or WebP, judged by its leading signature bytes */
+function isRefImageBase64(base64: string): boolean {
+  let head: string
+  try {
+    head = atob(base64.slice(0, 16))
+  } catch {
+    return false
+  }
+  return (
+    head.startsWith('\x89PNG\r\n\x1a\n') ||
+    head.startsWith('\xff\xd8\xff') ||
+    (head.startsWith('RIFF') && head.slice(8, 12) === 'WEBP')
+  )
+}
+
 /** Stored base64 thumbnail → the URL field carried by the shared list types */
 function thumbnailDataUrl(base64: string | undefined): string {
   return base64 ? `data:image/webp;base64,${base64}` : ''
@@ -959,35 +974,54 @@ async function refsDispatch(channel: string, request: Record<string, unknown>): 
     const folders = vibe ? state.vibeFolders : state.charRefFolders
     const action = channel.slice(channel.indexOf(':') + 1)
     if (action === 'list') return { folders, items }
+    const pushRef = (name: string, thumbnail: string): void => {
+      const id = nextBrowserId(state)
+      if (vibe)
+        state.vibes.push({
+          id,
+          name,
+          thumbnail,
+          enabled: true,
+          strength: 0.6,
+          infoExtracted: 1,
+          encodedReady: false,
+          folderId: (request.folderId as number | null) ?? null
+        })
+      else
+        state.charRefs.push({
+          id,
+          name,
+          thumbnail,
+          enabled: true,
+          refType: 'character&style',
+          strength: 1,
+          fidelity: 1,
+          folderId: (request.folderId as number | null) ?? null
+        })
+    }
     if (action === 'add') {
       const files = await pickFiles('image/*', true)
-      for (const file of files) {
-        const thumbnail = await fileBase64(file)
-        const id = nextBrowserId(state)
-        if (vibe)
-          state.vibes.push({
-            id,
-            name: file.name,
-            thumbnail,
-            enabled: true,
-            strength: 0.6,
-            infoExtracted: 1,
-            encodedReady: false,
-            folderId: (request.folderId as number | null) ?? null
-          })
-        else
-          state.charRefs.push({
-            id,
-            name: file.name,
-            thumbnail,
-            enabled: true,
-            refType: 'character&style',
-            strength: 1,
-            fidelity: 1,
-            folderId: (request.folderId as number | null) ?? null
-          })
-      }
+      for (const file of files) pushRef(file.name, await fileBase64(file))
       return { count: files.length }
+    }
+    if (action === 'addFrom') {
+      const filePaths = (request.filePaths as string[] | undefined) ?? []
+      const images = (request.images as { name: string; base64: string }[] | undefined) ?? []
+      let count = 0
+      for (const filePath of filePaths) {
+        const image = findBrowserImage(state, filePath)
+        if (!image?.base64 || !isRefImageBase64(image.base64)) continue
+        pushRef('', image.base64)
+        count++
+      }
+      for (const image of images) {
+        const base64 = String(image.base64 ?? '').replace(/^data:[^,]+,/, '')
+        // Like the app, accept only PNG/JPEG/WebP, judged by content rather than the name
+        if (!isRefImageBase64(base64)) continue
+        pushRef(String(image.name ?? '').replace(/\.[^.]+$/, ''), base64)
+        count++
+      }
+      return { count, failed: filePaths.length + images.length - count }
     }
     if (action === 'update') {
       const item = items.find((candidate) => candidate.id === request.id)

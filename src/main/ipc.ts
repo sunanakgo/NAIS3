@@ -126,6 +126,7 @@ import {
   createPromptPreset,
   updatePromptPreset,
   deletePromptPreset,
+  duplicatePromptPreset,
   reorderPromptPresets
 } from './prompts/repo'
 import {
@@ -155,6 +156,7 @@ import { startUpdateDownload } from './updater'
 import { countPromptTokens } from './nai/token-counter'
 import {
   addRefImages,
+  addRefImagesFrom,
   collapseRefFolder,
   colorRefFolder,
   createRefFolder,
@@ -386,6 +388,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   handle('promptPresets:delete', ({ id }) => {
     deletePromptPreset(id)
   })
+  handle('promptPresets:duplicate', ({ id }) => ({ id: duplicatePromptPreset(id) }))
   handle('promptPresets:reorder', ({ ids }) => {
     reorderPromptPresets(ids)
   })
@@ -677,7 +680,7 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
     deleteFragmentFolder(id)
   })
 
-  handle('tags:search', ({ query, limit }) => ({ items: searchTags(query, limit) }))
+  handle('tags:search', async ({ query, limit }) => ({ items: await searchTags(query, limit) }))
   handle('tokens:count', async ({ texts, model }) => {
     // 토큰 수는 실제 전송본 기준 — 조각(<이름>)·주석을 치환/제거한 결과로 센다.
     // rng 고정(항상 첫 줄)이라 결정적이고, peek이라 <*이름> 순차 카운터를 소모하지 않는다.
@@ -963,6 +966,9 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
   // 바이브 / 캐릭터 레퍼런스 라이브러리 (공용 저장소, kind로 분기)
   handle('vibes:list', () => listVibes())
   handle('vibes:add', async ({ folderId }) => ({ count: await addRefImages('vibe', folderId) }))
+  handle('vibes:addFrom', ({ folderId, filePaths, images }) =>
+    addRefImagesFrom('vibe', folderId, filePaths ?? [], images ?? [])
+  )
   handle('vibes:update', ({ id, patch }) => {
     updateRefImage('vibe', id, patch)
   })
@@ -989,6 +995,9 @@ export function registerIpcHandlers(ctx: { dbVersion: number; queue: GenerationQ
 
   handle('crefs:list', () => listCharRefs())
   handle('crefs:add', async ({ folderId }) => ({ count: await addRefImages('charref', folderId) }))
+  handle('crefs:addFrom', ({ folderId, filePaths, images }) =>
+    addRefImagesFrom('charref', folderId, filePaths ?? [], images ?? [])
+  )
   handle('crefs:update', ({ id, patch }) => {
     updateRefImage('charref', id, patch)
   })

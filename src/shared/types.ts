@@ -54,6 +54,15 @@ export interface CharRefItem {
   folderId: number | null
 }
 
+/** 경로/드롭 이미지로 레퍼런스 추가 요청 (vibes:addFrom · crefs:addFrom 공용) */
+export interface RefAddFromRequest {
+  folderId: number | null
+  /** 앱이 보여 주는 이미지 경로 — 메인에서 저장 폴더/라이브러리/메모리 이미지인지 검증 */
+  filePaths?: string[]
+  /** 외부에서 드롭한 파일 (data URL 또는 base64) */
+  images?: { name: string; base64: string }[]
+}
+
 export interface GenerationRequest {
   prompt: string
   /** Optional NAIS2-style split prompt parts. prompt is still the merged send text. */
@@ -597,7 +606,7 @@ export interface IpcInvokeMap {
   'frags:folderDelete': { req: { id: number }; res: void }
   'tags:search': {
     req: { query: string; limit?: number }
-    res: { items: { tag: string; count: number; type: string }[] }
+    res: { items: { tag: string; count: number; type: string; rank: number }[] }
   }
   /** 모델별 토큰 카운트 (V5=Qwen 3.5, 이전 모델=T5) */
   'tokens:count': { req: { texts: string[]; model: string }; res: { counts: number[] } }
@@ -686,6 +695,8 @@ export interface IpcInvokeMap {
     res: void
   }
   'promptPresets:delete': { req: { id: number }; res: void }
+  /** 프리셋 복제 — 내용 전체 복사, 이름에 복제 표시, 목록 끝에 추가. 원본이 없으면 id 0 */
+  'promptPresets:duplicate': { req: { id: number }; res: { id: number } }
   /** 업데이트 다운로드 시작 (완료 시 자동 설치/재시작) */
   'update:start': { req: void; res: void }
   /** 전체 데이터 .nais 내보내기 (저장 다이얼로그) */
@@ -774,6 +785,14 @@ export interface IpcInvokeMap {
   'vibes:list': { req: void; res: { folders: ListFolder[]; items: VibeItem[] } }
   /** 파일 다이얼로그(다중)로 추가 */
   'vibes:add': { req: { folderId: number | null }; res: { count: number } }
+  /**
+   * 앱 안 이미지 경로(히스토리·라이브러리·씬) 또는 외부 드롭(base64)으로 추가.
+   * failed = 허용되지 않은 경로·읽기 실패·PNG/JPEG/WebP가 아닌 항목 수
+   */
+  'vibes:addFrom': {
+    req: RefAddFromRequest
+    res: { count: number; failed: number }
+  }
   'vibes:update': {
     req: {
       id: number
@@ -791,6 +810,10 @@ export interface IpcInvokeMap {
   'vibes:folderDelete': { req: { id: number }; res: void }
   'crefs:list': { req: void; res: { folders: ListFolder[]; items: CharRefItem[] } }
   'crefs:add': { req: { folderId: number | null }; res: { count: number } }
+  'crefs:addFrom': {
+    req: RefAddFromRequest
+    res: { count: number; failed: number }
+  }
   'crefs:update': {
     req: {
       id: number

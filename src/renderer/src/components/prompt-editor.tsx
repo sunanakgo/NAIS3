@@ -5,7 +5,9 @@ import { cn } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { caretCoords } from '../lib/caret'
 import { highlightRanges } from '../lib/prompt-weights'
+import { cachedTagSuggestions, rememberTagSuggestions } from '../lib/tag-suggestions'
 import { fragmentAtSelection, fragmentPaths, useFragmentsStore } from '../stores/fragments-store'
+import type { TagEntry } from '@shared/tag-search'
 
 /**
  * 프롬프트 에디터.
@@ -16,7 +18,7 @@ import { fragmentAtSelection, fragmentPaths, useFragmentsStore } from '../stores
  * - 테두리는 컨테이너가 가진다 (textarea/미러 metrics 완전 동일 보장)
  *
  * 색: 강조({}·양수 가중치)=붉은색, 약화([]·1 미만·음수)=파란색, <조각>=녹색
- * 자동완성: 커서 바로 아래 팝업. `<`는 조각, 그 외 토큰은 단부루 태그(IPC 검색)
+ * 자동완성: 커서 바로 아래 팝업. `<`는 조각, 그 외 토큰은 단부루 태그(IPC 검색 + 렌더러 캐시)
  */
 
 // 폰트 크기는 설정값(--prompt-size)을 따름. mirror/textarea가 동일해야 배경 정렬이 맞는다.
@@ -28,6 +30,7 @@ type Suggestion =
   { kind: 'frag'; path: string } | { kind: 'tag'; tag: string; count: number; type: string }
 
 const TAG_TOKEN_SEPARATORS = /[,\n{}[\]|<>:/]/
+const TAG_SUGGESTION_LIMIT = 8
 
 function formatCount(count: number): string {
   if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`
@@ -267,14 +270,25 @@ export function PromptEditor({
       return
     }
     setTokenStart(start)
+    const query = token.trim()
+    const showTags = (items: TagEntry[]): void => {
+      setSuggestions(items.map((t) => ({ kind: 'tag' as const, ...t })))
+      setSelected(0)
+      if (items.length > 0) placePopup(items.length)
+    }
+    // 캐시로 답할 수 있으면 디바운스·IPC 없이 즉시
+    const cached = cachedTagSuggestions(query, TAG_SUGGESTION_LIMIT)
+    if (cached) {
+      showTags(cached)
+      return
+    }
     debounceRef.current = setTimeout(() => {
       void window.nais
-        .invoke('tags:search', { query: token.trim(), limit: 8 })
+        .invoke('tags:search', { query, limit: TAG_SUGGESTION_LIMIT })
         .then(({ items }) => {
+          rememberTagSuggestions(query, TAG_SUGGESTION_LIMIT, items)
           if (searchSeqRef.current !== seq) return // 스테일 — 그 사이 입력이 바뀜
-          setSuggestions(items.map((t) => ({ kind: 'tag' as const, ...t })))
-          setSelected(0)
-          if (items.length > 0) placePopup(items.length)
+          showTags(items)
         })
     }, 90)
   }

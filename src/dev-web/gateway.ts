@@ -17,6 +17,12 @@ import { upscaleRequest } from '../main/nai/upscale-request'
 import { isV5Model } from '../shared/nai-models'
 import { parseSubscriptionResponse, type NaiSubscriptionResponse } from '../shared/subscription'
 import { countWithQwenTokenizer, loadQwenTokenizer } from '../main/nai/qwen-tokenizer-core'
+import {
+  buildTagIndex,
+  createTagSearcher,
+  type RawTag,
+  type TagSearcher
+} from '../shared/tag-search'
 
 const API_PREFIX = '/__nais/api/'
 const MAX_BODY_BYTES = 64 * 1024 * 1024
@@ -275,20 +281,7 @@ async function route(
   }
 
   if (path === 'tags') {
-    const query = String(body.query ?? '')
-      .trim()
-      .toLowerCase()
-      .replace(/_/g, ' ')
-    const limit = Math.max(1, Math.min(50, Number(body.limit) || 8))
-    if (query.length < 2) return { items: [] }
-    const matches = tags()
-      .filter((entry) => entry.tag.startsWith(query) || entry.tag.includes(query))
-      .sort(
-        (a, b) =>
-          Number(b.tag.startsWith(query)) - Number(a.tag.startsWith(query)) || b.count - a.count
-      )
-      .slice(0, limit)
-    return { items: matches }
+    return { items: tags().search(String(body.query ?? ''), Number(body.limit)) }
   }
 
   throw new Error(`Unknown browser gateway route: ${path}`)
@@ -333,22 +326,12 @@ export function browserGateway(): Plugin {
   }
 }
 
-interface TagEntry {
-  tag: string
-  count: number
-  type: string
-}
-
-let tagCache: TagEntry[] | null = null
-function tags(): TagEntry[] {
-  if (tagCache) return tagCache
-  const source = JSON.parse(readFileSync(resolve('resources/tags.json'), 'utf8')) as {
-    value: string
-    count: number
-    type: string
-  }[]
-  tagCache = source.map((entry) => ({ tag: entry.value, count: entry.count, type: entry.type }))
-  return tagCache
+let tagSearcher: TagSearcher | null = null
+function tags(): TagSearcher {
+  tagSearcher ??= createTagSearcher(
+    buildTagIndex(JSON.parse(readFileSync(resolve('resources/tags.json'), 'utf8')) as RawTag[])
+  )
+  return tagSearcher
 }
 
 interface TokenizerDef {

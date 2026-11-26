@@ -35,6 +35,7 @@ import { askConfirm, askText } from '../stores/dialog-store'
 import { DropOverlay } from './drop-overlay'
 import { FolderListView } from './folder-list-view'
 import { Button } from './ui/button'
+import { ToolbarIconButton, ToolbarIconGroup } from './ui/toolbar-icon-button'
 import { ContextMenuItem, ContextMenuSeparator } from './ui/context-menu'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
 import { Input } from './ui/input'
@@ -325,25 +326,23 @@ export function RefOverlay({ kind }: { kind: 'vibe' | 'charref' }): React.JSX.El
         </div>
       </div>
 
-      {/* 툴바 — 검색은 한 줄 전체, 버튼은 아랫줄에 크게 */}
-      <div className="flex items-center gap-1.5">
-        <Button
-          size="icon"
-          title={t('ui.addFolder')}
-          onClick={() => void createFolder(t('ui.newFolder'))}
-        >
-          <FolderPlus size={17} />
-        </Button>
-        <Button
-          size="icon"
-          variant={editMode ? 'accent' : 'default'}
-          aria-pressed={editMode}
-          title={t('ui.editModeMultiSelectClickToToggleShiftClickForRangeCtrlAForAll')}
-          onClick={toggleEditMode}
-        >
-          <CheckSquare size={17} />
-        </Button>
-        <Button variant="accent" className="flex-1" onClick={() => void add(null)}>
+      {/* 툴바 — 왼쪽 절반은 아이콘 버튼이 1/n씩, 오른쪽 절반은 추가 버튼 */}
+      <div className="grid grid-cols-2 gap-1.5">
+        <ToolbarIconGroup>
+          <ToolbarIconButton
+            icon={<FolderPlus size={17} />}
+            label={t('ui.addFolder')}
+            onClick={() => void createFolder(t('ui.newFolder'))}
+          />
+          <ToolbarIconButton
+            icon={<CheckSquare size={17} />}
+            label={t('ui.editMode')}
+            pressed={editMode}
+            hint={t('ui.editModeMultiSelectClickToToggleShiftClickForRangeCtrlAForAll')}
+            onClick={toggleEditMode}
+          />
+        </ToolbarIconGroup>
+        <Button variant="accent" onClick={() => void add(null)}>
           <ImagePlus size={16} /> {t('ui.add')}
         </Button>
       </div>

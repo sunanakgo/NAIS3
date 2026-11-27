@@ -4,6 +4,11 @@ import { createPortal } from 'react-dom'
 import { cn } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { caretCoords } from '../lib/caret'
+import {
+  suggestionTokenAtCursor,
+  suggestionTokenEnd,
+  TAG_TOKEN_SEPARATORS
+} from '../lib/prompt-suggest-token'
 import { highlightRanges } from '../lib/prompt-weights'
 import { cachedTagSuggestions, rememberTagSuggestions } from '../lib/tag-suggestions'
 import { fragmentAtSelection, fragmentPaths, useFragmentsStore } from '../stores/fragments-store'
@@ -29,7 +34,6 @@ const TYPO =
 type Suggestion =
   { kind: 'frag'; path: string } | { kind: 'tag'; tag: string; count: number; type: string }
 
-const TAG_TOKEN_SEPARATORS = /[,\n{}[\]|<>:/]/
 const TAG_SUGGESTION_LIMIT = 8
 
 function formatCount(count: number): string {
@@ -99,6 +103,13 @@ export function PromptEditor({
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [selected, setSelected] = useState(0)
   const [tokenStart, setTokenStart] = useState(-1)
+  // 커서를 옮겨 띄운 추천 — 그 자리 태그를 통째로 바꾸고, Tab·클릭으로만 완성한다.
+  // Enter·방향키는 줄바꿈·커서 이동 그대로 (태그 끝을 클릭하고 Enter로 줄을 바꿀 수 있게)
+  const [passive, setPassive] = useState(false)
+  // 이미 추천을 살핀 커서 위치 — 입력 직후 이어 오는 select 이벤트가 같은 검색을 되풀이하지 않게
+  const handledCaretRef = useRef(-1)
+  // 완성 직후 값 교체로 커서가 잠시 끝으로 튀는 동안은 커서 추천을 쉰다
+  const completingRef = useRef(false)
   const [popupPos, setPopupPos] = useState<{ left: number; top: number } | null>(null)
 
   const ranges = useMemo(() => highlightRanges(value), [value])
@@ -233,9 +244,52 @@ export function PromptEditor({
     setPopupPos({ left, top })
   }
 
-  function refreshSuggestions(text: string, cursor: number): void {
+  // 팝업은 뷰포트 고정 좌표라, 사이드바 폭 조절·창 크기 변경·스크롤로 textarea가 움직이면
+  // 커서에서 떨어진다 — 열려 있는 동안 다시 잰다
+  const suggestionCount = suggestions.length
+  useEffect(() => {
+    const ta = textareaRef.current
+    if (!ta || suggestionCount === 0) return
+    let frame = 0
+    const follow = (): void => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => placePopup(suggestionCount))
+    }
+    const observer = new ResizeObserver(follow)
+    observer.observe(ta)
+    window.addEventListener('resize', follow)
+    // capture — 패널 등 조상 요소의 스크롤도 받는다 (scroll은 버블링하지 않음)
+    window.addEventListener('scroll', follow, true)
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+      window.removeEventListener('resize', follow)
+      window.removeEventListener('scroll', follow, true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestionCount])
+
+  function closeSuggestions(): void {
+    clearTimeout(debounceRef.current)
+    searchSeqRef.current++ // 날아간 검색이 뒤늦게 패널을 되열지 못하게
+    setSuggestions([])
+  }
+
+  /** 열린 추천이 아직 커서 앞 토큰을 가리키는지 — 클릭으로 커서를 옮기면 낡는다 */
+  function suggestionsAtCaret(ta: HTMLTextAreaElement): boolean {
+    return (
+      suggestions.length > 0 &&
+      ta.selectionStart === ta.selectionEnd &&
+      suggestionTokenAtCursor(ta.value, tokenStart, ta.selectionStart, suggestions[0].kind)
+    )
+  }
+
+  /** caret: 입력 없이 커서만 옮겨 띄우는 추천 (passive 참고) */
+  function refreshSuggestions(text: string, cursor: number, caret = false): void {
     clearTimeout(debounceRef.current)
     const seq = ++searchSeqRef.current // 이 시점 이전에 발사된 검색 결과는 전부 무효
+    handledCaretRef.current = cursor
+    setPassive(caret)
     const before = text.slice(0, cursor)
 
     // 주석 구간(# 뒤)에서는 추천 안 함 — 어차피 전송 안 되는 텍스트
@@ -247,7 +301,13 @@ export function PromptEditor({
 
     const frag = /<([^<>|]*)$/.exec(before)
     if (frag) {
-      const paths = fragmentPaths(frag[1])
+      // 커서를 옮겨 띄웠다면 커서 뒤까지 이어진 조각 이름 전체로 찾는다 (닫는 > 제외)
+      const name = caret
+        ? text
+            .slice(cursor - frag[1].length, suggestionTokenEnd(text, cursor, 'frag'))
+            .replace(/>$/, '')
+        : frag[1]
+      const paths = fragmentPaths(name)
       setTokenStart(cursor - frag[1].length)
       setSuggestions(paths.map((path) => ({ kind: 'frag', path })))
       setSelected(0)
@@ -265,12 +325,17 @@ export function PromptEditor({
     const rawToken = before.slice(sepIdx + 1)
     const token = rawToken.trimStart()
     const start = sepIdx + 1 + (rawToken.length - token.length)
-    if (token.trim().length < 2) {
+    // 커서를 옮겨 띄웠다면 커서 뒤까지 이어진 태그 전체로 찾는다 — 태그는 쉼표·줄바꿈으로
+    // 나뉘므로 "blue |eyes"는 "blue"가 아니라 "blue eyes"로 찾아야 한다
+    const tag = caret ? text.slice(start, suggestionTokenEnd(text, cursor, 'tag')) : token
+    // 쉼표 바로 뒤(", |long hair")처럼 커서가 태그 앞 공백에 있으면 태그 위가 아니다
+    const beforeTag = caret && token === '' && /\s/.test(text[cursor] ?? '')
+    if (beforeTag || tag.trim().length < 2) {
       setSuggestions([])
       return
     }
     setTokenStart(start)
-    const query = token.trim()
+    const query = tag.trim()
     const showTags = (items: TagEntry[]): void => {
       setSuggestions(items.map((t) => ({ kind: 'tag' as const, ...t })))
       setSelected(0)
@@ -282,6 +347,8 @@ export function PromptEditor({
       showTags(cached)
       return
     }
+    // 다른 태그로 옮겨 간 경우 — 검색이 끝날 때까지 이전 태그의 목록을 남기지 않는다
+    if (caret) setSuggestions([])
     debounceRef.current = setTimeout(() => {
       void window.nais
         .invoke('tags:search', { query, limit: TAG_SUGGESTION_LIMIT })
@@ -297,16 +364,26 @@ export function PromptEditor({
     const ta = textareaRef.current
     if (!ta || tokenStart < 0) return
     const cursor = ta.selectionStart
+    // 커서가 토큰을 벗어났다면 넣지 않는다 — 넣으면 tokenStart~cursor 구간이 복제된다
+    if (!suggestionTokenAtCursor(value, tokenStart, cursor, s.kind)) {
+      closeSuggestions()
+      return
+    }
+    // 입력 중이면 커서까지만, 커서를 옮겨 띄웠다면 그 태그 전체를 바꾼다
+    const end = passive ? suggestionTokenEnd(value, cursor, s.kind) : cursor
     let insert = s.kind === 'frag' ? s.path + '>' : s.tag
     // 완성 후 바로 다음 태그를 이어 칠 수 있게 ", " 부착 (뒤에 이미 쉼표가 있으면 생략)
-    if (!value.slice(cursor).trimStart().startsWith(',')) insert += ', '
-    const next = value.slice(0, tokenStart) + insert + value.slice(cursor)
+    if (!value.slice(end).trimStart().startsWith(',')) insert += ', '
+    const next = value.slice(0, tokenStart) + insert + value.slice(end)
     onValueChange(next)
     setSuggestions([])
+    const pos = tokenStart + insert.length
+    completingRef.current = true
     requestAnimationFrame(() => {
-      const pos = tokenStart + insert.length
       ta.setSelectionRange(pos, pos)
       ta.focus()
+      handledCaretRef.current = pos // 완성한 태그로 추천이 다시 뜨지 않게
+      completingRef.current = false
     })
   }
 
@@ -376,6 +453,19 @@ export function PromptEditor({
           refreshSuggestions(e.target.value, e.target.selectionStart)
         }}
         onScroll={syncScroll}
+        onSelect={(e) => {
+          const ta = e.currentTarget
+          // 범위를 선택하면 닫는다 (남겨 두면 완성이 엉뚱한 자리에 들어간다)
+          if (ta.selectionStart !== ta.selectionEnd) {
+            handledCaretRef.current = -1
+            if (suggestions.length > 0) closeSuggestions()
+            return
+          }
+          if (findOpen || completingRef.current) return
+          if (ta.selectionStart === handledCaretRef.current) return
+          // 클릭·방향키로 커서를 옮기면 그 자리 태그로 다시 추천한다 (passive)
+          refreshSuggestions(ta.value, ta.selectionStart, true)
+        }}
         onDoubleClick={(e) => {
           const ta = e.currentTarget
           const fragment = fragmentAtSelection(value, ta.selectionStart, ta.selectionEnd)
@@ -399,6 +489,23 @@ export function PromptEditor({
             return
           }
           if (suggestions.length === 0) return
+          if (e.key !== 'Escape' && !suggestionsAtCaret(e.currentTarget)) {
+            // 낡은 추천 — 닫고 키는 원래대로 (Enter는 줄바꿈, 방향키는 커서 이동)
+            closeSuggestions()
+            return
+          }
+          if (passive) {
+            // 커서를 옮겨 띄운 추천은 Tab으로만 완성 — 나머지 키는 평소대로
+            if (e.key === 'Tab') {
+              e.preventDefault()
+              complete(suggestions[selected])
+            } else if (e.key === 'Escape') {
+              e.preventDefault()
+              e.stopPropagation()
+              setSuggestions([])
+            }
+            return
+          }
           if (e.key === 'ArrowDown') {
             e.preventDefault()
             setSelected((selected + 1) % suggestions.length)

@@ -4,7 +4,11 @@ import { createPortal } from 'react-dom'
 import { cn } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { caretCoords } from '../lib/caret'
-import { suggestionTokenAtCursor, TAG_TOKEN_SEPARATORS } from '../lib/prompt-suggest-token'
+import {
+  suggestionTokenAtCursor,
+  suggestionTokenEnd,
+  TAG_TOKEN_SEPARATORS
+} from '../lib/prompt-suggest-token'
 import { highlightRanges } from '../lib/prompt-weights'
 import { cachedTagSuggestions, rememberTagSuggestions } from '../lib/tag-suggestions'
 import { fragmentAtSelection, fragmentPaths, useFragmentsStore } from '../stores/fragments-store'
@@ -99,6 +103,13 @@ export function PromptEditor({
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [selected, setSelected] = useState(0)
   const [tokenStart, setTokenStart] = useState(-1)
+  // 커서를 옮겨 띄운 추천 — 그 자리 태그를 통째로 바꾸고, Tab·클릭으로만 완성한다.
+  // Enter·방향키는 줄바꿈·커서 이동 그대로 (태그 끝을 클릭하고 Enter로 줄을 바꿀 수 있게)
+  const [passive, setPassive] = useState(false)
+  // 이미 추천을 살핀 커서 위치 — 입력 직후 이어 오는 select 이벤트가 같은 검색을 되풀이하지 않게
+  const handledCaretRef = useRef(-1)
+  // 완성 직후 값 교체로 커서가 잠시 끝으로 튀는 동안은 커서 추천을 쉰다
+  const completingRef = useRef(false)
   const [popupPos, setPopupPos] = useState<{ left: number; top: number } | null>(null)
 
   const ranges = useMemo(() => highlightRanges(value), [value])
@@ -273,9 +284,12 @@ export function PromptEditor({
     )
   }
 
-  function refreshSuggestions(text: string, cursor: number): void {
+  /** caret: 입력 없이 커서만 옮겨 띄우는 추천 (passive 참고) */
+  function refreshSuggestions(text: string, cursor: number, caret = false): void {
     clearTimeout(debounceRef.current)
     const seq = ++searchSeqRef.current // 이 시점 이전에 발사된 검색 결과는 전부 무효
+    handledCaretRef.current = cursor
+    setPassive(caret)
     const before = text.slice(0, cursor)
 
     // 주석 구간(# 뒤)에서는 추천 안 함 — 어차피 전송 안 되는 텍스트
@@ -322,6 +336,8 @@ export function PromptEditor({
       showTags(cached)
       return
     }
+    // 다른 태그로 옮겨 간 경우 — 검색이 끝날 때까지 이전 태그의 목록을 남기지 않는다
+    if (caret) setSuggestions([])
     debounceRef.current = setTimeout(() => {
       void window.nais
         .invoke('tags:search', { query, limit: TAG_SUGGESTION_LIMIT })
@@ -342,16 +358,21 @@ export function PromptEditor({
       closeSuggestions()
       return
     }
+    // 입력 중이면 커서까지만, 커서를 옮겨 띄웠다면 그 태그 전체를 바꾼다
+    const end = passive ? suggestionTokenEnd(value, cursor, s.kind) : cursor
     let insert = s.kind === 'frag' ? s.path + '>' : s.tag
     // 완성 후 바로 다음 태그를 이어 칠 수 있게 ", " 부착 (뒤에 이미 쉼표가 있으면 생략)
-    if (!value.slice(cursor).trimStart().startsWith(',')) insert += ', '
-    const next = value.slice(0, tokenStart) + insert + value.slice(cursor)
+    if (!value.slice(end).trimStart().startsWith(',')) insert += ', '
+    const next = value.slice(0, tokenStart) + insert + value.slice(end)
     onValueChange(next)
     setSuggestions([])
+    const pos = tokenStart + insert.length
+    completingRef.current = true
     requestAnimationFrame(() => {
-      const pos = tokenStart + insert.length
       ta.setSelectionRange(pos, pos)
       ta.focus()
+      handledCaretRef.current = pos // 완성한 태그로 추천이 다시 뜨지 않게
+      completingRef.current = false
     })
   }
 
@@ -422,8 +443,17 @@ export function PromptEditor({
         }}
         onScroll={syncScroll}
         onSelect={(e) => {
-          // 클릭·방향키로 커서가 토큰을 떠나면 추천을 닫는다 (남겨 두면 Enter가 엉뚱한 자리에 완성)
-          if (suggestions.length > 0 && !suggestionsAtCaret(e.currentTarget)) closeSuggestions()
+          const ta = e.currentTarget
+          // 범위를 선택하면 닫는다 (남겨 두면 완성이 엉뚱한 자리에 들어간다)
+          if (ta.selectionStart !== ta.selectionEnd) {
+            handledCaretRef.current = -1
+            if (suggestions.length > 0) closeSuggestions()
+            return
+          }
+          if (findOpen || completingRef.current) return
+          if (ta.selectionStart === handledCaretRef.current) return
+          // 클릭·방향키로 커서를 옮기면 그 자리 태그로 다시 추천한다 (passive)
+          refreshSuggestions(ta.value, ta.selectionStart, true)
         }}
         onDoubleClick={(e) => {
           const ta = e.currentTarget
@@ -451,6 +481,18 @@ export function PromptEditor({
           if (e.key !== 'Escape' && !suggestionsAtCaret(e.currentTarget)) {
             // 낡은 추천 — 닫고 키는 원래대로 (Enter는 줄바꿈, 방향키는 커서 이동)
             closeSuggestions()
+            return
+          }
+          if (passive) {
+            // 커서를 옮겨 띄운 추천은 Tab으로만 완성 — 나머지 키는 평소대로
+            if (e.key === 'Tab') {
+              e.preventDefault()
+              complete(suggestions[selected])
+            } else if (e.key === 'Escape') {
+              e.preventDefault()
+              e.stopPropagation()
+              setSuggestions([])
+            }
             return
           }
           if (e.key === 'ArrowDown') {

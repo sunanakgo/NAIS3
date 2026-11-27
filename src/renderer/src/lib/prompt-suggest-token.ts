@@ -20,3 +20,19 @@ export function suggestionTokenAtCursor(
   const separators = kind === 'frag' ? FRAGMENT_TOKEN_SEPARATORS : TAG_TOKEN_SEPARATORS
   return !separators.test(text.slice(tokenStart, cursor))
 }
+
+/**
+ * 커서에서 시작해 토큰이 끝나는 위치 (다음 구분자 앞, 끝 공백 제외).
+ * 커서를 옮겨 띄운 추천은 그 태그를 통째로 바꾸므로 커서 뒤 나머지까지 덮는다.
+ * 조각은 닫는 `>`까지 포함한다 — 완성할 때 `>`를 다시 붙이기 때문.
+ */
+export function suggestionTokenEnd(text: string, cursor: number, kind: 'tag' | 'frag'): number {
+  let end = cursor
+  if (kind === 'frag') {
+    while (end < text.length && !/[<>|\n]/.test(text[end])) end++
+    return text[end] === '>' ? end + 1 : end
+  }
+  while (end < text.length && !TAG_TOKEN_SEPARATORS.test(text[end])) end++
+  while (end > cursor && /\s/.test(text[end - 1])) end--
+  return end
+}

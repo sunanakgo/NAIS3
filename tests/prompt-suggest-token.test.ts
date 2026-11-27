@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { suggestionTokenAtCursor } from '../src/renderer/src/lib/prompt-suggest-token'
+import {
+  suggestionTokenAtCursor,
+  suggestionTokenEnd
+} from '../src/renderer/src/lib/prompt-suggest-token'
 
 const PROMPT = [
   '1girl, solo, long hair, smile, long hair',
@@ -41,5 +44,23 @@ describe('suggestionTokenAtCursor', () => {
     expect(suggestionTokenAtCursor(closed, closed.indexOf('<') + 1, closed.length, 'frag')).toBe(
       false
     )
+  })
+})
+
+describe('suggestionTokenEnd', () => {
+  it('extends a tag to the next separator without its trailing spaces', () => {
+    const text = 'smile, long hair , outdoors'
+    expect(suggestionTokenEnd(text, text.indexOf('hair'), 'tag')).toBe(text.indexOf(' ,'))
+  })
+
+  it('stops at the end of the line or the text', () => {
+    const text = 'long hair\nsmile'
+    expect(suggestionTokenEnd(text, 2, 'tag')).toBe(text.indexOf('\n'))
+    expect(suggestionTokenEnd(text, text.length - 2, 'tag')).toBe(text.length)
+  })
+
+  it('includes the closing bracket of a fragment', () => {
+    const text = 'a, <chars/main>, b'
+    expect(suggestionTokenEnd(text, text.indexOf('main'), 'frag')).toBe(text.indexOf('>') + 1)
   })
 })

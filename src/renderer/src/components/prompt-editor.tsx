@@ -301,7 +301,13 @@ export function PromptEditor({
 
     const frag = /<([^<>|]*)$/.exec(before)
     if (frag) {
-      const paths = fragmentPaths(frag[1])
+      // 커서를 옮겨 띄웠다면 커서 뒤까지 이어진 조각 이름 전체로 찾는다 (닫는 > 제외)
+      const name = caret
+        ? text
+            .slice(cursor - frag[1].length, suggestionTokenEnd(text, cursor, 'frag'))
+            .replace(/>$/, '')
+        : frag[1]
+      const paths = fragmentPaths(name)
       setTokenStart(cursor - frag[1].length)
       setSuggestions(paths.map((path) => ({ kind: 'frag', path })))
       setSelected(0)
@@ -319,12 +325,17 @@ export function PromptEditor({
     const rawToken = before.slice(sepIdx + 1)
     const token = rawToken.trimStart()
     const start = sepIdx + 1 + (rawToken.length - token.length)
-    if (token.trim().length < 2) {
+    // 커서를 옮겨 띄웠다면 커서 뒤까지 이어진 태그 전체로 찾는다 — 태그는 쉼표·줄바꿈으로
+    // 나뉘므로 "blue |eyes"는 "blue"가 아니라 "blue eyes"로 찾아야 한다
+    const tag = caret ? text.slice(start, suggestionTokenEnd(text, cursor, 'tag')) : token
+    // 쉼표 바로 뒤(", |long hair")처럼 커서가 태그 앞 공백에 있으면 태그 위가 아니다
+    const beforeTag = caret && token === '' && /\s/.test(text[cursor] ?? '')
+    if (beforeTag || tag.trim().length < 2) {
       setSuggestions([])
       return
     }
     setTokenStart(start)
-    const query = token.trim()
+    const query = tag.trim()
     const showTags = (items: TagEntry[]): void => {
       setSuggestions(items.map((t) => ({ kind: 'tag' as const, ...t })))
       setSelected(0)

@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { cn } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { caretCoords } from '../lib/caret'
+import { suggestionTokenAtCursor, TAG_TOKEN_SEPARATORS } from '../lib/prompt-suggest-token'
 import { highlightRanges } from '../lib/prompt-weights'
 import { cachedTagSuggestions, rememberTagSuggestions } from '../lib/tag-suggestions'
 import { fragmentAtSelection, fragmentPaths, useFragmentsStore } from '../stores/fragments-store'
@@ -29,7 +30,6 @@ const TYPO =
 type Suggestion =
   { kind: 'frag'; path: string } | { kind: 'tag'; tag: string; count: number; type: string }
 
-const TAG_TOKEN_SEPARATORS = /[,\n{}[\]|<>:/]/
 const TAG_SUGGESTION_LIMIT = 8
 
 function formatCount(count: number): string {
@@ -233,6 +233,46 @@ export function PromptEditor({
     setPopupPos({ left, top })
   }
 
+  // 팝업은 뷰포트 고정 좌표라, 사이드바 폭 조절·창 크기 변경·스크롤로 textarea가 움직이면
+  // 커서에서 떨어진다 — 열려 있는 동안 다시 잰다
+  const suggestionCount = suggestions.length
+  useEffect(() => {
+    const ta = textareaRef.current
+    if (!ta || suggestionCount === 0) return
+    let frame = 0
+    const follow = (): void => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => placePopup(suggestionCount))
+    }
+    const observer = new ResizeObserver(follow)
+    observer.observe(ta)
+    window.addEventListener('resize', follow)
+    // capture — 패널 등 조상 요소의 스크롤도 받는다 (scroll은 버블링하지 않음)
+    window.addEventListener('scroll', follow, true)
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+      window.removeEventListener('resize', follow)
+      window.removeEventListener('scroll', follow, true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestionCount])
+
+  function closeSuggestions(): void {
+    clearTimeout(debounceRef.current)
+    searchSeqRef.current++ // 날아간 검색이 뒤늦게 패널을 되열지 못하게
+    setSuggestions([])
+  }
+
+  /** 열린 추천이 아직 커서 앞 토큰을 가리키는지 — 클릭으로 커서를 옮기면 낡는다 */
+  function suggestionsAtCaret(ta: HTMLTextAreaElement): boolean {
+    return (
+      suggestions.length > 0 &&
+      ta.selectionStart === ta.selectionEnd &&
+      suggestionTokenAtCursor(ta.value, tokenStart, ta.selectionStart, suggestions[0].kind)
+    )
+  }
+
   function refreshSuggestions(text: string, cursor: number): void {
     clearTimeout(debounceRef.current)
     const seq = ++searchSeqRef.current // 이 시점 이전에 발사된 검색 결과는 전부 무효
@@ -297,6 +337,11 @@ export function PromptEditor({
     const ta = textareaRef.current
     if (!ta || tokenStart < 0) return
     const cursor = ta.selectionStart
+    // 커서가 토큰을 벗어났다면 넣지 않는다 — 넣으면 tokenStart~cursor 구간이 복제된다
+    if (!suggestionTokenAtCursor(value, tokenStart, cursor, s.kind)) {
+      closeSuggestions()
+      return
+    }
     let insert = s.kind === 'frag' ? s.path + '>' : s.tag
     // 완성 후 바로 다음 태그를 이어 칠 수 있게 ", " 부착 (뒤에 이미 쉼표가 있으면 생략)
     if (!value.slice(cursor).trimStart().startsWith(',')) insert += ', '
@@ -376,6 +421,10 @@ export function PromptEditor({
           refreshSuggestions(e.target.value, e.target.selectionStart)
         }}
         onScroll={syncScroll}
+        onSelect={(e) => {
+          // 클릭·방향키로 커서가 토큰을 떠나면 추천을 닫는다 (남겨 두면 Enter가 엉뚱한 자리에 완성)
+          if (suggestions.length > 0 && !suggestionsAtCaret(e.currentTarget)) closeSuggestions()
+        }}
         onDoubleClick={(e) => {
           const ta = e.currentTarget
           const fragment = fragmentAtSelection(value, ta.selectionStart, ta.selectionEnd)
@@ -399,6 +448,11 @@ export function PromptEditor({
             return
           }
           if (suggestions.length === 0) return
+          if (e.key !== 'Escape' && !suggestionsAtCaret(e.currentTarget)) {
+            // 낡은 추천 — 닫고 키는 원래대로 (Enter는 줄바꿈, 방향키는 커서 이동)
+            closeSuggestions()
+            return
+          }
           if (e.key === 'ArrowDown') {
             e.preventDefault()
             setSelected((selected + 1) % suggestions.length)

@@ -53,6 +53,48 @@ const layerOf = (id: string): HTMLElement | null =>
   container.querySelector(`[data-page="${id}"]`)?.parentElement?.parentElement ?? null
 
 describe('SidePageHost', () => {
+  it('releases compositing hints and identity transforms when pages settle', async () => {
+    const work = container.querySelector<HTMLElement>('#opener')!.parentElement!
+    await vi.waitFor(() => {
+      expect(work.style.transform).toBe('none')
+      expect(work.style.willChange).toBe('auto')
+    })
+
+    const { page, seen } = testPage('a')
+    await act(async () => useSidePageStore.getState().open(page))
+    await vi.waitFor(() => {
+      expect(seen.at(-1)?.ready).toBe(true)
+      expect(layerOf('a')?.style.transform).toBe('none')
+      expect(layerOf('a')?.style.willChange).toBe('auto')
+      expect(work.style.willChange).toBe('auto')
+    })
+    // The covered workspace must still stay behind the open page.
+    expect(work.style.transform).toContain('scale(0.94)')
+
+    await act(async () => useSidePageStore.getState().close())
+    await vi.waitFor(() => {
+      expect(layerOf('a')).toBeNull()
+      expect(work.style.transform).toBe('none')
+      expect(work.style.willChange).toBe('auto')
+    })
+  })
+
+  it('settles cleanly when a close is interrupted by another page', async () => {
+    await act(async () => useSidePageStore.getState().open(testPage('a').page))
+    await act(async () => useSidePageStore.getState().close())
+    const { page, seen } = testPage('b')
+    await act(async () => useSidePageStore.getState().open(page))
+    await vi.waitFor(() => {
+      expect(seen.at(-1)?.ready).toBe(true)
+      expect(layerOf('a')).toBeNull()
+      expect(layerOf('b')?.style.transform).toBe('none')
+      expect(layerOf('b')?.style.willChange).toBe('auto')
+      const work = container.querySelector<HTMLElement>('#opener')!.parentElement!
+      expect(work.style.transform).toContain('scale(0.94)')
+      expect(work.style.willChange).toBe('auto')
+    })
+  })
+
   it('makes a page inert while it turns away so it cannot be applied twice', async () => {
     const { page, seen } = testPage('a')
     await act(async () => useSidePageStore.getState().open(page))

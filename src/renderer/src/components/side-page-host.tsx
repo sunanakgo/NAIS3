@@ -6,25 +6,16 @@ import {
   type Transition
 } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
-import {
-  behind,
-  edgeShadow,
-  FRONT,
-  PAGE_SWAP,
-  PAGE_TURN,
-  RECEDE_SHIFT,
-  RECEDE_STYLE
-} from '../lib/page-turn'
+import { edgeShadow, recedeVariants, PAGE_SWAP, PAGE_TURN, RECEDE_SHIFT } from '../lib/page-turn'
 import { useSidePageStore, type SidePage } from '../stores/side-page-store'
 
 const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
 
-// 넘기는 장도 transform 문자열로 컴포지터에서 움직인다 (lib/page-turn). 두 장 모두 미리 별도 레이어로 올려
-// 두고 배경을 칠한다 — 레티나에서 화면 전체(히스토리 썸네일·블러 포함)를 매 프레임 다시 그리면 몇 프레임밖에 안 보인다
+// 페이지 전환 중에만 합성 힌트를 적용하고 정지 상태에서는 해제한다.
 const turned = (percent: number): string => `translateX(${percent}%)`
-const LAYER_STYLE = { willChange: 'transform', boxShadow: edgeShadow('left') } as const
+const LAYER_STYLE = { boxShadow: edgeShadow('left') } as const
 // 페이지가 덮어 올 때 작업 화면은 왼쪽으로 조금 물러나며 작아지고 흐려진다
-const WORK_BEHIND = behind(-RECEDE_SHIFT)
+const WORK_VARIANTS = recedeVariants(-RECEDE_SHIFT)
 
 // 열 때마다 새 장으로 — id로 키를 잡으면 덮이는 중에 같은 페이지를 다시 열 때 그 장이 되살아나
 // 편집기 안 상태(모자이크의 칠한 칸 기록 등)가 이전 것 그대로 남는다. open이 넘긴 객체마다 번호를 매긴다
@@ -55,6 +46,7 @@ export function SidePageHost({ children }: { children: React.ReactNode }): React
   if (turnedTo && turnedTo !== page) setTurnedTo(null)
   const transition = useReducedMotion() ? PAGE_SWAP : PAGE_TURN
   const opener = useRef<HTMLElement | null>(null)
+  const workRef = useRef<HTMLDivElement>(null)
 
   // 페이지를 연 컨트롤 — 작업 화면이 inert가 되며 포커스를 잃기 전에 기억해 둔다
   useEffect(
@@ -77,10 +69,12 @@ export function SidePageHost({ children }: { children: React.ReactNode }): React
   return (
     <div className="relative min-h-0 flex-1 overflow-hidden">
       <motion.div
+        ref={workRef}
+        custom={workRef}
+        variants={WORK_VARIANTS}
         className="absolute inset-0 flex gap-3 bg-paper px-3 pb-3"
-        style={RECEDE_STYLE}
         initial={false}
-        animate={page ? WORK_BEHIND : FRONT}
+        animate={page ? 'behind' : 'front'}
         transition={transition}
         inert={!!page}
       >
@@ -141,9 +135,13 @@ function PageLayer({
       // 왼쪽 가장자리 그림자(LAYER_STYLE)로 작업 화면 위를 덮는 장임을 드러낸다 (다 넘어오면 영역 밖이라 잘린다)
       className="absolute inset-0 bg-paper px-3 pb-3 outline-none"
       style={LAYER_STYLE}
-      initial={{ transform: turned(100) }}
-      animate={{ transform: turned(0) }}
-      exit={{ transform: turned(100) }}
+      initial={{ transform: turned(100), willChange: 'transform' }}
+      animate={{
+        transform: turned(0),
+        willChange: 'transform',
+        transitionEnd: { transform: 'none', willChange: 'auto' }
+      }}
+      exit={{ transform: turned(100), willChange: 'transform' }}
       transition={transition}
       inert={!present}
       onAnimationComplete={onTurned}

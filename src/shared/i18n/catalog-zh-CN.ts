@@ -1,6 +1,9 @@
 import type { MessageCatalog } from './catalog-ko'
 
 export const ZH_CN = {
+  'ui.copySeedOnly': '仅复制种子',
+  'ui.imageSeedNotFound': '未在此图像中找到种子信息',
+  'ui.copyImageSeedFailed': '复制种子失败',
   'ui.paintMaskInCanvas': '在画布中绘制蒙版以重新生成局部区域',
   'ui.maskBrushShortcut': '绘制 (B)',
   'ui.maskEraseShortcut': '擦除 (E)',
@@ -549,6 +552,8 @@ export const ZH_CN = {
   'ui.promptSyntaxHelp': '提示词语法帮助',
   'ui.promptSyntax': '提示词语法',
   'ui.notYetSupportedByTheSelectedModel': '所选模型暂不支持',
+  'ui.enablePromptTag': '启用标签',
+  'ui.disablePromptTag': '禁用标签',
   'ui.find': '查找',
   'ui.previousShiftEnter': '上一个（Shift+Enter）',
   'ui.nextEnter': '下一个（Enter）',

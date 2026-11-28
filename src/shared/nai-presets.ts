@@ -1,4 +1,5 @@
 import type { UcPresetIndex } from './types'
+import { stripDisabledTags } from './prompt-tags'
 
 /**
  * NAI 웹이 클라이언트에서 병합하는 프리셋 텍스트.
@@ -38,7 +39,7 @@ export const UC_PRESET_HINT: Record<UcPresetIndex, number> = { 0: 2, 1: 3, 2: 2,
 
 /** #로 시작하는 줄만 통째로 주석으로 취급한다. */
 export function removeComments(prompt: string): string {
-  return prompt
+  return stripDisabledTags(prompt)
     .split('\n')
     .filter((line) => !line.trimStart().startsWith('#'))
     .join('\n')

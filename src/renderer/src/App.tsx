@@ -39,11 +39,10 @@ import { useLanguageStore } from './lib/i18n'
 import {
   behind,
   edgeShadow,
-  FRONT,
+  recedeVariants,
   PAGE_SWAP,
   PAGE_TURN,
-  RECEDE_SHIFT,
-  RECEDE_STYLE
+  RECEDE_SHIFT
 } from './lib/page-turn'
 import { cn } from './lib/utils'
 import { useWebSearchKeepAlive } from './lib/websearch-keep-alive'
@@ -304,12 +303,16 @@ function PanelBody({
   children: React.ReactNode
 }): React.JSX.Element {
   const present = useIsPresent()
+  const ref = useRef<HTMLDivElement>(null)
   return (
     <motion.div
+      ref={ref}
+      custom={ref}
+      variants={recedeVariants(shift)}
       className={cn('bg-paper', className)}
-      style={{ ...RECEDE_STYLE, ...style }}
+      style={style}
       initial={behind(shift)}
-      animate={present ? FRONT : behind(shift)}
+      animate={present ? 'front' : 'behind'}
       transition={transition}
     >
       {children}

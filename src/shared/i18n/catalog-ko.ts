@@ -1,4 +1,7 @@
 export const KO = {
+  'ui.copySeedOnly': '시드만 복사',
+  'ui.imageSeedNotFound': '이미지에서 시드 정보를 찾지 못했습니다',
+  'ui.copyImageSeedFailed': '시드를 복사하지 못했습니다',
   'ui.paintMaskInCanvas': '캔버스에서 마스크를 칠해 부분 재생성',
   'ui.maskBrushShortcut': '칠하기 (B)',
   'ui.maskEraseShortcut': '지우기 (E)',
@@ -553,6 +556,8 @@ export const KO = {
   'ui.promptSyntaxHelp': '프롬프트 문법 도움말',
   'ui.promptSyntax': '프롬프트 문법',
   'ui.notYetSupportedByTheSelectedModel': '선택한 모델에서는 아직 지원하지 않습니다',
+  'ui.enablePromptTag': '태그 활성화',
+  'ui.disablePromptTag': '태그 비활성화',
   'ui.find': '찾기',
   'ui.previousShiftEnter': '이전 (Shift+Enter)',
   'ui.nextEnter': '다음 (Enter)',

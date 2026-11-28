@@ -18,6 +18,9 @@
   --paper: #fafafa;
   --surface: #f2f2f2;
   --surface-2: #e8e8e8;
+  --prompt-tag-hover-bg: #dce7f3;
+  --prompt-tag-disabled-bg: #e1e3e6;
+  --prompt-tag-disabled-ink: #747880;
   --ink: #19191b;
   --muted: #5d5d5e;
   --faint: #757575;
@@ -94,6 +97,9 @@
   --paper: #0f0f10;
   --surface: #19191a;
   --surface-2: #242425;
+  --prompt-tag-hover-bg: #303e50;
+  --prompt-tag-disabled-bg: #303236;
+  --prompt-tag-disabled-ink: #969ba3;
   --ink: #e9e9ea;
   --muted: #a9a9aa;
   --faint: #8b8b8c;
@@ -280,4 +286,11 @@ input {
 }
 .no-drag {
   -webkit-app-region: no-drag;
+}
+
+/* The selection surface covers the lower mirror; selected glyphs paint once above it.
+   Use the browser's selected-item palette rather than an accent or translucent fill. */
+textarea[data-prompt-input]::selection {
+  background: SelectedItem;
+  color: transparent;
 }

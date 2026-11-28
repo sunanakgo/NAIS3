@@ -553,6 +553,8 @@ export const KO = {
   'ui.promptSyntaxHelp': '프롬프트 문법 도움말',
   'ui.promptSyntax': '프롬프트 문법',
   'ui.notYetSupportedByTheSelectedModel': '선택한 모델에서는 아직 지원하지 않습니다',
+  'ui.enablePromptTag': '태그 활성화',
+  'ui.disablePromptTag': '태그 비활성화',
   'ui.find': '찾기',
   'ui.previousShiftEnter': '이전 (Shift+Enter)',
   'ui.nextEnter': '다음 (Enter)',

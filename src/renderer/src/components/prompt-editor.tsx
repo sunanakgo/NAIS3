@@ -4,6 +4,9 @@ import { createPortal } from 'react-dom'
 import { cn } from '../lib/utils'
 import { useT } from '../lib/i18n'
 import { caretCoords } from '../lib/caret'
+import { PromptTagHover } from './prompt-tag-hover'
+import { installPromptCharacterEditing } from '../lib/prompt-character-edit'
+import { promptSearchHits } from '../lib/prompt-find'
 import { highlightRanges } from '../lib/prompt-weights'
 import { cachedTagSuggestions, rememberTagSuggestions } from '../lib/tag-suggestions'
 import { fragmentAtSelection, fragmentPaths, useFragmentsStore } from '../stores/fragments-store'
@@ -51,6 +54,7 @@ const TYPE_COLORS: Record<string, string> = {
  * box-decoration-break: clone draws the line on every fragment split by line wraps.
  */
 const FIND_HIT_BASE: React.CSSProperties = {
+  color: 'var(--ink)',
   borderRadius: 3,
   boxDecorationBreak: 'clone',
   WebkitBoxDecorationBreak: 'clone'
@@ -91,6 +95,10 @@ export function PromptEditor({
 }): React.JSX.Element {
   const t = useT()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    if (textareaRef.current) return installPromptCharacterEditing(textareaRef.current)
+    return undefined
+  }, [])
   const mirrorRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   // 검색 세대 — 이미 날아간(in-flight) 태그 검색의 스테일 결과가 뒤늦게 패널을 다시 여는 것 방지.
@@ -160,13 +168,7 @@ export function PromptEditor({
   const [hit, setHit] = useState(0)
   const hits = useMemo(() => {
     if (!findOpen || !query) return []
-    const needle = query.toLowerCase()
-    const hay = value.toLowerCase()
-    const out: number[] = []
-    for (let i = hay.indexOf(needle); i !== -1; i = hay.indexOf(needle, i + needle.length)) {
-      out.push(i)
-    }
-    return out
+    return promptSearchHits(value, query)
   }, [findOpen, query, value])
   // 글자를 지워 일치 수가 줄면 현재 위치가 범위를 벗어난다
   const current = hits.length === 0 ? -1 : Math.min(hit, hits.length - 1)
@@ -175,7 +177,7 @@ export function PromptEditor({
   function revealHit(index: number): void {
     const ta = textareaRef.current
     if (!ta || index < 0 || hits[index] == null) return // 0번째 글자 일치도 유효 (falsy 주의)
-    const { top, height } = caretCoords(ta, hits[index])
+    const { top, height } = caretCoords(ta, hits[index].start)
     if (top < ta.scrollTop || top + height > ta.scrollTop + ta.clientHeight) {
       ta.scrollTop = Math.max(0, top - ta.clientHeight / 2)
       syncScroll()
@@ -193,7 +195,7 @@ export function PromptEditor({
     const ta = textareaRef.current
     // 드래그해 둔 글자가 있으면 그걸 찾는 말로 (에디터 공통 관례)
     const selected = ta ? value.slice(ta.selectionStart, ta.selectionEnd) : ''
-    if (selected && !selected.includes('\n')) setQuery(selected)
+    if (selected && !selected.includes('\n')) setQuery(selected.replaceAll('\u0336', ''))
     setHit(0)
     setFindOpen(true)
     setSuggestions([])
@@ -206,8 +208,8 @@ export function PromptEditor({
     ta?.focus()
     // 찾던 자리에 커서를 두고 닫는다 — 바로 이어서 고칠 수 있게
     if (ta && current >= 0) {
-      const start = hits[current]
-      ta.setSelectionRange(start, start + query.length)
+      const { start, end } = hits[current]
+      ta.setSelectionRange(start, end)
     }
   }
 
@@ -270,7 +272,7 @@ export function PromptEditor({
       return
     }
     setTokenStart(start)
-    const query = token.trim()
+    const query = token.trim().replace(/[\u0336\u2060]/g, '')
     const showTags = (items: TagEntry[]): void => {
       setSuggestions(items.map((t) => ({ kind: 'tag' as const, ...t })))
       setSelected(0)
@@ -345,83 +347,111 @@ export function PromptEditor({
           aria-hidden
           className={cn(
             TYPO,
-            'pointer-events-none absolute inset-0 overflow-hidden text-transparent'
+            'pointer-events-none absolute inset-0 z-[1] overflow-hidden text-transparent'
           )}
         >
-          {hits.map((start, i) => (
+          {hits.map(({ start, end }, i) => (
             <span key={start}>
-              {value.slice(i === 0 ? 0 : hits[i - 1] + query.length, start)}
+              {value.slice(i === 0 ? 0 : hits[i - 1].end, start)}
               <span style={i === current ? FIND_HIT_CURRENT_STYLE : FIND_HIT_STYLE}>
-                {value.slice(start, start + query.length)}
+                {value.slice(start, end).replaceAll('\u0336', '\u2060')}
               </span>
             </span>
           ))}
-          {value.slice(hits[hits.length - 1] + query.length)}
+          {value.slice(hits[hits.length - 1].end)}
+          {value.endsWith('\n') && '\u200b'}
         </div>
       )}
 
-      <textarea
-        ref={textareaRef}
-        aria-label={ariaLabel}
-        className={cn(
-          TYPO,
-          'relative block h-full w-full resize-none bg-transparent text-ink outline-none placeholder:text-muted'
-        )}
-        style={{ caretColor: 'var(--ink)' }}
-        spellCheck={false}
+      <PromptTagHover
         value={value}
-        placeholder={placeholder}
-        onChange={(e) => {
-          onValueChange(e.target.value)
-          refreshSuggestions(e.target.value, e.target.selectionStart)
-        }}
-        onScroll={syncScroll}
-        onDoubleClick={(e) => {
-          const ta = e.currentTarget
-          const fragment = fragmentAtSelection(value, ta.selectionStart, ta.selectionEnd)
-          if (!fragment) return
+        onValueChange={onValueChange}
+        textarea={textareaRef}
+        typography={TYPO}
+        onToggleStart={() => {
           clearTimeout(debounceRef.current)
           searchSeqRef.current++
           setSuggestions([])
-          useFragmentsStore.getState().openEditor(fragment.id)
         }}
-        onKeyDown={(e) => {
-          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
-            e.preventDefault()
-            e.stopPropagation()
-            openFind()
-            return
-          }
-          if (e.key === 'Escape' && findOpen) {
-            e.preventDefault()
-            e.stopPropagation()
-            closeFind()
-            return
-          }
-          if (suggestions.length === 0) return
-          if (e.key === 'ArrowDown') {
-            e.preventDefault()
-            setSelected((selected + 1) % suggestions.length)
-          } else if (e.key === 'ArrowUp') {
-            e.preventDefault()
-            setSelected((selected - 1 + suggestions.length) % suggestions.length)
-          } else if (e.key === 'Enter' || e.key === 'Tab') {
-            e.preventDefault()
-            complete(suggestions[selected])
-          } else if (e.key === 'Escape') {
-            e.preventDefault()
-            e.stopPropagation()
+      >
+        <textarea
+          data-prompt-input
+          ref={textareaRef}
+          aria-label={ariaLabel}
+          className={cn(
+            TYPO,
+            'relative block h-full w-full resize-none bg-transparent text-transparent outline-none placeholder:text-muted'
+          )}
+          style={{ caretColor: 'var(--ink)' }}
+          spellCheck={false}
+          value={value.replaceAll('\u0336', '\u2060')}
+          placeholder={placeholder}
+          onChange={(e) => {
+            const stored = e.target.value.replaceAll('\u2060', '\u0336')
+            onValueChange(stored)
+            const inputType = (e.nativeEvent as InputEvent).inputType
+            if (
+              e.target.dataset.promptTagEdit ||
+              inputType === 'historyUndo' ||
+              inputType === 'historyRedo'
+            ) {
+              clearTimeout(debounceRef.current)
+              searchSeqRef.current++
+              setSuggestions([])
+              return
+            }
+            refreshSuggestions(stored, e.target.selectionStart)
+          }}
+          onScroll={syncScroll}
+          onDoubleClick={(e) => {
+            const ta = e.currentTarget
+            const fragment = fragmentAtSelection(value, ta.selectionStart, ta.selectionEnd)
+            if (!fragment) return
+            clearTimeout(debounceRef.current)
+            searchSeqRef.current++
             setSuggestions([])
-          }
-        }}
-        onBlur={() => {
-          // 포커스가 떠나면 추천 닫기. seq를 올려 in-flight 검색 결과가 뒤늦게 패널을
-          // 되열지 못하게 한다 (B7). 150ms 지연은 추천 클릭이 blur보다 먼저 처리되도록.
-          clearTimeout(debounceRef.current)
-          searchSeqRef.current++
-          setTimeout(() => setSuggestions([]), 150)
-        }}
-      />
+            useFragmentsStore.getState().openEditor(fragment.id)
+          }}
+          onKeyDown={(e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+              e.preventDefault()
+              e.stopPropagation()
+              openFind()
+              return
+            }
+            if (e.key === 'Escape' && findOpen) {
+              e.preventDefault()
+              e.stopPropagation()
+              closeFind()
+              return
+            }
+            if (suggestions.length === 0) return
+            if (e.key === 'ArrowDown') {
+              e.preventDefault()
+              setSelected((selected + 1) % suggestions.length)
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault()
+              setSelected((selected - 1 + suggestions.length) % suggestions.length)
+            } else if (e.key === 'Enter' || e.key === 'Tab') {
+              e.preventDefault()
+              complete(suggestions[selected])
+            } else if (e.key === 'Escape') {
+              e.preventDefault()
+              e.stopPropagation()
+              setSuggestions([])
+            }
+          }}
+          onBlur={() => {
+            // 포커스가 떠나면 추천 닫기. seq를 올려 in-flight 검색 결과가 뒤늦게 패널을
+            // 되열지 못하게 한다 (B7). 150ms 지연은 추천 클릭이 blur보다 먼저 처리되도록.
+            clearTimeout(debounceRef.current)
+            searchSeqRef.current++
+            setTimeout(() => {
+              if (document.activeElement !== textareaRef.current) setSuggestions([])
+            }, 150)
+          }}
+        />
+      </PromptTagHover>
 
       {/* 찾기 바 — 우상단. Enter=다음, Shift+Enter=이전, Esc=닫기(그 자리에 커서) */}
       {findOpen && (

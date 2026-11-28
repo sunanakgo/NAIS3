@@ -563,6 +563,8 @@ export const EN = {
   'ui.promptSyntaxHelp': 'Prompt syntax help',
   'ui.promptSyntax': 'Prompt syntax',
   'ui.notYetSupportedByTheSelectedModel': 'Not yet supported by the selected model',
+  'ui.enablePromptTag': 'Enable tag',
+  'ui.disablePromptTag': 'Disable tag',
   'ui.find': 'Find',
   'ui.previousShiftEnter': 'Previous (Shift+Enter)',
   'ui.nextEnter': 'Next (Enter)',

@@ -549,6 +549,8 @@ export const ZH_CN = {
   'ui.promptSyntaxHelp': '提示词语法帮助',
   'ui.promptSyntax': '提示词语法',
   'ui.notYetSupportedByTheSelectedModel': '所选模型暂不支持',
+  'ui.enablePromptTag': '启用标签',
+  'ui.disablePromptTag': '禁用标签',
   'ui.find': '查找',
   'ui.previousShiftEnter': '上一个（Shift+Enter）',
   'ui.nextEnter': '下一个（Enter）',

@@ -1,6 +1,9 @@
 import type { MessageCatalog } from './catalog-ko'
 
 export const ZH_CN = {
+  'ui.copySeedOnly': '仅复制种子',
+  'ui.imageSeedNotFound': '未在此图像中找到种子信息',
+  'ui.copyImageSeedFailed': '复制种子失败',
   'ui.paintMaskInCanvas': '在画布中绘制蒙版以重新生成局部区域',
   'ui.maskBrushShortcut': '绘制 (B)',
   'ui.maskEraseShortcut': '擦除 (E)',

@@ -70,6 +70,28 @@ export function ImageContextMenu({
         </ContextMenuItem>
         <ContextMenuItem
           onSelect={async () => {
+            try {
+              const result = await window.nais.invoke('images:readMetadata', { filePath })
+              if ('error' in result) {
+                toast(result.error, 'error')
+                return
+              }
+              const seed = result.meta.seed
+              if (seed == null || !Number.isSafeInteger(seed) || seed < 0) {
+                toast(t('ui.imageSeedNotFound'), 'info')
+                return
+              }
+              await navigator.clipboard.writeText(String(seed))
+              toast(t('ui.copiedToClipboard'), 'success')
+            } catch {
+              toast(t('ui.copyImageSeedFailed'), 'error')
+            }
+          }}
+        >
+          <Copy size={13} className="text-hue-sky" /> {t('ui.copySeedOnly')}
+        </ContextMenuItem>
+        <ContextMenuItem
+          onSelect={async () => {
             const { copied } = await window.nais.invoke('images:copy', { filePath })
             if (copied) toast(t('ui.copiedToClipboard'), 'success')
           }}

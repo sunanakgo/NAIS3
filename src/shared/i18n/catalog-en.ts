@@ -1,6 +1,9 @@
 import type { MessageCatalog } from './catalog-ko'
 
 export const EN = {
+  'ui.copySeedOnly': 'Copy seed only',
+  'ui.imageSeedNotFound': 'No seed information found in this image',
+  'ui.copyImageSeedFailed': 'Failed to copy the seed',
   'ui.paintMaskInCanvas': 'Paint a mask in the canvas to regenerate an area',
   'ui.maskBrushShortcut': 'Paint (B)',
   'ui.maskEraseShortcut': 'Erase (E)',

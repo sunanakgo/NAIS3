@@ -1,4 +1,7 @@
 export const KO = {
+  'ui.copySeedOnly': '시드만 복사',
+  'ui.imageSeedNotFound': '이미지에서 시드 정보를 찾지 못했습니다',
+  'ui.copyImageSeedFailed': '시드를 복사하지 못했습니다',
   'ui.paintMaskInCanvas': '캔버스에서 마스크를 칠해 부분 재생성',
   'ui.maskBrushShortcut': '칠하기 (B)',
   'ui.maskEraseShortcut': '지우기 (E)',
